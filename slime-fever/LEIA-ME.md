@@ -5,6 +5,13 @@ Use Godot 4.7.2. Extraia o ZIP pelo Windows em uma pasta nova e importe o arquiv
 
 Na abertura, clique/toque em JOGAR ou pressione Enter. Segure as setas na tela ou use A/D e setas do teclado. II/Esc pausa; CONTINUAR retoma. SOM/MUDO alterna efeitos sonoros. Ao perder foco, uma partida em andamento pausa.
 
+## APK Android
+O APK pronto fica em releases/SlimeFever-v0.7.apk na raiz do repositório (arm64 e armv7, Android 7+ recomendado). Para gerar de novo: Godot 4.7.2 com os templates de exportação, apksigner do Android SDK e uma keystore; preset "Android" em export_presets.cfg (pacote com.blucas157.slimefever, sem Gradle, ícone em Assets/Icon/).
+
+    godot --headless --path . --export-release "Android" ../releases/SlimeFever.apk
+
+A keystore não vai para o repositório. Um APK assinado com outra chave exige desinstalar a versão anterior antes de instalar.
+
 ## v0.7 — Chuva de bombas aleatória
 As bombas deixaram de cair em fileiras (5 colunas fixas, junto com as moedas). Agora têm ritmo próprio:
 - Posição livre em toda a largura, intervalo aleatório e rajadas de 2 a 3 bombas seguidas.
