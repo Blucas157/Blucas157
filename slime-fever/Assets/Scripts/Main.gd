@@ -1,18 +1,41 @@
 extends Node2D
 
+const COIN_FRAMES := 7
+const FEVER_TIME := 6.0
+const BAR_INSET := Vector2(26, 22)
+
 @onready var hud: CanvasLayer = $HUD
-var menu_panel: PanelContainer
+var ui: Control
+var hud_top: Control
+var menu_panel: Control
+var play_button: Button
+var pause_button: Button
 var sound_button: Button
-var result_panel: PanelContainer
+var resume_button: Button
+var replay_button: Button
+var result_panel: Control
 var score_label: Label
+var best_label: Label
 var combo_label: Label
+var multiplier_badge: PanelContainer
+var multiplier_label: Label
 var pattern_label: Label
 var fever_label: Label
-var bar: ProgressBar
-var pause_panel: PanelContainer
+var fever_box: Control
+var fever_fill: ColorRect
+var fever_shine: ColorRect
+var coin_icon: TextureRect
+var coin_frames: Array[Texture2D] = []
+var sound_icon: Texture2D
+var mute_icon: Texture2D
+var pause_panel: Control
 var sounds: Array[AudioStreamPlayer] = []
 var sound_cursor: int = 0
 var was_fever: bool = false
+var shown_score: int = 0
+var shown_multiplier: int = 1
+var best_before_run: int = 0
+var ui_time: float = 0.0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -38,23 +61,24 @@ func _ready() -> void:
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	$Cenario_Background.add_child(shade)
 	$HUD/ScoreLabel.hide()
-	_make_label("SLIME FEVER", Vector2(40, 35), Vector2(650, 65), 44, Color("a3ffce"))
-	score_label = _make_label("0", Vector2(40, 102), Vector2(650, 100), 86, Color.WHITE)
-	combo_label = _make_label("", Vector2(45, 208), Vector2(900, 50), 32, Color("ffe497"))
-	bar = ProgressBar.new()
-	bar.position = Vector2(45, 280)
-	bar.size = Vector2(990, 24)
-	bar.show_percentage = false
-	bar.add_theme_stylebox_override("background", _style(Color("12273e"), Color("426679")))
-	bar.add_theme_stylebox_override("fill", _style(Color("7fffd0"), Color("a3ffce")))
-	hud.add_child(bar)
-	fever_label = _make_label("", Vector2(45, 318), Vector2(990, 50), 30, Color("a3ffce"))
-	pattern_label = _make_label("", Vector2(45, 370), Vector2(990, 40), 25, Color("a9cbd6"))
-	var pause := _button("II", Vector2(750, 35), Vector2(130, 125), _toggle_pause)
-	pause.add_theme_font_size_override("font_size", 32)
-	sound_button = _button("SOM", Vector2(900, 35), Vector2(135, 125), _toggle_sound)
-	sound_button.add_theme_font_size_override("font_size", 24)
-	_make_label("TOQUE OU CLIQUE\nA/D OU SETAS", Vector2(350, 1780), Vector2(380, 100), 24, Color("d9fff1"), true)
+	for i in COIN_FRAMES:
+		coin_frames.append(load("res://Assets/moeda/Moeda_%04d.png" % (i + 1)))
+	sound_icon = load("res://Assets/UI/icon_sound.png")
+	mute_icon = load("res://Assets/UI/icon_mute.png")
+	ui = Control.new()
+	ui.size = Vector2(1080, 1920)
+	ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui.theme = HudKit.theme()
+	hud.add_child(ui)
+	# Gameplay readouts; hidden behind the menu and result screens.
+	hud_top = Control.new()
+	hud_top.size = ui.size
+	hud_top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui.add_child(hud_top)
+	_build_scoreboard()
+	_build_fever_bar()
+	pattern_label = _place(HudKit.label("", 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER), Vector2(40, 490), Vector2(1000, 60)) as Label
+	_place(HudKit.label("SETAS OU A/D", 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER), Vector2(330, 1770), Vector2(420, 80))
 	_add_direction(Vector2(205, 1810), -1)
 	_add_direction(Vector2(875, 1810), 1)
 	for i in 6:
@@ -63,16 +87,107 @@ func _ready() -> void:
 		sounds.append(audio)
 	_show_menu()
 
-func _process(_delta: float) -> void:
+func _place(item: Control, at: Vector2, dimensions: Vector2 = Vector2.ZERO) -> Control:
+	item.position = at
+	if dimensions != Vector2.ZERO:
+		item.size = dimensions
+	hud_top.add_child(item)
+	return item
+
+func _build_scoreboard() -> void:
+	var plate := HudKit.panel("frame")
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_place(plate, Vector2(24, 28), Vector2(680, 196))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 26)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plate.add_child(row)
+	coin_icon = TextureRect.new()
+	coin_icon.texture = coin_frames[0]
+	coin_icon.custom_minimum_size = Vector2(96, 96)
+	coin_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	coin_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(coin_icon)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", -8)
+	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_child(column)
+	score_label = HudKit.label("0", 80)
+	column.add_child(score_label)
+	best_label = HudKit.label("RECORDE 0", 32, HudKit.GOLD)
+	column.add_child(best_label)
+	pause_button = _place(HudKit.icon_button(load("res://Assets/UI/icon_pause.png"), _toggle_pause), Vector2(728, 36)) as Button
+	sound_button = _place(HudKit.icon_button(sound_icon, _toggle_sound), Vector2(906, 36)) as Button
+	multiplier_badge = HudKit.panel("gold")
+	multiplier_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_place(multiplier_badge, Vector2(30, 246), Vector2(176, 96))
+	multiplier_label = HudKit.label("x1", 48, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	multiplier_badge.add_child(multiplier_label)
+	combo_label = _place(HudKit.label("", 48), Vector2(232, 246), Vector2(820, 96)) as Label
+
+func _build_fever_bar() -> void:
+	var slime := TextureRect.new()
+	slime.texture = load("res://Assets/SlimeReactions/fever_00.png")
+	slime.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_place(slime, Vector2(4, 334), Vector2(150, 150))
+	slime.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	fever_box = _place(Control.new(), Vector2(150, 364), Vector2(906, 104))
+	fever_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var frame := Panel.new()
+	frame.add_theme_stylebox_override("panel", HudKit.skin("bar"))
+	frame.size = fever_box.size
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fever_box.add_child(frame)
+	fever_fill = ColorRect.new()
+	fever_fill.position = BAR_INSET
+	fever_fill.size = Vector2(0, fever_box.size.y - BAR_INSET.y * 2.0)
+	fever_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fever_box.add_child(fever_fill)
+	fever_shine = ColorRect.new()
+	fever_shine.position = BAR_INSET
+	fever_shine.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fever_box.add_child(fever_shine)
+	fever_label = HudKit.label("", 32, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	fever_label.size = fever_box.size
+	fever_box.add_child(fever_label)
+
+func _process(delta: float) -> void:
 	if not is_instance_valid(score_label):
 		return
+	ui_time += delta
+	hud_top.visible = GameManager.started and not GameManager.ended
+	if GameManager.score != shown_score:
+		if GameManager.score > shown_score:
+			HudKit.pop(score_label, 1.12)
+		shown_score = GameManager.score
 	score_label.text = str(GameManager.score)
-	sound_button.text = "MUDO" if GameManager.muted else "SOM"
-	pattern_label.text = $Spawner.current_pattern
-	combo_label.text = "x%d  •  %d SEGUIDAS     RECORDE %d" % [GameManager.multiplier, GameManager.combo, GameManager.best]
+	best_label.text = "RECORDE %d" % maxi(GameManager.best, GameManager.score)
+	coin_icon.texture = coin_frames[int(ui_time * 10.0) % COIN_FRAMES]
+	sound_button.icon = mute_icon if GameManager.muted else sound_icon
+	if pattern_label.text != $Spawner.current_pattern:
+		pattern_label.text = $Spawner.current_pattern
+		HudKit.pop(pattern_label, 1.1)
+	if GameManager.multiplier != shown_multiplier:
+		shown_multiplier = GameManager.multiplier
+		HudKit.pop(multiplier_badge, 1.25)
+	multiplier_label.text = "x%d" % GameManager.multiplier
+	combo_label.text = "%d SEGUIDAS" % GameManager.combo if GameManager.combo > 0 else "PEGUE AS MOEDAS"
 	var fever: bool = GameManager.fever_left > 0.0
-	bar.value = GameManager.fever_left / 6.0 * 100.0 if fever else GameManager.charge
-	fever_label.text = "FEBRE! BOMBAS VIRAM PONTOS  %.1fs" % GameManager.fever_left if fever else "COLETE MOEDAS PARA ATIVAR A FEBRE"
+	var ratio := GameManager.fever_left / FEVER_TIME if fever else GameManager.charge / 100.0
+	var inner := fever_box.size - BAR_INSET * 2.0
+	fever_fill.size = Vector2(inner.x * clampf(ratio, 0.0, 1.0), inner.y)
+	fever_shine.size = Vector2(fever_fill.size.x, 10)
+	var blink := fever and GameManager.fever_left <= 1.5 and int(GameManager.fever_left * 10) % 2 == 0
+	if fever:
+		fever_fill.color = Color.WHITE if blink else HudKit.GOLD.lerp(Color("ff9d4d"), 0.5 + 0.5 * sin(ui_time * 12.0))
+		fever_shine.color = Color(1, 1, 1, 0.55)
+		fever_label.text = "FEBRE!  %.1fs" % GameManager.fever_left
+		fever_label.add_theme_color_override("font_color", Color.WHITE)
+	else:
+		fever_fill.color = Color("37d39a")
+		fever_shine.color = Color(HudKit.MINT, 0.9)
+		fever_label.text = "FEBRE  %d/20" % int(GameManager.charge / 5.0)
+		fever_label.add_theme_color_override("font_color", HudKit.MINT if GameManager.charge >= 75.0 else Color.WHITE)
 	var sprite := $Player/AnimatedSprite2D
 	if fever:
 		sprite.modulate = Color("a3ffdf") if GameManager.fever_left > 1.5 or int(GameManager.fever_left * 10) % 2 == 0 else Color.WHITE
@@ -89,42 +204,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		_toggle_pause()
 
 func _make_label(text: String, at: Vector2, dimensions: Vector2, font_size: int, color: Color, centered: bool = false) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.position = at
-	label.size = dimensions
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", color)
-	label.add_theme_color_override("font_shadow_color", Color("081320"))
-	label.add_theme_constant_override("shadow_offset_x", 2)
-	label.add_theme_constant_override("shadow_offset_y", 3)
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if centered:
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hud.add_child(label)
-	return label
-
-func _style(fill: Color, border: Color) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = fill
-	style.border_color = border
-	style.set_border_width_all(3)
-	style.set_corner_radius_all(12)
-	style.set_content_margin_all(18)
-	return style
-
-func _button(text: String, at: Vector2, dimensions: Vector2, callback: Callable) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.focus_mode = Control.FOCUS_NONE
-	button.position = at
-	button.custom_minimum_size = dimensions
-	button.add_theme_font_size_override("font_size", 42)
-	button.add_theme_stylebox_override("normal", _style(Color("17394c"), Color("76c9b8")))
-	button.add_theme_stylebox_override("pressed", _style(Color("287b6c"), Color("b6ffdb")))
-	button.pressed.connect(callback)
-	hud.add_child(button)
-	return button
+	var label := HudKit.label(text, font_size, color, HORIZONTAL_ALIGNMENT_CENTER if centered else HORIZONTAL_ALIGNMENT_LEFT)
+	_place(label, at, dimensions)
+	return label as Label
 
 func _add_direction(at: Vector2, direction: int) -> void:
 	var button := Node2D.new()
@@ -142,12 +224,15 @@ func juice(at: Vector2, color: Color, text: String, kind: int) -> void:
 	add_child(burst)
 	burst.add_to_group("run_effects")
 	burst.setup(color, 18 if kind >= 2 else 8)
-	var popup := _make_label(text, at - Vector2(140, 100), Vector2(280, 70), 45, color, true)
+	var popup := _make_label(text, at - Vector2(200, 110), Vector2(400, 90), 80 if kind >= 2 else 64, color, true)
 	popup.add_to_group("run_effects")
+	popup.pivot_offset = popup.size / 2.0
+	popup.scale = Vector2(0.6, 0.6)
 	var tween := popup.create_tween().set_pause_mode(Tween.TWEEN_PAUSE_STOP)
 	tween.set_parallel(true)
-	tween.tween_property(popup, "position:y", popup.position.y - 100, 0.65)
-	tween.tween_property(popup, "modulate:a", 0.0, 0.65)
+	tween.tween_property(popup, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(popup, "position:y", popup.position.y - 110, 0.7).set_ease(Tween.EASE_OUT)
+	tween.tween_property(popup, "modulate:a", 0.0, 0.3).set_delay(0.4)
 	tween.chain().tween_callback(popup.queue_free)
 	if kind == 1:
 		_tone(650 + mini(GameManager.combo, 15) * 35, 0.09, 0.16)
@@ -160,9 +245,10 @@ func juice(at: Vector2, color: Color, text: String, kind: int) -> void:
 
 func _fever_start() -> void:
 	juice($Player.position, Color("a3ffce"), "FEBRE!", 2)
+	HudKit.pop(fever_box, 1.08)
 
 func warn_bomb(x: float) -> void:
-	var warning := _make_label("!", Vector2(x - 35, 390), Vector2(70, 70), 60, Color("ffb28a"), true)
+	var warning := _make_label("!", Vector2(x - 50, 560), Vector2(100, 110), 96, HudKit.CORAL, true)
 	warning.add_to_group("run_effects")
 	var tween := warning.create_tween().set_pause_mode(Tween.TWEEN_PAUSE_STOP)
 	tween.tween_property(warning, "modulate:a", 0.0, 0.65)
@@ -199,6 +285,49 @@ func _clear_controls() -> void:
 	for button in get_tree().get_nodes_in_group("direction_buttons"):
 		button.clear_input()
 
+## Full-screen dimmed layer with a centered column; blocks clicks to the HUD below.
+func _overlay(dim: float) -> Array:
+	var layer := Control.new()
+	layer.size = ui.size
+	layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	ui.add_child(layer)
+	var shade := ColorRect.new()
+	shade.color = Color(0.01, 0.03, 0.09, dim)
+	shade.size = ui.size
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(shade)
+	var center := CenterContainer.new()
+	center.size = ui.size
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(center)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 24)
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.add_child(column)
+	# Cards pop in; containers own the position, so animate scale and alpha.
+	column.resized.connect(func(): column.pivot_offset = column.size / 2.0)
+	column.scale = Vector2(0.85, 0.85)
+	layer.modulate.a = 0.0
+	var tween := layer.create_tween().set_parallel(true).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(layer, "modulate:a", 1.0, 0.18)
+	tween.tween_property(column, "scale", Vector2.ONE, 0.35)
+	return [layer, column]
+
+func _card(column: VBoxContainer, separation: int) -> VBoxContainer:
+	var card := HudKit.panel("panel")
+	card.custom_minimum_size.x = 900
+	column.add_child(card)
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", separation)
+	content.alignment = BoxContainer.ALIGNMENT_CENTER
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(content)
+	return content
+
+func _centered(item: Control) -> Control:
+	item.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	return item
+
 func _toggle_pause() -> void:
 	_clear_controls()
 	if GameManager.ended or not GameManager.started:
@@ -215,41 +344,59 @@ func _toggle_pause() -> void:
 			audio.stream_paused = true
 		Input.action_release("ui_left")
 		Input.action_release("ui_right")
-		pause_panel = PanelContainer.new()
-		pause_panel.position = Vector2(140, 700)
-		pause_panel.size = Vector2(800, 300)
-		pause_panel.add_theme_stylebox_override("panel", _style(Color("10263a"), Color("a3ffce")))
-		hud.add_child(pause_panel)
-		var resume := Button.new()
-		resume.text = "PAUSADO\nCONTINUAR"
-		resume.add_theme_font_size_override("font_size", 50)
-		resume.pressed.connect(_toggle_pause)
-		pause_panel.add_child(resume)
+		var parts := _overlay(0.62)
+		pause_panel = parts[0]
+		var content := _card(parts[1], 40)
+		content.add_child(HudKit.label("PAUSADO", 96, HudKit.MINT, HORIZONTAL_ALIGNMENT_CENTER))
+		resume_button = _centered(HudKit.button("CONTINUAR", "primary", Vector2(620, 170), _toggle_pause, 64)) as Button
+		content.add_child(resume_button)
+		content.add_child(HudKit.label("ESC TAMBÉM CONTINUA", 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER))
+
+func _stat(row: HBoxContainer, value: String, caption: String) -> void:
+	var box := HudKit.panel("square")
+	box.custom_minimum_size = Vector2(210, 180)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(box)
+	var column := VBoxContainer.new()
+	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.add_theme_constant_override("separation", 0)
+	box.add_child(column)
+	column.add_child(HudKit.label(value, 64, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER))
+	column.add_child(HudKit.label(caption, 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER))
 
 func _show_result() -> void:
 	_clear_controls()
-	result_panel = PanelContainer.new()
-	result_panel.position = Vector2(130, 550)
-	result_panel.size = Vector2(820, 650)
-	result_panel.add_theme_stylebox_override("panel", _style(Color("10263a"), Color("a3ffce")))
-	hud.add_child(result_panel)
-	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation", 35)
-	result_panel.add_child(content)
-	var label := Label.new()
-	label.text = "FIM DE JOGO\n%d PONTOS\nRECORDE %d\n\nTEMPO %ds  •  SEQUÊNCIA %d\nFEBRES %d" % [GameManager.score, GameManager.best, int(GameManager.elapsed), GameManager.best_combo, GameManager.fever_count]
+	var parts := _overlay(0.55)
+	result_panel = parts[0]
+	var column: VBoxContainer = parts[1]
+	column.add_child(HudKit.label("FIM DE JOGO", 112, HudKit.CORAL, HORIZONTAL_ALIGNMENT_CENTER))
+	var content := _card(column, 26)
+	content.add_child(HudKit.label("PONTOS", 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER))
+	var total := HudKit.label("0", 128, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	content.add_child(total)
+	var final_score := GameManager.score
+	var count := total.create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	count.tween_method(func(v: int): total.text = str(v), 0, final_score, 0.9)
+	if final_score > best_before_run:
+		var record := _centered(HudKit.panel("gold"))
+		record.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		record.add_child(HudKit.label("NOVO RECORDE!", 48, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER))
+		content.add_child(record)
+		count.tween_callback(func(): HudKit.pop(record, 1.3))
+	else:
+		content.add_child(HudKit.label("RECORDE %d" % GameManager.best, 48, HudKit.GOLD, HORIZONTAL_ALIGNMENT_CENTER))
+	var stats := HBoxContainer.new()
+	stats.alignment = BoxContainer.ALIGNMENT_CENTER
+	stats.add_theme_constant_override("separation", 20)
+	content.add_child(stats)
+	_stat(stats, "%ds" % int(GameManager.elapsed), "TEMPO")
+	_stat(stats, str(GameManager.best_combo), "COMBO")
+	_stat(stats, str(GameManager.fever_count), "FEBRES")
 	if not GameManager.save_ok:
-		label.text += "\nProgresso só nesta sessão"
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 40)
-	content.add_child(label)
-	var replay := Button.new()
-	replay.text = "JOGAR DE NOVO"
-	replay.custom_minimum_size.y = 130
-	replay.add_theme_font_size_override("font_size", 44)
-	replay.pressed.connect(_restart)
-	content.add_child(replay)
-	replay.grab_focus()
+		content.add_child(HudKit.label("Progresso só nesta sessão", 32, HudKit.CORAL, HORIZONTAL_ALIGNMENT_CENTER))
+	replay_button = _centered(HudKit.button("JOGAR DE NOVO", "gold", Vector2(680, 160), _restart, 64)) as Button
+	content.add_child(replay_button)
+	replay_button.grab_focus()
 
 func _restart() -> void:
 	for audio in sounds:
@@ -283,41 +430,49 @@ func _notification(what: int) -> void:
 		if not get_tree().paused:
 			_toggle_pause()
 
-
-
-
-
 func _show_menu() -> void:
-	menu_panel = PanelContainer.new()
-	menu_panel.position = Vector2(120, 590)
-	menu_panel.size = Vector2(840, 620)
-	menu_panel.add_theme_stylebox_override("panel", _style(Color("10263a"), Color("a3ffce")))
-	hud.add_child(menu_panel)
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 36)
-	menu_panel.add_child(column)
-	var intro := Label.new()
-	intro.text = "SLIME FEVER\n\nPegue moedas. Desvie das bombas.\n20 moedas ativam a FEBRE!\n\nSegure as setas na tela\nou use A/D e as setas do teclado."
-	intro.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	intro.add_theme_font_size_override("font_size", 36)
-	column.add_child(intro)
-	var play := Button.new()
-	play.text = "JOGAR"
-	play.custom_minimum_size.y = 130
-	play.add_theme_font_size_override("font_size", 48)
-	play.pressed.connect(_start_game)
-	column.add_child(play)
-	play.grab_focus()
+	var parts := _overlay(0.45)
+	menu_panel = parts[0]
+	var column: VBoxContainer = parts[1]
+	column.add_theme_constant_override("separation", 0)
+	column.add_child(HudKit.label("SLIME", 128, HudKit.MINT, HORIZONTAL_ALIGNMENT_CENTER))
+	column.add_child(HudKit.label("FEVER", 128, HudKit.GOLD, HORIZONTAL_ALIGNMENT_CENTER))
+	var spacer := Control.new()
+	spacer.custom_minimum_size.y = 30
+	column.add_child(spacer)
+	var content := _card(column, 22)
+	var stage := Control.new()
+	stage.custom_minimum_size = Vector2(240, 200)
+	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(_centered(stage))
+	var mascot := TextureRect.new()
+	mascot.texture = load("res://Assets/rotations/south.png")
+	mascot.size = Vector2(240, 240)
+	mascot.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	mascot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.add_child(mascot)
+	content.add_child(HudKit.icon_row(coin_frames[0], 2.0, "Pegue as moedas", 48, Color.WHITE))
+	content.add_child(HudKit.icon_row(load("res://Assets/New/bomb.png"), 2.0, "Desvie das bombas", 48, Color.WHITE))
+	content.add_child(HudKit.label("20 moedas = FEBRE!", 48, HudKit.MINT, HORIZONTAL_ALIGNMENT_CENTER))
+	play_button = _centered(HudKit.button("JOGAR", "primary", Vector2(620, 180), _start_game, 80)) as Button
+	content.add_child(play_button)
+	if GameManager.best > 0:
+		content.add_child(HudKit.label("RECORDE %d" % GameManager.best, 48, HudKit.GOLD, HORIZONTAL_ALIGNMENT_CENTER))
+	content.add_child(HudKit.label("Segure as setas ou use A/D", 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER))
+	play_button.grab_focus()
+	var bob := mascot.create_tween().set_loops().set_trans(Tween.TRANS_SINE)
+	bob.tween_property(mascot, "position:y", -14.0, 0.6).as_relative()
+	bob.tween_property(mascot, "position:y", 14.0, 0.6).as_relative()
 
 func _start_game() -> void:
 	if GameManager.started:
 		return
 	_clear_controls()
+	best_before_run = GameManager.best
 	if is_instance_valid(menu_panel):
 		menu_panel.hide()
 		menu_panel.queue_free()
 	GameManager.started = true
-
 
 func _exit_tree() -> void:
 	for audio in sounds:

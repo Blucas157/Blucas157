@@ -1,11 +1,24 @@
-# Slime Fever — v0.5
+# Slime Fever — v0.6
 
 ## Abrir o jogo
 Use Godot 4.7.2. Extraia o ZIP pelo Windows em uma pasta nova e importe o arquivo project.godot; aguarde a importação dos PNGs e pressione F5. Este pacote contém o projeto-fonte, não APK, executável nem build Web. O ZIP possui pastas explícitas e project.godot na raiz.
 
 Na abertura, clique/toque em JOGAR ou pressione Enter. Segure as setas na tela ou use A/D e setas do teclado. II/Esc pausa; CONTINUAR retoma. SOM/MUDO alterna efeitos sonoros. Ao perder foco, uma partida em andamento pausa.
 
-## Atualização
+## v0.6 — HUD novo (PixelLab)
+Toda a interface foi refeita com um kit gerado pela API do PixelLab (generate-ui-v2, create-ui-asset e generate-font-pro), na mesma paleta da caverna: azul-marinho, teal, verde-menta e dourado.
+
+- Placar com moeda animada, pontos, recorde e efeito de "pulo" a cada ponto. Badge dourado de multiplicador e contador de sequência.
+- Barra de FEBRE com moldura em pixel art: enche em verde (x/20 moedas) e fica dourada e pulsando durante a febre.
+- Botões de pausa e som com ícones (alto-falante/mudo), botões grandes JOGAR (verde), CONTINUAR (verde) e JOGAR DE NOVO (dourado), todos com afundamento e "squash" ao toque.
+- Setas de toque com arte PixelLab e estado pressionado. Área de toque um pouco maior (250x224).
+- Menu, pausa e fim de jogo em janelas com moldura de cristal, fundo escurecido e animação de entrada. O fim de jogo conta os pontos, destaca NOVO RECORDE! e mostra tempo, combo e febres.
+- Fonte pixelada própria (Assets/UI/slime_fever.ttf) com acentos do português adicionados.
+- Código da interface em Assets/Scripts/HudKit.gd (nine-slice, fonte, botões); Main.gd monta as telas.
+
+Os testes passaram no Godot 4.7.2 (headless): padrões e controles (85.099 verificações), gameplay (14), slime e fluxo (0 falhas). verify_flow.gd agora usa scene.play_button e scene.resume_button. Capturas foram renderizadas e inspecionadas. Ainda não houve teste em celular físico.
+
+## Atualização (v0.5)
 - Menu inicial com instruções; nenhuma moeda, perigo ou temporizador avança antes de começar.
 - Toque convertido em mouse para os botões da interface. As setas ignoram esses eventos duplicados e mantêm suporte a múltiplos dedos e mouse real.
 - Pausa e retomada do áudio e dos efeitos de interface junto com a simulação.

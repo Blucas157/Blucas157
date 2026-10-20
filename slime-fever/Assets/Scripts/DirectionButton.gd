@@ -3,14 +3,11 @@ extends Node2D
 @export var direction: int = -1
 var touches: Dictionary = {}
 var mouse_held: bool = false
-var box: StyleBoxFlat
+var face: Texture2D = preload("res://Assets/UI/btn_arrow.png")
 
 func _ready() -> void:
 	add_to_group("direction_buttons")
 	z_index = 5
-	box = StyleBoxFlat.new()
-	box.set_border_width_all(5)
-	box.set_corner_radius_all(18)
 
 func is_held() -> bool:
 	return mouse_held or not touches.is_empty()
@@ -21,7 +18,7 @@ func clear_input() -> void:
 
 func _contains(point: Vector2) -> bool:
 	var local := get_global_transform_with_canvas().affine_inverse() * point
-	return Rect2(-125, -90, 250, 180).has_point(local)
+	return Rect2(-125, -112, 250, 224).has_point(local)
 
 func _input(event: InputEvent) -> void:
 	# GUI gets the emulated mouse from touch; arrows already handle the native touch.
@@ -56,16 +53,9 @@ func _notification(what: int) -> void:
 
 func _draw() -> void:
 	var held := is_held()
-	box.border_color = Color("a3ffce") if held else Color("51858c")
-	box.bg_color = Color("26756a") if held else Color("172d40")
-	draw_style_box(box, Rect2(-125, -90, 250, 180))
-	var arrow := PackedVector2Array([
-		Vector2(-43, 0), Vector2(7, -40), Vector2(7, -17),
-		Vector2(44, -17), Vector2(44, 17), Vector2(7, 17), Vector2(7, 40)
-	])
-	for i in arrow.size():
-		arrow[i].x *= -direction
-		arrow[i].y += 6.0 if held else 0.0
-	draw_colored_polygon(arrow, Color("e5fff1"))
-
-
+	# The PixelLab arrow points left; mirror it for the right button and sink it while held.
+	var size := face.get_size()
+	var squash := Vector2(0.94, 0.9) if held else Vector2.ONE
+	draw_set_transform(Vector2(0, 10 if held else 0), 0.0, Vector2(-direction, 1) * squash)
+	draw_texture(face, -size / 2.0, Color(1.25, 1.35, 1.3) if held else Color(1, 1, 1, 0.92))
+	draw_set_transform(Vector2.ZERO)

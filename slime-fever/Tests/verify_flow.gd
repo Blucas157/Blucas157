@@ -31,7 +31,7 @@ func run_tests() -> void:
 	await create_timer(0.1).timeout
 	Input.action_release("ui_right")
 	check(gm.elapsed == 0.0 and scene.get_node("Player").position.x == x, "menu freezes game")
-	var play = scene.menu_panel.get_child(0).get_child(1)
+	var play = scene.play_button
 	await tap(play)
 	check(gm.started, "native touch activates play GUI")
 	scene.get_node("Spawner").set_process(false)
@@ -45,7 +45,7 @@ func run_tests() -> void:
 	check(gm.muted != was_muted, "native touch activates sound GUI")
 	scene._toggle_pause()
 	check(paused, "pause")
-	var resume = scene.pause_panel.get_child(0)
+	var resume = scene.resume_button
 	await tap(resume)
 	check(not paused, "touch resumes while game paused")
 	check(not scene.sounds[0].stream_paused, "audio resumes")
