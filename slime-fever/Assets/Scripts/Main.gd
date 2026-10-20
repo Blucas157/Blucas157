@@ -435,8 +435,25 @@ func _show_menu() -> void:
 	menu_panel = parts[0]
 	var column: VBoxContainer = parts[1]
 	column.add_theme_constant_override("separation", 0)
-	column.add_child(HudKit.label("SLIME", 128, HudKit.MINT, HORIZONTAL_ALIGNMENT_CENTER))
-	column.add_child(HudKit.label("FEVER", 128, HudKit.GOLD, HORIZONTAL_ALIGNMENT_CENTER))
+	# PixelLab title logo at 6x; it floats and breathes inside a fixed stage.
+	var logo_stage := Control.new()
+	logo_stage.custom_minimum_size = Vector2(760, 500)
+	logo_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(_centered(logo_stage))
+	var logo := TextureRect.new()
+	logo.texture = load("res://Assets/UI/logo.png")
+	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	logo.size = logo.texture.get_size() * 6.0
+	logo.position = (logo_stage.custom_minimum_size - logo.size) / 2.0
+	logo.pivot_offset = logo.size / 2.0
+	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	logo_stage.add_child(logo)
+	var drift := logo.create_tween().set_loops().set_trans(Tween.TRANS_SINE)
+	drift.tween_property(logo, "position:y", -12.0, 1.1).as_relative()
+	drift.tween_property(logo, "position:y", 12.0, 1.1).as_relative()
+	var breathe := logo.create_tween().set_loops().set_trans(Tween.TRANS_SINE)
+	breathe.tween_property(logo, "scale", Vector2(1.03, 0.98), 0.8)
+	breathe.tween_property(logo, "scale", Vector2.ONE, 0.8)
 	var spacer := Control.new()
 	spacer.custom_minimum_size.y = 30
 	column.add_child(spacer)

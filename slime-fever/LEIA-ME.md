@@ -13,6 +13,7 @@ Toda a interface foi refeita com um kit gerado pela API do PixelLab (generate-ui
 - Botões de pausa e som com ícones (alto-falante/mudo), botões grandes JOGAR (verde), CONTINUAR (verde) e JOGAR DE NOVO (dourado), todos com afundamento e "squash" ao toque.
 - Setas de toque com arte PixelLab e estado pressionado. Área de toque um pouco maior (250x224).
 - Menu, pausa e fim de jogo em janelas com moldura de cristal, fundo escurecido e animação de entrada. O fim de jogo conta os pontos, destaca NOVO RECORDE! e mostra tempo, combo e febres.
+- Logo do título gerado no PixelLab (Assets/UI/logo.png), flutuando no menu.
 - Fonte pixelada própria (Assets/UI/slime_fever.ttf) com acentos do português adicionados.
 - Código da interface em Assets/Scripts/HudKit.gd (nine-slice, fonte, botões); Main.gd monta as telas.
 
