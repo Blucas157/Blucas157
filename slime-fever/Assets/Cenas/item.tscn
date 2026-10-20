@@ -1,0 +1,15 @@
+[gd_scene format=3 uid="uid://dgysfg3rrbij5"]
+
+[ext_resource type="Script" path="res://Assets/Scripts/FallingItem.gd" id="1_8vmc3"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_fijet"]
+
+[node name="Item" type="Area2D" unique_id=365024249]
+script = ExtResource("1_8vmc3")
+is_bomb = true
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=907373156]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1426326045]
+shape = SubResource("CircleShape2D_fijet")
+

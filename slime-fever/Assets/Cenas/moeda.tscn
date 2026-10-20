@@ -1,0 +1,54 @@
+[gd_scene format=3 uid="uid://bx6vsxuaq54fb"]
+
+[ext_resource type="Script" path="res://Assets/Scripts/FallingItem.gd" id="1_1m8ah"]
+[ext_resource type="Texture2D" path="res://Assets/moeda/Moeda_0001.png" id="2_psgre"]
+[ext_resource type="Texture2D" path="res://Assets/moeda/Moeda_0002.png" id="3_ox0aw"]
+[ext_resource type="Texture2D" path="res://Assets/moeda/Moeda_0003.png" id="4_gjwpy"]
+[ext_resource type="Texture2D" path="res://Assets/moeda/Moeda_0004.png" id="5_y4vkr"]
+[ext_resource type="Texture2D" path="res://Assets/moeda/Moeda_0005.png" id="6_gvvox"]
+[ext_resource type="Texture2D" path="res://Assets/moeda/Moeda_0006.png" id="7_2tyvr"]
+[ext_resource type="Texture2D" path="res://Assets/moeda/Moeda_0007.png" id="8_htdh0"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_fijet"]
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_fijet"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("2_psgre")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_ox0aw")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_gjwpy")
+}, {
+"duration": 1.0,
+"texture": ExtResource("5_y4vkr")
+}, {
+"duration": 1.0,
+"texture": ExtResource("6_gvvox")
+}, {
+"duration": 1.0,
+"texture": ExtResource("7_2tyvr")
+}, {
+"duration": 1.0,
+"texture": ExtResource("8_htdh0")
+}],
+"loop": 1,
+"name": &"default",
+"speed": 8.0
+}]
+
+[node name="Moeda" type="Area2D" unique_id=365024249]
+scale = Vector2(3, 3)
+script = ExtResource("1_1m8ah")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1426326045]
+shape = SubResource("CircleShape2D_fijet")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1886451662]
+sprite_frames = SubResource("SpriteFrames_fijet")
+autoplay = "default"
+frame_progress = 0.113322325
+

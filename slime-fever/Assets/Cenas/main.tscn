@@ -1,0 +1,153 @@
+[gd_scene format=3 uid="uid://dq0514nnguyty"]
+
+[ext_resource type="Texture2D" path="res://Assets/untitled (1).png" id="1_38v46"]
+[ext_resource type="Texture2D" path="res://Assets/original_art_2.png" id="2_38v46"]
+[ext_resource type="Script" path="res://Assets/Scripts/player.gd" id="3_38v46"]
+[ext_resource type="Texture2D" path="res://Assets/animations/slime_idle/south/frame_000.png" id="4_p6abg"]
+[ext_resource type="Texture2D" path="res://Assets/animations/slime_idle/south/frame_001.png" id="5_2gu1r"]
+[ext_resource type="Texture2D" path="res://Assets/animations/slime_idle/south/frame_002.png" id="6_h50u2"]
+[ext_resource type="Texture2D" path="res://Assets/animations/slime_idle/south/frame_003.png" id="7_8mtn5"]
+[ext_resource type="Texture2D" path="res://Assets/animations/slime_idle/south/frame_004.png" id="8_dg1f6"]
+[ext_resource type="Texture2D" path="res://Assets/animations/slime_idle/west/frame_000.png" id="9_hig1c"]
+[ext_resource type="Texture2D" path="res://Assets/animations/slime_idle/west/frame_001.png" id="10_g504v"]
+[ext_resource type="Texture2D" path="res://Assets/animations/slime_idle/west/frame_002.png" id="11_fs1l5"]
+[ext_resource type="Texture2D" path="res://Assets/animations/slime_idle/west/frame_003.png" id="12_mk3mp"]
+[ext_resource type="Texture2D" path="res://Assets/animations/slime_idle/west/frame_004.png" id="13_jug5n"]
+[ext_resource type="Texture2D" path="res://Assets/west/frame_000.png" id="14_o3v0t"]
+[ext_resource type="Texture2D" path="res://Assets/west/frame_001.png" id="15_eta5f"]
+[ext_resource type="Texture2D" path="res://Assets/west/frame_002.png" id="16_3afcg"]
+[ext_resource type="Texture2D" path="res://Assets/west/frame_003.png" id="17_x6wsq"]
+[ext_resource type="Texture2D" path="res://Assets/west/frame_004.png" id="18_nnjsw"]
+[ext_resource type="Script" path="res://Assets/Scripts/spawner.gd" id="19_10wae"]
+[ext_resource type="PackedScene" path="res://Assets/Cenas/moeda.tscn" id="20_p6abg"]
+[ext_resource type="PackedScene" path="res://Assets/Cenas/bomba.tscn" id="21_2gu1r"]
+[ext_resource type="Script" path="res://Assets/Cenas/ScreenCamera.gd" id="22_2gu1r"]
+[ext_resource type="Script" path="res://Assets/Scripts/Main.gd" id="23_main"]
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_fijet"]
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_6ajiu"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("4_p6abg")
+}, {
+"duration": 1.0,
+"texture": ExtResource("5_2gu1r")
+}, {
+"duration": 1.0,
+"texture": ExtResource("6_h50u2")
+}, {
+"duration": 1.0,
+"texture": ExtResource("7_8mtn5")
+}, {
+"duration": 1.0,
+"texture": ExtResource("8_dg1f6")
+}],
+"loop": 1,
+"name": &"idle",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("9_hig1c")
+}, {
+"duration": 1.0,
+"texture": ExtResource("10_g504v")
+}, {
+"duration": 1.0,
+"texture": ExtResource("11_fs1l5")
+}, {
+"duration": 1.0,
+"texture": ExtResource("12_mk3mp")
+}, {
+"duration": 1.0,
+"texture": ExtResource("13_jug5n")
+}],
+"loop": 1,
+"name": &"idle_west",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("14_o3v0t")
+}, {
+"duration": 1.0,
+"texture": ExtResource("15_eta5f")
+}, {
+"duration": 1.0,
+"texture": ExtResource("16_3afcg")
+}, {
+"duration": 1.0,
+"texture": ExtResource("17_x6wsq")
+}, {
+"duration": 1.0,
+"texture": ExtResource("18_nnjsw")
+}],
+"loop": 1,
+"name": &"run",
+"speed": 5.0
+}]
+
+[node name="Main" type="Node2D" unique_id=1066885462]
+script = ExtResource("23_main")
+
+[node name="Cenario_Background" type="CanvasLayer" parent="." unique_id=678655187]
+layer = -1
+
+[node name="Fundo_Parede" type="TextureRect" parent="Cenario_Background" unique_id=1719868507]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -693.0
+offset_top = -1315.0
+offset_right = -571.095
+offset_bottom = -1240.7139
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(2.1, 2.1)
+texture = ExtResource("1_38v46")
+
+[node name="Chao_Visual" type="Sprite2D" parent="." unique_id=1991276153]
+position = Vector2(540, 1738)
+scale = Vector2(18, 12)
+texture = ExtResource("2_38v46")
+
+[node name="Player" type="Area2D" parent="." unique_id=1780505255]
+position = Vector2(540, 1640)
+scale = Vector2(7, 7)
+script = ExtResource("3_38v46")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Player" unique_id=111752346]
+shape = SubResource("CapsuleShape2D_fijet")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="Player" unique_id=893698531]
+sprite_frames = SubResource("SpriteFrames_6ajiu")
+animation = &"idle"
+autoplay = "idle"
+frame_progress = 0.16916206
+
+[node name="Spawner" type="Node2D" parent="." unique_id=46538357]
+position = Vector2(540, -100)
+script = ExtResource("19_10wae")
+moeda_scene = ExtResource("20_p6abg")
+bomba_scene = ExtResource("21_2gu1r")
+
+[node name="Timer" type="Timer" parent="Spawner" unique_id=1493132477]
+wait_time = 0.8
+one_shot = true
+autostart = true
+
+[node name="HUD" type="CanvasLayer" parent="." unique_id=217270002]
+
+[node name="ScoreLabel" type="Label" parent="HUD" unique_id=1323671920]
+offset_left = 416.0
+offset_top = 100.0
+offset_right = 688.0
+offset_bottom = 199.0
+theme_override_font_sizes/font_size = 72
+text = "Score: 0"
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1240859668]
+position = Vector2(544, 978)
+script = ExtResource("22_2gu1r")
