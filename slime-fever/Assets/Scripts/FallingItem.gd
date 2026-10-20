@@ -3,6 +3,9 @@ extends Area2D
 @export var min_speed: float = 500.0
 @export var max_speed: float = 900.0
 @export var is_bomb: bool = false
+var drift: float = 0.0
+var art: Sprite2D
+var age: float = 0.0
 var speed: float
 var resolved: bool = false
 var startled: bool = false
@@ -17,7 +20,7 @@ func _ready() -> void:
 		$CollisionShape2D.shape.radius = 10.0
 	if is_bomb and ResourceLoader.exists("res://Assets/New/bomb.png"):
 		$AnimatedSprite2D.hide()
-		var art := Sprite2D.new()
+		art = Sprite2D.new()
 		art.texture = load("res://Assets/New/bomb.png")
 		add_child(art)
 
@@ -25,6 +28,11 @@ func _process(delta: float) -> void:
 	if GameManager.ended or not GameManager.started:
 		return
 	position.y += speed * delta
+	position.x += drift * delta
+	age += delta
+	if art:
+		# Swing like a lit fuse; drifting bombs lean into their motion.
+		art.rotation = sin(age * 7.0 + position.x) * 0.18 + drift * 0.0015
 	if is_bomb and not startled:
 		var player := get_tree().get_first_node_in_group("player") as Node2D
 		if player and position.y > player.position.y - 280 and position.y < player.position.y - 100 and absf(position.x - player.position.x) < 260:

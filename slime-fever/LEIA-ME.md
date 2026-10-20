@@ -1,9 +1,18 @@
-# Slime Fever — v0.6
+# Slime Fever — v0.7
 
 ## Abrir o jogo
 Use Godot 4.7.2. Extraia o ZIP pelo Windows em uma pasta nova e importe o arquivo project.godot; aguarde a importação dos PNGs e pressione F5. Este pacote contém o projeto-fonte, não APK, executável nem build Web. O ZIP possui pastas explícitas e project.godot na raiz.
 
 Na abertura, clique/toque em JOGAR ou pressione Enter. Segure as setas na tela ou use A/D e setas do teclado. II/Esc pausa; CONTINUAR retoma. SOM/MUDO alterna efeitos sonoros. Ao perder foco, uma partida em andamento pausa.
+
+## v0.7 — Chuva de bombas aleatória
+As bombas deixaram de cair em fileiras (5 colunas fixas, junto com as moedas). Agora têm ritmo próprio:
+- Posição livre em toda a largura, intervalo aleatório e rajadas de 2 a 3 bombas seguidas.
+- Velocidades diferentes (queda de 1,25 s a 2,5 s) e cerca de metade desliza na diagonal, balançando.
+- A intensidade cresce aos poucos durante cerca de 80 s depois dos 8 s iniciais sem bombas.
+- Continua justo: o spawner conhece as próximas moedas e nunca solta uma bomba que caia no caminho entre a moeda anterior e a próxima. No máximo 3 bombas chegam ao chão no mesmo instante.
+
+Teste novo em verify_patterns_controls.gd: 40 partidas simuladas de 90 s (5.234 bombas) conferindo cada bomba contra cada moeda, uso da largura toda, variedade de velocidades, deriva e rajadas. Todos os testes passaram no Godot 4.7.2.
 
 ## v0.6 — HUD novo (PixelLab)
 Toda a interface foi refeita com um kit gerado pela API do PixelLab (generate-ui-v2, create-ui-asset e generate-font-pro), na mesma paleta da caverna: azul-marinho, teal, verde-menta e dourado.

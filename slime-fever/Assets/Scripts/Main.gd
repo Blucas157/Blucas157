@@ -416,6 +416,7 @@ func _restart() -> void:
 	$Spawner.last_pattern = ""
 	$Spawner.current_pattern = "APRENDA A COLETAR"
 	$Spawner.pattern_count = 0
+	$Spawner.reset_hazards()
 	$Player.position.x = 540.0
 	$Player.reset_visual()
 	for node in get_children():

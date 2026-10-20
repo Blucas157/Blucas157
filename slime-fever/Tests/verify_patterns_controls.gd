@@ -127,29 +127,76 @@ func run_tests() -> void:
 	check(player.position.x == 80, "left boundary")
 	var pattern_names := ["ARCO", "ZIGUE-ZAGUE", "CORREDOR", "TROCA DE LADO", "CHUVA CALMA"]
 	var rows_tested: int = 0
-	var bombs_tested: int = 0
 	for seed_value in 100:
 		director.rng.seed = seed_value
 		var start_x := 540.0
 		for iteration in 20:
 			var kind: String = pattern_names[iteration % pattern_names.size()]
-			var rows: Array = director.build_pattern(kind, start_x, 2)
+			var rows: Array = director.build_pattern(kind, start_x)
 			check(rows.size() == 9, "pattern includes two recovery rows")
 			for row in rows:
 				rows_tested += 1
 				check(absf(row.coin_x - row.previous_x) <= 180.01, "reachable coin step")
 				check(absf(row.coin_x - row.previous_x) / 850.0 + 0.25 < director.ROW_INTERVAL, "reaction plus travel budget")
 				check(row.coin_x >= 180 and row.coin_x <= 900, "coin within arena")
-				# Conservative horizontal witness covers the entire path before and after contact.
-				var low: float = minf(row.previous_x, minf(row.coin_x, row.next_x))
-				var high: float = maxf(row.previous_x, maxf(row.coin_x, row.next_x))
-				for bomb_x in row.bombs:
-					bombs_tested += 1
-					check(bomb_x < low - director.SAFE_MARGIN or bomb_x > high + director.SAFE_MARGIN, "bomb clear of witness path")
-				check(row.bombs.size() <= 2, "bomb density cap")
-			check(rows[0].bombs.is_empty() and rows[6].bombs.is_empty() and rows[7].bombs.is_empty() and rows[8].bombs.is_empty(), "safe seams and recovery")
 			start_x = rows[-1].coin_x
-	check(bombs_tested > 1000, "test set exercises hazards")
+	# Bomb rain: simulate whole runs without nodes and audit every bomb against every coin.
+	var bombs_tested: int = 0
+	var landing_slots := {}
+	var fall_min := 99.0
+	var fall_max := 0.0
+	var drifting := 0
+	var bursts := 0
+	director.dry_run = true
+	for seed_value in 40:
+		director.rng.seed = 1000 + seed_value
+		director.reset_hazards()
+		director.pending.clear()
+		director.clock = 0.1
+		director.last_x = 540.0
+		gm.elapsed = 0.0
+		for frame in 90 * 30:
+			gm.elapsed += 1.0 / 30.0
+			director.step(1.0 / 30.0)
+		var coins: Array = []
+		var bombs: Array = []
+		for item in director.history:
+			(bombs if item.bomb else coins).append(item)
+		check(coins.size() > 100, "coins keep flowing")
+		var last_bomb_time := -9.0
+		for bomb in bombs:
+			bombs_tested += 1
+			check(bomb.time > 8.0, "first 8 s stay bomb-free")
+			var land: float = bomb.x + bomb.drift * bomb.fall
+			var arrive: float = bomb.time + bomb.fall
+			check(land >= director.BOMB_MIN_X - 0.01 and land <= director.BOMB_MAX_X + 0.01, "bomb lands inside arena")
+			landing_slots[int(land / 30.0)] = true
+			fall_min = minf(fall_min, bomb.fall)
+			fall_max = maxf(fall_max, bomb.fall)
+			if bomb.drift != 0.0:
+				drifting += 1
+			if bomb.time - last_bomb_time < 0.21:
+				bursts += 1
+			last_bomb_time = bomb.time
+			var spread: float = absf(bomb.drift) * director.CONTACT_WINDOW
+			for i in coins.size():
+				var coin: Dictionary = coins[i]
+				var coin_arrive: float = coin.time + director.FALL_TIME
+				if absf(coin_arrive - arrive) > director.CONTACT_WINDOW:
+					continue
+				var previous: float = coins[i - 1].x if i > 0 else 540.0
+				var next: float = coins[i + 1].x if i + 1 < coins.size() else coin.x
+				var low: float = minf(previous, minf(coin.x, next))
+				var high: float = maxf(previous, maxf(coin.x, next))
+				check(land + spread < low - director.SAFE_MARGIN or land - spread > high + director.SAFE_MARGIN, "bomb clear of coin route")
+	director.dry_run = false
+	director.reset_hazards()
+	check(bombs_tested > 2000, "test set exercises hazards")
+	check(landing_slots.size() >= 28, "bombs use the whole width, not lanes")
+	check(fall_max - fall_min > 0.8, "bomb speeds vary")
+	check(drifting > bombs_tested / 4, "some bombs drift sideways")
+	check(bursts > 50, "bursts break the rhythm")
+	print("BOMB RAIN: %d bombs, %d landing slots, fall %.2f-%.2fs, %d drifting, %d burst drops" % [bombs_tested, landing_slots.size(), fall_min, fall_max, drifting, bursts])
 	gm.elapsed = 60.0
 	director.pending.clear()
 	director.spawn_item()
