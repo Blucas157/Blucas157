@@ -83,20 +83,22 @@ static func button(text: String, skin_name: String, min_size: Vector2, callback:
 	item.text = text
 	item.custom_minimum_size = min_size
 	item.add_theme_font_size_override("font_size", font_size)
-	var normal := skin(skin_name)
-	var pressed := skin(skin_name, Color(0.78, 0.82, 0.86))
-	# Text sinks into the bevel while held.
-	pressed.content_margin_top += 10
-	pressed.content_margin_bottom -= 10
-	item.add_theme_stylebox_override("normal", normal)
-	item.add_theme_stylebox_override("hover", skin(skin_name, Color(1.12, 1.12, 1.12)))
-	item.add_theme_stylebox_override("pressed", pressed)
-	item.add_theme_stylebox_override("hover_pressed", pressed)
-	item.add_theme_stylebox_override("disabled", skin(skin_name, Color(0.5, 0.5, 0.55)))
+	apply_skin(item, skin_name)
 	item.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	item.pressed.connect(callback)
 	add_press_feel(item)
 	return item
+
+static func apply_skin(item: Button, skin_name: String) -> void:
+	var pressed := skin(skin_name, Color(0.78, 0.82, 0.86))
+	# Text sinks into the bevel while held.
+	pressed.content_margin_top += 10
+	pressed.content_margin_bottom -= 10
+	item.add_theme_stylebox_override("normal", skin(skin_name))
+	item.add_theme_stylebox_override("hover", skin(skin_name, Color(1.12, 1.12, 1.12)))
+	item.add_theme_stylebox_override("pressed", pressed)
+	item.add_theme_stylebox_override("hover_pressed", pressed)
+	item.add_theme_stylebox_override("disabled", skin(skin_name, Color(0.5, 0.5, 0.55)))
 
 static func icon_button(icon: Texture2D, callback: Callable) -> Button:
 	var item := button("", "square", Vector2(150, 150), callback)

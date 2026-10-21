@@ -48,11 +48,10 @@ func step(delta: float) -> void:
 	clock -= delta
 	if clock <= 0.0:
 		# Never burst multiple rows after a slow frame: retain a readable interval.
-		clock = ROW_INTERVAL
-		spawn_item()
+		clock = spawn_item().interval
 	bomb_clock -= delta
 	if bomb_clock <= 0.0:
-		bomb_clock = _next_bomb_gap()
+		bomb_clock = _next_bomb_gap() * GameManager.bomb_gap_scale()
 		_drop_bomb()
 
 func reset_hazards() -> void:
@@ -99,6 +98,11 @@ func build_pattern(kind: String, start_x: float) -> Array[Dictionary]:
 	# Recovery window keeps the last reachable target before the next pattern.
 	for i in 2:
 		rows.append({"coin_x": path[-1], "pattern": "RESPIRO", "previous_x": path[-1], "next_x": path[-1]})
+	# Speed is fixed per pattern, so queued landing times stay exact for the bomb check.
+	var speed := GameManager.speed_scale()
+	for row in rows:
+		row.fall = FALL_TIME / speed
+		row.interval = ROW_INTERVAL / speed
 	return rows
 
 func _plan() -> void:
@@ -113,25 +117,28 @@ func _plan() -> void:
 	last_pattern = kind
 	pattern_count += 1
 
-func spawn_item() -> void:
+func spawn_item() -> Dictionary:
 	if pending.is_empty():
 		_plan()
 	var row: Dictionary = pending.pop_front()
 	current_pattern = row.pattern
 	last_x = row.coin_x
-	arrivals.append({"arrive": time + FALL_TIME, "coin_x": row.coin_x})
-	_spawn(moeda_scene, row.coin_x, false)
+	arrivals.append({"arrive": time + row.fall, "coin_x": row.coin_x})
+	_spawn(moeda_scene, row.coin_x, false, row.fall)
 	row_spawned.emit(row)
+	return row
 
 ## Coins already falling plus the queued ones, in order, with landing times and the
 ## horizontal stretch the player may cover between the previous and next coin.
 func coin_windows(horizon: float) -> Array[Dictionary]:
-	while pending.size() < int(ceil(horizon / ROW_INTERVAL)) + 2:
+	while pending.size() < int(ceil(horizon * GameManager.MAX_SPEED / ROW_INTERVAL)) + 2:
 		_plan()
 	arrivals.assign(arrivals.filter(func(w): return w.arrive > time - 1.0))
 	var line: Array[Dictionary] = arrivals.duplicate()
-	for i in pending.size():
-		line.append({"arrive": time + clock + i * ROW_INTERVAL + FALL_TIME, "coin_x": pending[i].coin_x})
+	var spawn_at := time + clock
+	for row in pending:
+		line.append({"arrive": spawn_at + row.fall, "coin_x": row.coin_x})
+		spawn_at += row.interval
 	var list: Array[Dictionary] = []
 	for i in line.size():
 		var x: float = line[i].coin_x
@@ -152,10 +159,11 @@ func _next_bomb_gap() -> float:
 ## Random bomb that never lands on the coin route; empty when nothing fair fits.
 func pick_bomb() -> Dictionary:
 	var p := pace()
+	var speed := GameManager.speed_scale()
 	var windows := coin_windows(2.6)
 	bomb_arrivals.assign(bomb_arrivals.filter(func(b): return b.arrive > time))
 	for attempt in 10:
-		var fall := rng.randf_range(lerpf(1.6, 1.25, p), lerpf(2.5, 1.9, p))
+		var fall := rng.randf_range(lerpf(1.6, 1.25, p), lerpf(2.5, 1.9, p)) / speed
 		var drift := 0.0 if rng.randf() < 0.5 else rng.randf_range(-110.0, 110.0)
 		var land := rng.randf_range(BOMB_MIN_X, BOMB_MAX_X)
 		var start := clampf(land - drift * fall, BOMB_MIN_X, BOMB_MAX_X)

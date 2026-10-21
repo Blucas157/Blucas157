@@ -83,7 +83,7 @@ func run_tests() -> void:
 	bomb._on_area_entered(player)
 	check(gm.ended and scene.result_panel != null, "bomb ends game with result")
 	var save := ConfigFile.new()
-	check(save.load(gm.save_path) == OK and save.get_value("progress", "best") == gm.score, "save record")
+	check(save.load(gm.save_path) == OK and save.get_value("progress", "best_%d" % gm.mode) == gm.score, "save record")
 	scene._restart()
 	await process_frame
 	await process_frame

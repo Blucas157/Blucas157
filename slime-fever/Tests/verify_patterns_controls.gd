@@ -137,7 +137,8 @@ func run_tests() -> void:
 			for row in rows:
 				rows_tested += 1
 				check(absf(row.coin_x - row.previous_x) <= 180.01, "reachable coin step")
-				check(absf(row.coin_x - row.previous_x) / 850.0 + 0.25 < director.ROW_INTERVAL, "reaction plus travel budget")
+				# Budget holds at the fastest allowed speed, not only the default one.
+				check(absf(row.coin_x - row.previous_x) / 850.0 + 0.25 < director.ROW_INTERVAL / gm.MAX_SPEED, "reaction plus travel budget")
 				check(row.coin_x >= 180 and row.coin_x <= 900, "coin within arena")
 			start_x = rows[-1].coin_x
 	# Bomb rain: simulate whole runs without nodes and audit every bomb against every coin.
@@ -155,8 +156,12 @@ func run_tests() -> void:
 		director.clock = 0.1
 		director.last_x = 540.0
 		gm.elapsed = 0.0
+		# Cover every mode and sweep the speed levels during the run.
+		gm.mode = seed_value % 3
+		gm.level = 0
 		for frame in 90 * 30:
 			gm.elapsed += 1.0 / 30.0
+			gm.level = mini(gm.MAX_LEVEL, frame / (30 * 12))
 			director.step(1.0 / 30.0)
 		var coins: Array = []
 		var bombs: Array = []
@@ -181,7 +186,7 @@ func run_tests() -> void:
 			var spread: float = absf(bomb.drift) * director.CONTACT_WINDOW
 			for i in coins.size():
 				var coin: Dictionary = coins[i]
-				var coin_arrive: float = coin.time + director.FALL_TIME
+				var coin_arrive: float = coin.time + coin.fall
 				if absf(coin_arrive - arrive) > director.CONTACT_WINDOW:
 					continue
 				var previous: float = coins[i - 1].x if i > 0 else 540.0
@@ -191,6 +196,8 @@ func run_tests() -> void:
 				check(land + spread < low - director.SAFE_MARGIN or land - spread > high + director.SAFE_MARGIN, "bomb clear of coin route")
 	director.dry_run = false
 	director.reset_hazards()
+	gm.mode = 1
+	gm.level = 0
 	check(bombs_tested > 2000, "test set exercises hazards")
 	check(landing_slots.size() >= 28, "bombs use the whole width, not lanes")
 	check(fall_max - fall_min > 0.8, "bomb speeds vary")

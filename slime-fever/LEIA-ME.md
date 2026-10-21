@@ -1,12 +1,20 @@
-# Slime Fever — v0.7
+# Slime Fever — v0.8
 
 ## Abrir o jogo
 Use Godot 4.7.2. Extraia o ZIP pelo Windows em uma pasta nova e importe o arquivo project.godot; aguarde a importação dos PNGs e pressione F5. Este pacote contém o projeto-fonte, não APK, executável nem build Web. O ZIP possui pastas explícitas e project.godot na raiz.
 
 Na abertura, clique/toque em JOGAR ou pressione Enter. Segure as setas na tela ou use A/D e setas do teclado. II/Esc pausa; CONTINUAR retoma. SOM/MUDO alterna efeitos sonoros. Ao perder foco, uma partida em andamento pausa.
 
+## v0.8 — Modos de dificuldade, níveis e moedas valorizadas
+- Menu com FÁCIL, MÉDIO e DIFÍCIL. O modo escolhido fica salvo e cada modo tem o próprio recorde (o recorde antigo virou o do MÉDIO).
+  - FÁCIL: queda 12% mais lenta e bombas mais espaçadas. MÉDIO: o ritmo da v0.7. DIFÍCIL: queda 15% mais rápida e bombas mais próximas.
+- A cada 5.000 pontos sobe um nível (até o nível 7): tudo cai 7% mais rápido e as bombas ficam 10% mais frequentes. Aviso "NÍVEL X! MAIS RÁPIDO" na tela. O HUD mostra modo e nível.
+- Valor das moedas pelas febres da partida (no combo x4): 40 normalmente, 75 a partir da 3ª febre e 100 a partir da 5ª. Nos outros multiplicadores é proporcional (x1 = 10, 19, 25). Aviso "MOEDAS VALEM ATÉ 75!/100!".
+- A velocidade máxima é limitada (1,45x) para que a distância entre moedas continue alcançável, e a chuva de bombas continua sem cair no caminho das moedas em todos os modos e níveis.
+- Novo teste Tests/verify_modes.gd; o teste da chuva agora cobre os três modos e todos os níveis (7.793 bombas auditadas).
+
 ## APK Android
-O APK pronto fica em releases/SlimeFever-v0.7.apk na raiz do repositório (arm64 e armv7, Android 7+ recomendado). Para gerar de novo: Godot 4.7.2 com os templates de exportação, apksigner do Android SDK e uma keystore; preset "Android" em export_presets.cfg (pacote com.blucas157.slimefever, sem Gradle, ícone em Assets/Icon/).
+O APK pronto fica em releases/SlimeFever-v0.8.apk na raiz do repositório (arm64 e armv7, Android 7+ recomendado). Para gerar de novo: Godot 4.7.2 com os templates de exportação, apksigner do Android SDK e uma keystore; preset "Android" em export_presets.cfg (pacote com.blucas157.slimefever, sem Gradle, ícone em Assets/Icon/).
 
     godot --headless --path . --export-release "Android" ../releases/SlimeFever.apk
 

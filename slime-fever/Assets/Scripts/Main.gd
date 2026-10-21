@@ -17,6 +17,9 @@ var result_panel: Control
 var score_label: Label
 var best_label: Label
 var combo_label: Label
+var level_label: Label
+var mode_buttons: Array[Button] = []
+var menu_best_label: Label
 var multiplier_badge: PanelContainer
 var multiplier_label: Label
 var pattern_label: Label
@@ -45,6 +48,8 @@ func _ready() -> void:
 	GameManager.reset_game()
 	GameManager.game_ended.connect(_show_result)
 	GameManager.fever_started.connect(_fever_start)
+	GameManager.level_up.connect(_level_up)
+	GameManager.coin_tier_up.connect(_coin_tier_up)
 	$Player.collision_layer = 1
 	$Player.collision_mask = 2
 	$Camera2D.position = Vector2(540, 960)
@@ -123,7 +128,8 @@ func _build_scoreboard() -> void:
 	_place(multiplier_badge, Vector2(30, 246), Vector2(176, 96))
 	multiplier_label = HudKit.label("x1", 48, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	multiplier_badge.add_child(multiplier_label)
-	combo_label = _place(HudKit.label("", 48), Vector2(232, 246), Vector2(820, 96)) as Label
+	combo_label = _place(HudKit.label("", 48), Vector2(232, 246), Vector2(560, 96)) as Label
+	level_label = _place(HudKit.label("", 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_RIGHT), Vector2(700, 246), Vector2(350, 96)) as Label
 
 func _build_fever_bar() -> void:
 	var slime := TextureRect.new()
@@ -162,6 +168,7 @@ func _process(delta: float) -> void:
 		shown_score = GameManager.score
 	score_label.text = str(GameManager.score)
 	best_label.text = "RECORDE %d" % maxi(GameManager.best, GameManager.score)
+	level_label.text = "%s  NV %d" % [GameManager.mode_name(), GameManager.level + 1]
 	coin_icon.texture = coin_frames[int(ui_time * 10.0) % COIN_FRAMES]
 	sound_button.icon = mute_icon if GameManager.muted else sound_icon
 	if pattern_label.text != $Spawner.current_pattern:
@@ -371,7 +378,7 @@ func _show_result() -> void:
 	var column: VBoxContainer = parts[1]
 	column.add_child(HudKit.label("FIM DE JOGO", 112, HudKit.CORAL, HORIZONTAL_ALIGNMENT_CENTER))
 	var content := _card(column, 26)
-	content.add_child(HudKit.label("PONTOS", 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER))
+	content.add_child(HudKit.label("PONTOS  -  %s  NÍVEL %d" % [GameManager.mode_name(), GameManager.level + 1], 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER))
 	var total := HudKit.label("0", 128, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	content.add_child(total)
 	var final_score := GameManager.score
@@ -459,28 +466,59 @@ func _show_menu() -> void:
 	spacer.custom_minimum_size.y = 30
 	column.add_child(spacer)
 	var content := _card(column, 22)
-	var stage := Control.new()
-	stage.custom_minimum_size = Vector2(240, 200)
-	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(_centered(stage))
-	var mascot := TextureRect.new()
-	mascot.texture = load("res://Assets/rotations/south.png")
-	mascot.size = Vector2(240, 240)
-	mascot.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	mascot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stage.add_child(mascot)
 	content.add_child(HudKit.icon_row(coin_frames[0], 2.0, "Pegue as moedas", 48, Color.WHITE))
 	content.add_child(HudKit.icon_row(load("res://Assets/New/bomb.png"), 2.0, "Desvie das bombas", 48, Color.WHITE))
 	content.add_child(HudKit.label("20 moedas = FEBRE!", 48, HudKit.MINT, HORIZONTAL_ALIGNMENT_CENTER))
+	content.add_child(HudKit.label("A cada %d pontos fica mais rápido" % GameManager.LEVEL_POINTS, 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER))
+	var modes := HBoxContainer.new()
+	modes.alignment = BoxContainer.ALIGNMENT_CENTER
+	modes.add_theme_constant_override("separation", 16)
+	content.add_child(modes)
+	mode_buttons.clear()
+	for i in GameManager.MODES.size():
+		var choice := HudKit.button(GameManager.MODES[i], "square", Vector2(210, 120), _select_mode.bind(i), 32)
+		modes.add_child(choice)
+		mode_buttons.append(choice)
 	play_button = _centered(HudKit.button("JOGAR", "primary", Vector2(620, 180), _start_game, 80)) as Button
 	content.add_child(play_button)
-	if GameManager.best > 0:
-		content.add_child(HudKit.label("RECORDE %d" % GameManager.best, 48, HudKit.GOLD, HORIZONTAL_ALIGNMENT_CENTER))
+	menu_best_label = HudKit.label("", 48, HudKit.GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+	content.add_child(menu_best_label)
 	content.add_child(HudKit.label("Segure as setas ou use A/D", 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER))
+	_refresh_modes()
 	play_button.grab_focus()
-	var bob := mascot.create_tween().set_loops().set_trans(Tween.TRANS_SINE)
-	bob.tween_property(mascot, "position:y", -14.0, 0.6).as_relative()
-	bob.tween_property(mascot, "position:y", 14.0, 0.6).as_relative()
+
+func _select_mode(index: int) -> void:
+	GameManager.set_mode(index)
+	_refresh_modes()
+	HudKit.pop(mode_buttons[index], 1.12)
+
+func _refresh_modes() -> void:
+	for i in mode_buttons.size():
+		HudKit.apply_skin(mode_buttons[i], "gold" if i == GameManager.mode else "square")
+	menu_best_label.text = "RECORDE %d" % GameManager.best if GameManager.best > 0 else "SEM RECORDE AINDA"
+
+func _level_up(level: int) -> void:
+	_banner("NÍVEL %d!  MAIS RÁPIDO" % (level + 1), HudKit.CORAL)
+	$Camera2D.start_shake(6)
+	_tone(520, 0.12, 0.2)
+	_tone(780, 0.18, 0.2)
+
+func _coin_tier_up(top_value: int) -> void:
+	_banner("MOEDAS VALEM ATÉ %d!" % top_value, HudKit.GOLD)
+	_tone(990, 0.2, 0.2)
+
+## Big centered message that pops in and floats away.
+func _banner(text: String, color: Color) -> void:
+	var banner := _make_label(text, Vector2(0, 700), Vector2(1080, 120), 64, color, true)
+	banner.add_to_group("run_effects")
+	banner.pivot_offset = banner.size / 2.0
+	banner.scale = Vector2(0.4, 0.4)
+	var tween := banner.create_tween().set_pause_mode(Tween.TWEEN_PAUSE_STOP)
+	tween.tween_property(banner, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_interval(1.1)
+	tween.tween_property(banner, "position:y", 620.0, 0.5)
+	tween.parallel().tween_property(banner, "modulate:a", 0.0, 0.5)
+	tween.tween_callback(banner.queue_free)
 
 func _start_game() -> void:
 	if GameManager.started:
