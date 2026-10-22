@@ -3,6 +3,12 @@ extends Node2D
 const COIN_FRAMES := 7
 const FEVER_TIME := 6.0
 const BAR_INSET := Vector2(26, 22)
+# PixelLab VFX sheet: 10 frames of 80x87 in 4 columns, blast centre at (43, 54).
+const EXPLOSION_FRAMES := 10
+const EXPLOSION_SIZE := Vector2(80, 87)
+const EXPLOSION_ANCHOR := Vector2(43, 54)
+# Time the defeat blast plays before the result card covers it.
+const RESULT_DELAY := 1.0
 
 @onready var hud: CanvasLayer = $HUD
 var ui: Control
@@ -39,6 +45,7 @@ var shown_score: int = 0
 var shown_multiplier: int = 1
 var best_before_run: int = 0
 var ui_time: float = 0.0
+var explosion_frames: SpriteFrames
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -161,7 +168,7 @@ func _process(delta: float) -> void:
 	if not is_instance_valid(score_label):
 		return
 	ui_time += delta
-	hud_top.visible = GameManager.started and not GameManager.ended
+	hud_top.visible = GameManager.started and not is_instance_valid(result_panel)
 	if GameManager.score != shown_score:
 		if GameManager.score > shown_score:
 			HudKit.pop(score_label, 1.12)
@@ -371,8 +378,47 @@ func _stat(row: HBoxContainer, value: String, caption: String) -> void:
 	column.add_child(HudKit.label(value, 64, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER))
 	column.add_child(HudKit.label(caption, 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER))
 
+func explode(at: Vector2, size: float, flash: bool = false) -> void:
+	if explosion_frames == null:
+		explosion_frames = SpriteFrames.new()
+		explosion_frames.add_animation("boom")
+		explosion_frames.set_animation_loop("boom", false)
+		explosion_frames.set_animation_speed("boom", 10.0)
+		var sheet: Texture2D = load("res://Assets/VFX/explosion.png")
+		for i in EXPLOSION_FRAMES:
+			var frame := AtlasTexture.new()
+			frame.atlas = sheet
+			frame.region = Rect2(Vector2(i % 4, i / 4) * EXPLOSION_SIZE, EXPLOSION_SIZE)
+			explosion_frames.add_frame("boom", frame)
+	var blast := AnimatedSprite2D.new()
+	blast.sprite_frames = explosion_frames
+	blast.centered = false
+	blast.offset = -EXPLOSION_ANCHOR
+	blast.scale = Vector2.ONE * size
+	blast.position = at
+	blast.z_index = 20
+	blast.process_mode = Node.PROCESS_MODE_PAUSABLE
+	add_child(blast)
+	blast.add_to_group("run_effects")
+	blast.animation_finished.connect(blast.queue_free)
+	blast.play("boom")
+	if flash:
+		var white := ColorRect.new()
+		white.color = Color(1, 0.95, 0.8, 0.7)
+		white.size = ui.size
+		white.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ui.add_child(white)
+		white.add_to_group("run_effects")
+		var fade := white.create_tween()
+		fade.tween_property(white, "modulate:a", 0.0, 0.25)
+		fade.tween_callback(white.queue_free)
+
 func _show_result() -> void:
 	_clear_controls()
+	await get_tree().create_timer(RESULT_DELAY).timeout
+	# A replay during the blast already started a new run.
+	if not GameManager.ended or is_instance_valid(result_panel):
+		return
 	var parts := _overlay(0.55)
 	result_panel = parts[0]
 	var column: VBoxContainer = parts[1]

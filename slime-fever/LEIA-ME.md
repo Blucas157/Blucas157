@@ -1,9 +1,14 @@
-# Slime Fever — v0.8
+# Slime Fever — v0.9
 
 ## Abrir o jogo
 Use Godot 4.7.2. Extraia o ZIP pelo Windows em uma pasta nova e importe o arquivo project.godot; aguarde a importação dos PNGs e pressione F5. Este pacote contém o projeto-fonte, não APK, executável nem build Web. O ZIP possui pastas explícitas e project.godot na raiz.
 
 Na abertura, clique/toque em JOGAR ou pressione Enter. Segure as setas na tela ou use A/D e setas do teclado. II/Esc pausa; CONTINUAR retoma. SOM/MUDO alterna efeitos sonoros. Ao perder foco, uma partida em andamento pausa.
+
+## v0.9 — Explosão das bombas
+- Animação de explosão gerada no PixelLab VFX (Assets/VFX/explosion.png, 10 quadros a 10 fps): clarão branco, bola de fogo e fumaça.
+- Ao encostar numa bomba: explosão grande sobre o slime, clarão rápido na tela e tremor; a tela de fim de jogo espera 1 s para a explosão aparecer, com o HUD ainda visível.
+- Durante a febre, a bomba tocada também explode (menor) enquanto vira +20 pontos.
 
 ## v0.8 — Modos de dificuldade, níveis e moedas valorizadas
 - Menu com FÁCIL, MÉDIO e DIFÍCIL. O modo escolhido fica salvo e cada modo tem o próprio recorde (o recorde antigo virou o do MÉDIO).
@@ -14,7 +19,7 @@ Na abertura, clique/toque em JOGAR ou pressione Enter. Segure as setas na tela o
 - Novo teste Tests/verify_modes.gd; o teste da chuva agora cobre os três modos e todos os níveis (7.793 bombas auditadas).
 
 ## APK Android
-O APK pronto fica em releases/SlimeFever-v0.8.apk na raiz do repositório (arm64 e armv7, Android 7+ recomendado). Para gerar de novo: Godot 4.7.2 com os templates de exportação, apksigner do Android SDK e uma keystore; preset "Android" em export_presets.cfg (pacote com.blucas157.slimefever, sem Gradle, ícone em Assets/Icon/).
+O APK pronto fica em releases/SlimeFever-v0.9.apk na raiz do repositório (arm64 e armv7, Android 7+ recomendado). Para gerar de novo: Godot 4.7.2 com os templates de exportação, apksigner do Android SDK e uma keystore; preset "Android" em export_presets.cfg (pacote com.blucas157.slimefever, sem Gradle, ícone em Assets/Icon/).
 
     godot --headless --path . --export-release "Android" ../releases/SlimeFever.apk
 

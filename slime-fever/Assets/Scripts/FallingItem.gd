@@ -55,10 +55,12 @@ func _on_area_entered(area: Area2D) -> void:
 	if is_bomb:
 		if GameManager.fever_left > 0.0:
 			GameManager.add_score(20)
+			main.explode(position, 3.0)
 			main.juice(position, Color("a3ffce"), "+20", 2)
 		elif GameManager.grace_left > 0.0:
 			main.juice(position, Color("92c9ff"), "PROTEGIDO", 0)
 		else:
+			main.explode(position, 5.0, true)
 			main.juice(position, Color("ff816b"), "POW!", 3)
 			GameManager.end_game()
 	else:

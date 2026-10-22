@@ -81,7 +81,9 @@ func run_tests() -> void:
 	bomb._on_area_entered(other)
 	check(not gm.ended, "non-player filtering")
 	bomb._on_area_entered(player)
-	check(gm.ended and scene.result_panel != null, "bomb ends game with result")
+	check(gm.ended and get_nodes_in_group("run_effects").any(func(n): return n is AnimatedSprite2D), "bomb explodes")
+	await create_timer(scene.RESULT_DELAY + 0.2).timeout
+	check(gm.ended and scene.result_panel != null, "bomb ends game with result after the blast")
 	var save := ConfigFile.new()
 	check(save.load(gm.save_path) == OK and save.get_value("progress", "best_%d" % gm.mode) == gm.score, "save record")
 	scene._restart()
