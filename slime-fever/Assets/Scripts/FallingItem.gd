@@ -25,6 +25,10 @@ func _ready() -> void:
 	if is_bomb:
 		$CollisionShape2D.shape = $CollisionShape2D.shape.duplicate()
 		$CollisionShape2D.shape.radius = 10.0
+	else:
+		# ALCANCE upgrade: coins and power-ups can be caught from farther away.
+		$CollisionShape2D.shape = $CollisionShape2D.shape.duplicate()
+		$CollisionShape2D.shape.radius *= GameManager.reach_scale()
 	if is_bomb:
 		art = $AnimatedSprite2D
 		art.sprite_frames = _bomb_frames()
@@ -113,6 +117,10 @@ func _on_area_entered(area: Area2D) -> void:
 			return
 		elif GameManager.grace_left > 0.0:
 			main.juice(position, Color("92c9ff"), "PROTEGIDO", 0)
+		elif GameManager.use_shield():
+			main.juice(position, Color("8ff0ff"), "ESCUDO!", 2)
+			_detonate(2.5, false)
+			return
 		else:
 			main.juice(position, Color("ff816b"), "POW!", 3)
 			GameManager.end_game()

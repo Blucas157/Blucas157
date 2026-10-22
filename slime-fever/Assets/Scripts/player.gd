@@ -21,6 +21,9 @@ func _ready() -> void:
 			var path := "res://Assets/SlimeReactions/%s_%02d.png" % [name, i]
 			if ResourceLoader.exists(path):
 				frames.add_frame(name, load(path))
+	sprite.material = ShaderMaterial.new()
+	sprite.material.shader = preload("res://Assets/Shaders/slime_hue.gdshader")
+	apply_skin()
 	GameManager.game_ended.connect(_defeat)
 	GameManager.fever_started.connect(_fever)
 	sprite.play("idle_west")
@@ -31,7 +34,7 @@ func _process(delta: float) -> void:
 	if GameManager.ended or not GameManager.started:
 		return
 	var direction := get_direction()
-	position.x = clampf(position.x + direction * walk_speed * delta, 80.0, 1000.0)
+	position.x = clampf(position.x + direction * walk_speed * GameManager.speed_bonus() * delta, 80.0, 1000.0)
 	reaction_left = maxf(0.0, reaction_left - delta)
 	startle_cooldown = maxf(0.0, startle_cooldown - delta)
 	var animation := "idle_west"
@@ -90,6 +93,11 @@ func _draw() -> void:
 	if GameManager.fever_left > 0.0 and not GameManager.ended:
 		var pulse := 1.0 + sin(visual_time * 8.0) * 0.08
 		draw_arc(Vector2(0, 6), 17.0 * pulse, 0, TAU, 32, Color(0.5, 1, 0.8, 0.45), 1.0)
+	if GameManager.shield > 0 and not GameManager.ended:
+		# Bubble shield: absorbs the next bomb.
+		var wobble := 1.0 + sin(visual_time * 5.0) * 0.04
+		draw_circle(Vector2(0, 1), 15.0 * wobble, Color(0.45, 0.9, 1.0, 0.18))
+		draw_arc(Vector2(0, 1), 15.0 * wobble, 0, TAU, 32, Color(0.6, 0.95, 1.0, 0.85), 0.8)
 	if GameManager.magnet_left > 0.0 and not GameManager.ended:
 		# Shows the magnet's reach (game pixels divided by this node's scale).
 		var reach := GameManager.magnet_radius() / scale.x
@@ -97,6 +105,9 @@ func _draw() -> void:
 		for i in 8:
 			var start := spin + i * TAU / 8.0
 			draw_arc(Vector2(0, 2), reach, start, start + TAU / 14.0, 8, Color(1.0, 0.45, 0.6, 0.85), 1.6)
+
+func apply_skin() -> void:
+	(sprite.material as ShaderMaterial).set_shader_parameter("hue_shift", GameManager.skin_hue())
 
 func get_direction() -> float:
 	var left := Input.is_action_pressed("ui_left") or Input.is_physical_key_pressed(KEY_A)

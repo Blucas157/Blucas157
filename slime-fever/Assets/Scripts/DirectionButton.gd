@@ -59,6 +59,8 @@ func _input(event: InputEvent) -> void:
 func _process(_delta: float) -> void:
 	if get_tree().paused or GameManager.ended or not GameManager.started:
 		clear_input()
+	# Only shown while playing, so menus and shops are not covered.
+	visible = GameManager.started and not GameManager.ended and not get_tree().paused
 	queue_redraw()
 
 func _notification(what: int) -> void:

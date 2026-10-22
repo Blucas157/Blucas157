@@ -21,6 +21,14 @@ var replay_button: Button
 var shop_button: Button
 var shop_close_button: Button
 var shop_buttons: Dictionary = {}
+const SHOP_TABS := {"upgrades": "MELHORAR", "items": "ITENS", "skins": "VISUAL"}
+var shop_tabs: Dictionary = {}
+var shop_tab: String = "upgrades"
+var run_shop_panel: Control
+var run_shop_continue: Button
+var shield_icon: TextureRect
+var double_badge: HBoxContainer
+var double_label: Label
 var menu_button: Button
 var result_menu_button: Button
 var result_panel: Control
@@ -101,6 +109,14 @@ func _ready() -> void:
 	magnet_badge = _place(HudKit.icon_row(load("res://Assets/UI/icon_magnet.png"), 2.0, "", 48, Color("ff9db0")), Vector2(810, 476), Vector2(240, 80)) as HBoxContainer
 	magnet_label = magnet_badge.get_child(1)
 	magnet_badge.hide()
+	double_badge = _place(HudKit.icon_row(load("res://Assets/UI/icon_double.png"), 2.0, "", 48, HudKit.GOLD), Vector2(30, 476), Vector2(240, 80)) as HBoxContainer
+	double_label = double_badge.get_child(1)
+	double_badge.hide()
+	shield_icon = _place(TextureRect.new(), Vector2(720, 478), Vector2(76, 76)) as TextureRect
+	shield_icon.texture = load("res://Assets/UI/icon_shield.png")
+	shield_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	shield_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shield_icon.hide()
 	_place(HudKit.label("SETAS OU A/D", 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER), Vector2(330, 1770), Vector2(420, 80))
 	_add_direction(Vector2(205, 1810), -1)
 	_add_direction(Vector2(875, 1810), 1)
@@ -179,7 +195,7 @@ func _process(delta: float) -> void:
 	if not is_instance_valid(score_label):
 		return
 	ui_time += delta
-	hud_top.visible = GameManager.started and not is_instance_valid(result_panel)
+	hud_top.visible = GameManager.started and not is_instance_valid(result_panel) and not is_instance_valid(run_shop_panel)
 	if GameManager.score != shown_score:
 		if GameManager.score > shown_score:
 			HudKit.pop(score_label, 1.12)
@@ -200,6 +216,9 @@ func _process(delta: float) -> void:
 	var fever: bool = GameManager.fever_left > 0.0
 	var ratio := GameManager.fever_left / GameManager.fever_duration() if fever else GameManager.charge / 100.0
 	magnet_badge.visible = GameManager.magnet_left > 0.0
+	double_badge.visible = GameManager.double_left > 0.0
+	double_label.text = "%.0fs" % ceilf(GameManager.double_left)
+	shield_icon.visible = GameManager.shield > 0
 	magnet_label.text = "%.1fs" % GameManager.magnet_left
 	# Blink in the last second so the end of the magnet is not a surprise.
 	magnet_badge.modulate.a = 0.35 if GameManager.magnet_left < 1.0 and int(GameManager.magnet_left * 10) % 2 == 0 else 1.0
@@ -361,6 +380,10 @@ func _toggle_pause() -> void:
 	_clear_controls()
 	if GameManager.ended or not GameManager.started:
 		return
+	# Esc or losing focus while the mini-shop is open just closes it.
+	if is_instance_valid(run_shop_panel):
+		_close_run_shop()
+		return
 	if get_tree().paused:
 		get_tree().paused = false
 		for audio in sounds:
@@ -456,7 +479,7 @@ func _show_result() -> void:
 	else:
 		content.add_child(HudKit.label("RECORDE %d" % GameManager.best, 48, HudKit.GOLD, HORIZONTAL_ALIGNMENT_CENTER))
 	if GameManager.coins > 0:
-		content.add_child(HudKit.icon_row(coin_frames[0], 1.5, "+%d MOEDAS  (%d)" % [GameManager.coins, GameManager.wallet], 32, HudKit.GOLD))
+		content.add_child(HudKit.icon_row(coin_frames[0], 1.5, "+%d MOEDAS  (%d)" % [GameManager.earned, GameManager.wallet], 32, HudKit.GOLD))
 	var stats := HBoxContainer.new()
 	stats.alignment = BoxContainer.ALIGNMENT_CENTER
 	stats.add_theme_constant_override("separation", 20)
@@ -514,6 +537,8 @@ func _reset_run() -> void:
 		result_panel.queue_free()
 	if is_instance_valid(pause_panel):
 		pause_panel.queue_free()
+	if is_instance_valid(run_shop_panel):
+		run_shop_panel.queue_free()
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_node_ready() and GameManager.started and not GameManager.ended:
@@ -594,7 +619,7 @@ func _powerup_collected(kind: String) -> void:
 		_tone(1320, 0.16, 0.16)
 		HudKit.pop(magnet_badge, 1.3)
 
-## Shop overlay on top of the menu. Rows are rebuilt after every purchase.
+## Menu shop: shopkeeper on top, three tabs below. Rows are rebuilt after every action.
 func _show_shop() -> void:
 	if is_instance_valid(shop_panel):
 		return
@@ -603,17 +628,46 @@ func _show_shop() -> void:
 	var parts := _overlay(0.45)
 	shop_panel = parts[0]
 	var column: VBoxContainer = parts[1]
-	column.add_child(HudKit.label("LOJA", 112, HudKit.GOLD, HORIZONTAL_ALIGNMENT_CENTER))
-	var content := _card(column, 24)
+	column.add_theme_constant_override("separation", 0)
+	var keeper := TextureRect.new()
+	keeper.texture = load("res://Assets/UI/shopkeeper.png")
+	keeper.custom_minimum_size = keeper.texture.get_size() * 3.0
+	keeper.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	keeper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(_centered(keeper))
+	var bob := keeper.create_tween().set_loops().set_trans(Tween.TRANS_SINE)
+	bob.tween_property(keeper, "scale", Vector2(1.0, 0.97), 0.7)
+	bob.tween_property(keeper, "scale", Vector2.ONE, 0.7)
+	keeper.resized.connect(func(): keeper.pivot_offset = Vector2(keeper.size.x / 2.0, keeper.size.y))
+	var content := _card(column, 18)
 	var wallet_row := HudKit.icon_row(coin_frames[0], 2.0, "", 64, HudKit.GOLD)
 	shop_wallet_label = wallet_row.get_child(1)
 	content.add_child(wallet_row)
+	var tabs := HBoxContainer.new()
+	tabs.alignment = BoxContainer.ALIGNMENT_CENTER
+	tabs.add_theme_constant_override("separation", 12)
+	content.add_child(tabs)
+	shop_tabs.clear()
+	for tab in SHOP_TABS:
+		var tab_button := HudKit.button(SHOP_TABS[tab], "square", Vector2(200, 100), _select_shop_tab.bind(tab), 32)
+		tabs.add_child(tab_button)
+		shop_tabs[tab] = tab_button
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(680, 750)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	content.add_child(scroll)
 	shop_list = VBoxContainer.new()
-	shop_list.add_theme_constant_override("separation", 22)
-	content.add_child(shop_list)
-	content.add_child(HudKit.label("Cada moeda pega vale 1 aqui", 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER))
-	shop_close_button = _centered(HudKit.button("VOLTAR", "primary", Vector2(560, 150), _close_shop, 64)) as Button
+	shop_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shop_list.add_theme_constant_override("separation", 12)
+	scroll.add_child(shop_list)
+	shop_close_button = _centered(HudKit.button("VOLTAR", "primary", Vector2(520, 140), _close_shop, 64)) as Button
 	content.add_child(shop_close_button)
+	_select_shop_tab(shop_tab)
+
+func _select_shop_tab(tab: String) -> void:
+	shop_tab = tab
+	for id in shop_tabs:
+		HudKit.apply_skin(shop_tabs[id], "gold" if id == tab else "square")
 	_fill_shop()
 
 func _fill_shop() -> void:
@@ -621,64 +675,118 @@ func _fill_shop() -> void:
 	for child in shop_list.get_children():
 		child.queue_free()
 	shop_buttons.clear()
-	for id in GameManager.UPGRADES:
-		var info: Dictionary = GameManager.UPGRADES[id]
-		var lv := GameManager.upgrade_level(id)
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 18)
-		shop_list.add_child(row)
-		var icon := TextureRect.new()
-		icon.texture = load(info.icon)
-		icon.custom_minimum_size = Vector2(96, 96)
-		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(icon)
-		var text := VBoxContainer.new()
-		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		text.add_theme_constant_override("separation", 4)
-		row.add_child(text)
-		text.add_child(HudKit.label(info.name, 48))
-		text.add_child(HudKit.label(_upgrade_effect(id, lv), 32, HudKit.SKY))
-		var pips := HBoxContainer.new()
-		pips.add_theme_constant_override("separation", 8)
-		text.add_child(pips)
-		for i in GameManager.max_level(id):
-			var pip := ColorRect.new()
-			pip.custom_minimum_size = Vector2(36, 16)
-			pip.color = HudKit.GOLD if i < lv else Color(1, 1, 1, 0.18)
-			pips.add_child(pip)
-		var cost := GameManager.price(id)
-		var buy := HudKit.button("MÁX" if cost < 0 else str(cost), "gold" if GameManager.can_buy(id) else "square", Vector2(190, 110), _buy.bind(id), 48)
-		buy.disabled = not GameManager.can_buy(id)
-		buy.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(buy)
-		shop_buttons[id] = buy
+	match shop_tab:
+		"upgrades":
+			for id in GameManager.UPGRADES:
+				var info: Dictionary = GameManager.UPGRADES[id]
+				var cost := GameManager.price(id)
+				var buy := _shop_row(load(info.icon), info.name, _upgrade_effect(id, GameManager.upgrade_level(id)),
+					"MÁX" if cost < 0 else str(cost), "gold", GameManager.can_buy(id), _buy.bind(id))
+				_add_pips(buy.get_parent().get_child(1), GameManager.upgrade_level(id), GameManager.max_level(id))
+				shop_buttons[id] = buy
+		"items":
+			for id in GameManager.ITEMS:
+				var info: Dictionary = GameManager.ITEMS[id]
+				var have := GameManager.item_count(id)
+				var full: bool = have >= info.max
+				shop_buttons[id] = _shop_row(load(info.icon), info.name, "%s  (%d/%d)" % [info.info, have, info.max],
+					"CHEIO" if full else str(info.price), "gold", GameManager.can_buy_item(id), _buy_item.bind(id))
+			shop_list.add_child(HudKit.label("Usados sozinhos ao começar a partida", 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER))
+		"skins":
+			for id in GameManager.SKINS:
+				var info: Dictionary = GameManager.SKINS[id]
+				# Only the slime, without the frame's empty margin.
+				var preview := AtlasTexture.new()
+				preview.atlas = load("res://Assets/SlimeReactions/collect_00.png")
+				preview.region = Rect2(12, 14, 28, 23)
+				var worn: bool = GameManager.skin == id
+				var owned: bool = GameManager.owns_skin(id)
+				var label: String = "EM USO" if worn else ("USAR" if owned else str(info.price))
+				var enabled: bool = not worn and (owned or GameManager.wallet >= info.price)
+				var buy := _shop_row(preview, info.name, "Equipado" if worn else ("Comprado" if owned else ""),
+					label, "primary" if owned else "gold", enabled, _pick_skin.bind(id))
+				var icon: TextureRect = buy.get_parent().get_child(0)
+				icon.material = ShaderMaterial.new()
+				icon.material.shader = preload("res://Assets/Shaders/slime_hue.gdshader")
+				icon.material.set_shader_parameter("hue_shift", info.hue)
+				shop_buttons[id] = buy
+
+## One shop line: icon, name and detail, and an action button on the right.
+func _shop_row(icon: Texture2D, title: String, detail: String, action: String, skin_name: String, enabled: bool, callback: Callable) -> Button:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 16)
+	shop_list.add_child(row)
+	var picture := TextureRect.new()
+	picture.texture = icon
+	picture.custom_minimum_size = Vector2(96, 96)
+	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	picture.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(picture)
+	var text := VBoxContainer.new()
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.add_theme_constant_override("separation", 4)
+	row.add_child(text)
+	text.add_child(HudKit.label(title, 48))
+	if detail != "":
+		text.add_child(HudKit.label(detail, 32, HudKit.SKY))
+	var button := HudKit.button(action, skin_name if enabled else "square", Vector2(190, 110), callback, 40)
+	button.disabled = not enabled
+	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(button)
+	return button
+
+func _add_pips(text: VBoxContainer, lv: int, top: int) -> void:
+	var pips := HBoxContainer.new()
+	pips.add_theme_constant_override("separation", 8)
+	text.add_child(pips)
+	for i in top:
+		var pip := ColorRect.new()
+		pip.custom_minimum_size = Vector2(36, 16)
+		pip.color = HudKit.GOLD if i < lv else Color(1, 1, 1, 0.18)
+		pips.add_child(pip)
 
 ## Current value and, when not maxed, the next one.
 func _upgrade_effect(id: String, lv: int) -> String:
-	var now := ""
-	var next := ""
-	match id:
-		"magnet":
-			now = "%.1fs" % GameManager.magnet_duration(lv)
-			next = "%.1fs" % GameManager.magnet_duration(lv + 1)
-		"fever":
-			now = "%.1fs" % GameManager.fever_duration(lv)
-			next = "%.1fs" % GameManager.fever_duration(lv + 1)
-		"luck":
-			now = "a cada %ds" % roundi(GameManager.powerup_gap(lv))
-			next = "%ds" % roundi(GameManager.powerup_gap(lv + 1))
+	var values := []
+	for at in [lv, lv + 1]:
+		match id:
+			"magnet":
+				values.append("%.1fs" % GameManager.magnet_duration(at))
+			"fever":
+				values.append("%.1fs" % GameManager.fever_duration(at))
+			"luck":
+				values.append("a cada %ds" % roundi(GameManager.powerup_gap(at)))
+			"reach":
+				values.append("+%d%% coleta" % roundi((GameManager.reach_scale(at) - 1.0) * 100.0))
+			"speed":
+				values.append("+%d%% veloc." % roundi((GameManager.speed_bonus(at) - 1.0) * 100.0))
 	if lv >= GameManager.max_level(id):
-		return now + "  (máximo)"
-	return now + "  ->  " + next
+		return values[0] + "  (máx)"
+	return values[0] + " -> " + values[1]
+
+func _shop_bought() -> void:
+	_tone(990, 0.1, 0.2)
+	_tone(1480, 0.14, 0.18)
+	_fill_shop()
+	HudKit.pop(shop_wallet_label, 1.2)
 
 func _buy(id: String) -> void:
 	if GameManager.buy(id):
-		_tone(990, 0.1, 0.2)
-		_tone(1480, 0.14, 0.18)
+		_shop_bought()
+
+func _buy_item(id: String) -> void:
+	if GameManager.buy_item(id):
+		_shop_bought()
+
+func _pick_skin(id: String) -> void:
+	if GameManager.owns_skin(id):
+		GameManager.equip_skin(id)
+		_tone(700, 0.08, 0.15)
 		_fill_shop()
-		HudKit.pop(shop_wallet_label, 1.2)
-		_refresh_modes()
+	elif GameManager.buy_skin(id):
+		_shop_bought()
+	$Player.apply_skin()
 
 func _close_shop() -> void:
 	if is_instance_valid(shop_panel):
@@ -687,11 +795,66 @@ func _close_shop() -> void:
 		menu_panel.show()
 	_refresh_modes()
 
+## Mini-shop at each level-up: pauses the run, sells items that act right away.
+func _show_run_shop() -> void:
+	if GameManager.ended or not GameManager.started or is_instance_valid(run_shop_panel):
+		return
+	if GameManager.wallet < GameManager.cheapest_run_item():
+		return
+	if is_instance_valid(pause_panel):
+		pause_panel.queue_free()
+	_clear_controls()
+	get_tree().paused = true
+	for audio in sounds:
+		audio.stream_paused = true
+	var parts := _overlay(0.6)
+	run_shop_panel = parts[0]
+	var column: VBoxContainer = parts[1]
+	column.add_child(HudKit.label("NÍVEL %d!" % (GameManager.level + 1), 96, HudKit.CORAL, HORIZONTAL_ALIGNMENT_CENTER))
+	column.add_child(HudKit.label("LOJINHA", 64, HudKit.GOLD, HORIZONTAL_ALIGNMENT_CENTER))
+	var content := _card(column, 20)
+	var wallet_row := HudKit.icon_row(coin_frames[0], 2.0, "", 64, HudKit.GOLD)
+	shop_wallet_label = wallet_row.get_child(1)
+	content.add_child(wallet_row)
+	shop_list = VBoxContainer.new()
+	shop_list.add_theme_constant_override("separation", 20)
+	content.add_child(shop_list)
+	run_shop_continue = _centered(HudKit.button("CONTINUAR", "primary", Vector2(560, 150), _close_run_shop, 64)) as Button
+	content.add_child(run_shop_continue)
+	_fill_run_shop()
+
+func _fill_run_shop() -> void:
+	shop_wallet_label.text = str(GameManager.wallet)
+	for child in shop_list.get_children():
+		child.queue_free()
+	shop_buttons.clear()
+	for id in GameManager.RUN_ITEMS:
+		var info: Dictionary = GameManager.RUN_ITEMS[id]
+		shop_buttons[id] = _shop_row(load(info.icon), info.name, info.info, str(info.price), "gold",
+			GameManager.can_buy_run_item(id), _buy_run_item.bind(id))
+
+func _buy_run_item(id: String) -> void:
+	if GameManager.buy_run_item(id):
+		_tone(990, 0.1, 0.2)
+		_tone(1480, 0.14, 0.18)
+		_fill_run_shop()
+		HudKit.pop(shop_wallet_label, 1.2)
+
+func _close_run_shop() -> void:
+	if is_instance_valid(run_shop_panel):
+		run_shop_panel.queue_free()
+	_clear_controls()
+	get_tree().paused = false
+	for audio in sounds:
+		audio.stream_paused = false
+
 func _level_up(level: int) -> void:
 	_banner("NÍVEL %d!  MAIS RÁPIDO" % (level + 1), HudKit.CORAL)
 	$Camera2D.start_shake(6)
 	_tone(520, 0.12, 0.2)
 	_tone(780, 0.18, 0.2)
+	# Opened after the collision that crossed the threshold finishes.
+	call_deferred("_show_run_shop")
 
 func _coin_tier_up(top_value: int) -> void:
 	_banner("MOEDAS VALEM ATÉ %d!" % top_value, HudKit.GOLD)
@@ -699,14 +862,17 @@ func _coin_tier_up(top_value: int) -> void:
 
 ## Big centered message that pops in and floats away.
 func _banner(text: String, color: Color) -> void:
-	var banner := _make_label(text, Vector2(0, 700), Vector2(1080, 120), 64, color, true)
+	# Stack under banners that are still on screen.
+	var stack := get_tree().get_nodes_in_group("banners").size()
+	var banner := _make_label(text, Vector2(0, 700 + stack * 130), Vector2(1080, 120), 64, color, true)
 	banner.add_to_group("run_effects")
+	banner.add_to_group("banners")
 	banner.pivot_offset = banner.size / 2.0
 	banner.scale = Vector2(0.4, 0.4)
 	var tween := banner.create_tween().set_pause_mode(Tween.TWEEN_PAUSE_STOP)
 	tween.tween_property(banner, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_interval(1.1)
-	tween.tween_property(banner, "position:y", 620.0, 0.5)
+	tween.tween_property(banner, "position:y", banner.position.y - 80.0, 0.5)
 	tween.parallel().tween_property(banner, "modulate:a", 0.0, 0.5)
 	tween.tween_callback(banner.queue_free)
 
@@ -721,6 +887,9 @@ func _start_game() -> void:
 		menu_panel.hide()
 		menu_panel.queue_free()
 	GameManager.started = true
+	var used := GameManager.apply_start_items()
+	if not used.is_empty():
+		_banner(" + ".join(used.map(func(id): return GameManager.ITEMS[id].name)), HudKit.MINT)
 
 func _exit_tree() -> void:
 	for audio in sounds:

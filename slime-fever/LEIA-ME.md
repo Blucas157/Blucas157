@@ -1,13 +1,24 @@
-# Slime Fever — v0.13
+# Slime Fever — v0.14
 
 ## Abrir o jogo
 Use Godot 4.7.2. Extraia o ZIP pelo Windows em uma pasta nova e importe o arquivo project.godot; aguarde a importação dos PNGs e pressione F5. Este pacote contém o projeto-fonte, não APK, executável nem build Web. O ZIP possui pastas explícitas e project.godot na raiz.
 
 Na abertura, clique/toque em JOGAR ou pressione Enter. Segure as setas na tela ou use A/D e setas do teclado. II/Esc pausa; CONTINUAR retoma. SOM/MUDO alterna efeitos sonoros. Ao perder foco, uma partida em andamento pausa.
 
+## v0.14 — Loja com vendedor, lojinha na partida, itens e visuais
+- Cada moeda pega entra na carteira na hora (com MOEDAS x2 entra em dobro), então dá para gastar durante a partida.
+- LOJA do menu com vendedor (slime roxo gerado no PixelLab) e 3 abas:
+  - MELHORAR (permanente, 5 níveis): ÍMÃ, FEBRE, SORTE e as novas ALCANCE (+15% de área para pegar moedas por nível) e AGILIDADE (+5% de velocidade por nível).
+  - ITENS (até 3 de cada, usados sozinhos ao começar a próxima partida): ESCUDO INICIAL (60) e ÍMÃ INICIAL (40).
+  - VISUAL: cores do slime (AZUL 150, ROXO 250, ROSA 300, OURO 500), compradas uma vez e trocadas quando quiser. A cor é um shader que muda só o verde do corpo.
+- LOJINHA na partida: a cada nível (5.000 pontos) o jogo pausa e oferece ESCUDO (40, aguenta 1 bomba), ÍMÃ AGORA (25) e MOEDAS x2 por 20 s (35). Só abre se der para comprar pelo menos um item; Esc ou CONTINUAR volta ao jogo.
+- Escudo: bolha azul em volta do slime e ícone no HUD; ao absorver uma bomba dá 1 s de proteção. MOEDAS x2 mostra o tempo no HUD.
+- As setas de toque só aparecem durante a partida. Avisos na tela não se sobrepõem mais.
+- verify_shop.gd cobre itens, escudo, lojinha, moedas x2, alcance, visuais e o save.
+
 ## v0.13 — Ímã, carteira e loja de upgrades
 - Ímã (power-up): a cada ~22 s (depois dos 8 s iniciais) uma moeda da rota vira um ímã, então ele sempre cai num lugar seguro. Pegar o ímã atrai as moedas próximas por alguns segundos; um anel rosa mostra o alcance e o HUD mostra o tempo restante. Não conta como moeda nem quebra o combo.
-- Carteira: cada moeda pega soma 1, salva entre partidas (também quando a partida é abandonada pelo menu). O fim de jogo mostra "+N MOEDAS".
+- Carteira: cada moeda pega soma 1, salva entre partidas. O fim de jogo mostra "+N MOEDAS".
 - LOJA no menu, com 3 upgrades de 5 níveis:
   - ÍMÃ: 5 s +1,5 s por nível e alcance maior (60/150/300/500/800 moedas).
   - FEBRE: 6 s +0,8 s por nível (80/180/350/600/900).
@@ -45,14 +56,14 @@ Na abertura, clique/toque em JOGAR ou pressione Enter. Segure as setas na tela o
 - Novo teste Tests/verify_modes.gd; o teste da chuva agora cobre os três modos e todos os níveis (7.793 bombas auditadas).
 
 ## Versão Web (itch.io)
-Zip pronto em releases/SlimeFever-web-v0.13.zip (index.html na raiz, versão sem threads, que roda no itch.io sem configuração extra). Para gerar de novo, com os templates Web do Godot 4.7.2 instalados:
+Zip pronto em releases/SlimeFever-web-v0.14.zip (index.html na raiz, versão sem threads, que roda no itch.io sem configuração extra). Para gerar de novo, com os templates Web do Godot 4.7.2 instalados:
 
     godot --headless --path . --export-release "Web" ../web/index.html
 
 No itch.io: Kind of project = HTML, enviar o zip e marcar "This file will be played in the browser"; Viewport 450 x 800, "Mobile friendly" (orientação retrato) e "Fullscreen button".
 
 ## APK Android
-O APK pronto fica em releases/SlimeFever-v0.13.apk na raiz do repositório (arm64 e armv7, Android 7+ recomendado). Para gerar de novo: Godot 4.7.2 com os templates de exportação, apksigner do Android SDK e uma keystore; preset "Android" em export_presets.cfg (pacote com.blucas157.slimefever, sem Gradle, ícone em Assets/Icon/).
+O APK pronto fica em releases/SlimeFever-v0.14.apk na raiz do repositório (arm64 e armv7, Android 7+ recomendado). Para gerar de novo: Godot 4.7.2 com os templates de exportação, apksigner do Android SDK e uma keystore; preset "Android" em export_presets.cfg (pacote com.blucas157.slimefever, sem Gradle, ícone em Assets/Icon/).
 
     godot --headless --path . --export-release "Android" ../releases/SlimeFever.apk
 
