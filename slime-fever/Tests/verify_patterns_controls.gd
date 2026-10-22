@@ -33,6 +33,12 @@ func mouse(pressed: bool, point: Vector2) -> void:
 	event.position = root.get_final_transform() * point
 	Input.parse_input_event(event)
 	Input.flush_buffered_events()
+func echo_motion(point: Vector2) -> void:
+	var event := InputEventMouseMotion.new()
+	event.button_mask = MOUSE_BUTTON_MASK_LEFT
+	event.position = root.get_final_transform() * point
+	Input.parse_input_event(event)
+	Input.flush_buffered_events()
 func key(code: Key, pressed: bool) -> void:
 	var event := InputEventKey.new()
 	event.physical_keycode = code
@@ -116,6 +122,20 @@ func run_tests() -> void:
 	await process_frame
 	check(player.get_direction() == 0, "resume requires new touch")
 	touch(0, false, Vector2(205, 1810))
+	# Web regression: the browser echoes a finger's moves as real mouse motion with the
+	# left button set and never sends the release; the arrow must not stay held.
+	touch(3, true, Vector2(205, 1810))
+	echo_motion(Vector2(208, 1812))
+	touch(3, false, Vector2(208, 1812))
+	await process_frame
+	check(not left.is_held() and player.get_direction() == 0, "web touch echo does not stick LEFT")
+	touch(4, true, Vector2(875, 1810))
+	echo_motion(Vector2(870, 1808))
+	await process_frame
+	check(player.get_direction() == 1, "RIGHT works after the echo")
+	touch(4, false, Vector2(870, 1808))
+	await process_frame
+	check(player.get_direction() == 0, "nothing held after both fingers lift")
 	player.position.x = 540
 	Input.action_press("ui_right")
 	player._process(1.0)

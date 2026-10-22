@@ -3,6 +3,8 @@ extends Node2D
 @export var direction: int = -1
 var touches: Dictionary = {}
 var mouse_held: bool = false
+# Fingers currently on the screen, anywhere. Shared by both arrows.
+static var fingers_down: Dictionary = {}
 var face: Texture2D = preload("res://Assets/UI/btn_arrow.png")
 
 func _ready() -> void:
@@ -23,6 +25,18 @@ func _contains(point: Vector2) -> bool:
 func _input(event: InputEvent) -> void:
 	# GUI gets the emulated mouse from touch; arrows already handle the native touch.
 	if (event is InputEventMouseButton or event is InputEventMouseMotion) and event.device == InputEvent.DEVICE_ID_EMULATION:
+		return
+	if event is InputEventScreenTouch:
+		if event.pressed and not event.canceled:
+			fingers_down[event.index] = true
+			# A finger takes over from any mouse state.
+			mouse_held = false
+		else:
+			fingers_down.erase(event.index)
+	# Web browsers also report finger moves as mouse motion carrying the touch's
+	# pressed button, with no release when the finger lifts; that left an arrow
+	# stuck as held. While a finger is down, mouse events are only that echo.
+	if (event is InputEventMouseButton or event is InputEventMouseMotion) and not fingers_down.is_empty():
 		return
 	if get_tree().paused or GameManager.ended or not GameManager.started:
 		clear_input()
