@@ -12,8 +12,17 @@ signal revived
 signal coin_tier_up(top_value: int)
 const MODES := ["FÁCIL", "MÉDIO", "DIFÍCIL"]
 # Per mode: starting fall speed and bomb spacing (higher = calmer).
-const MODE_SPEED := [0.88, 1.0, 1.15]
-const MODE_BOMB_GAP := [1.35, 1.0, 0.75]
+const MODE_SPEED := [0.88, 1.0, 1.25]
+const MODE_BOMB_GAP := [1.35, 1.0, 0.55]
+# Bomb-free seconds at the start, and how long the bomb rain takes to reach full strength.
+const MODE_CALM := [10.0, 8.0, 2.0]
+const MODE_RAMP := [100.0, 80.0, 45.0]
+# DIFÍCIL also drifts bombs harder, makes power-ups rarer and bosses tougher, and pays more.
+const MODE_DRIFT := [110.0, 110.0, 170.0]
+const MODE_POWERUP_GAP := [1.0, 1.0, 1.35]
+const MODE_BOSS_HP := [0, 0, 2]
+const MODE_BOSS_TIME := [45.0, 45.0, 35.0]
+const MODE_REWARD := [1.0, 1.0, 1.5]
 # Every LEVEL_POINTS the run speeds up and bombs get denser, with no level cap;
 # MAX_SPEED and MIN_BOMB_GAP keep later levels fair.
 const LEVEL_POINTS := 1000
@@ -22,7 +31,6 @@ const LEVEL_BOMB_GAP := 0.94
 const MIN_BOMB_GAP := 0.5
 # A mini boss arrives every BOSS_EVERY levels. Beating it moves the run to the next zone.
 const BOSS_EVERY := 5
-const BOSS_TIME := 45.0
 const BOSSES := [
 	{"name": "TOUPEIRA BOMBARDEIRA", "art": "res://Assets/Boss/boss1.png", "ability": "revive"},
 	{"name": "GOLEM DE CRISTAL", "art": "res://Assets/Boss/boss2.png", "ability": "auto_magnet"},
@@ -197,6 +205,13 @@ func zone_name(z: int = -1) -> String:
 	return info.name if lap == 0 else "%s %d" % [info.name, lap + 1]
 
 ## Each zone makes coins worth more, in points and in the wallet.
+func calm_time() -> float:
+	return MODE_CALM[mode]
+
+## 0 when bombs start, 1 once the bomb rain is at full strength for this mode.
+func rain_pace() -> float:
+	return clampf((elapsed - calm_time()) / MODE_RAMP[mode], 0.0, 1.0)
+
 func zone_bonus() -> float:
 	return 1.0 + 0.5 * zone
 
@@ -205,9 +220,9 @@ func start_boss() -> void:
 		return
 	boss_active = true
 	boss_index = zone % BOSSES.size()
-	boss_max = 4 + 2 * zone
+	boss_max = 4 + 2 * zone + MODE_BOSS_HP[mode]
 	boss_hp = boss_max
-	boss_left = BOSS_TIME
+	boss_left = MODE_BOSS_TIME[mode]
 	boss_started.emit(boss_index)
 
 ## A thrown-back bomb lands on the boss.
@@ -437,7 +452,7 @@ func fever_duration(lv: int = -1) -> float:
 
 ## Seconds between power-ups on the coin route.
 func powerup_gap(lv: int = -1) -> float:
-	return BASE_POWERUP_GAP * pow(0.96, _lv("luck", lv))
+	return BASE_POWERUP_GAP * pow(0.96, _lv("luck", lv)) * MODE_POWERUP_GAP[mode]
 
 func magnet_duration(lv: int = -1) -> float:
 	return BASE_MAGNET + 0.4 * _lv("magnet", lv)
@@ -484,7 +499,7 @@ func coin_tier() -> int:
 	return 1 if fever_count >= 3 else 0
 
 func coin_points() -> int:
-	return roundi(COIN_TOP[coin_tier()] * multiplier / 4.0 * zone_bonus() * value_bonus())
+	return roundi(COIN_TOP[coin_tier()] * multiplier / 4.0 * zone_bonus() * value_bonus() * MODE_REWARD[mode])
 
 func _process(delta: float) -> void:
 	if ended or not started:
@@ -516,6 +531,8 @@ func collect_coin() -> int:
 	var gain := (2 if double_left > 0.0 else 1) * (1 + zone)
 	if randf() < (value_bonus() - 1.0) * 0.6:
 		gain += 1
+	# DIFÍCIL pays 1.5x: the half coin is rounded by chance.
+	gain = int(gain * MODE_REWARD[mode] + randf())
 	if fever_left > 0.0 and has_ability("golden_fever"):
 		gain = roundi(gain * golden_fever_bonus())
 	earned += gain

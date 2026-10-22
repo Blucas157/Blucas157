@@ -145,7 +145,14 @@ func run_tests() -> void:
 	player._process(2.0)
 	Input.action_release("ui_left")
 	check(player.position.x == 80, "left boundary")
-	var pattern_names := ["ARCO", "ZIGUE-ZAGUE", "CORREDOR", "TROCA DE LADO", "CHUVA CALMA"]
+	var pattern_names := ["ARCO", "ZIGUE-ZAGUE", "CORREDOR", "TROCA DE LADO", "CHUVA CALMA", "PASSEIO"]
+	# The calm opening wanders instead of stacking every coin in one column.
+	var calm_columns := {}
+	for seed_value in 20:
+		director.rng.seed = 500 + seed_value
+		for row in director.build_pattern("CHUVA CALMA", 540.0):
+			calm_columns[int(row.coin_x)] = true
+	check(calm_columns.size() >= 6, "calm opening uses several columns (%d)" % calm_columns.size())
 	var rows_tested: int = 0
 	for seed_value in 100:
 		director.rng.seed = seed_value
@@ -197,7 +204,7 @@ func run_tests() -> void:
 		var last_bomb_time := -9.0
 		for bomb in bombs:
 			bombs_tested += 1
-			check(bomb.time > 8.0, "first 8 s stay bomb-free")
+			check(bomb.time > gm.calm_time(), "bomb-free opening for the mode")
 			var land: float = bomb.x + bomb.drift * bomb.fall
 			var arrive: float = bomb.time + bomb.fall
 			check(land >= director.BOMB_MIN_X - 0.01 and land <= director.BOMB_MAX_X + 0.01, "bomb lands inside arena")

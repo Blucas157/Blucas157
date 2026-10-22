@@ -60,6 +60,12 @@ func run_tests() -> void:
 	gm.level = 200
 	check(gm.speed_scale() <= gm.MAX_SPEED, "speed cap")
 	check(gm.bomb_gap_scale() >= gm.MODE_BOMB_GAP[2] * gm.MIN_BOMB_GAP - 0.0001, "bomb density cap")
+	# DIFÍCIL has its own rules: almost no calm start, faster rain, tougher boss, better pay.
+	check(gm.MODE_CALM[2] < gm.MODE_CALM[1] and gm.MODE_RAMP[2] < gm.MODE_RAMP[1], "hard starts bombs early and ramps fast")
+	check(gm.MODE_REWARD[2] > gm.MODE_REWARD[1] and gm.MODE_BOSS_HP[2] > 0, "hard pays more and bosses are tougher")
+	gm.mode = 2
+	gm.level = 0
+	check(gm.bomb_gap_scale() <= 0.6 * gm.MODE_BOMB_GAP[1], "hard drops bombs much closer together")
 	# Records are kept per mode and survive a reload.
 	gm.reset_game()
 	gm.bests.fill(0)

@@ -78,13 +78,13 @@ func reset_hazards() -> void:
 	history.clear()
 
 func difficulty() -> int:
-	if GameManager.elapsed > 45.0:
+	if GameManager.elapsed > GameManager.calm_time() + 37.0:
 		return 2
-	return 1 if GameManager.elapsed > 8.0 else 0
+	return 1 if GameManager.elapsed > GameManager.calm_time() else 0
 
-## 0 when bombs start, 1 about 80 s later.
+## 0 when bombs start, 1 when the rain is at full strength for the mode.
 func pace() -> float:
-	return clampf((GameManager.elapsed - 8.0) / 80.0, 0.0, 1.0)
+	return GameManager.rain_pace()
 
 func build_pattern(kind: String, start_x: float) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
@@ -103,7 +103,10 @@ func build_pattern(kind: String, start_x: float) -> Array[Dictionary]:
 			"TROCA DE LADO":
 				desired = (180.0 if i < 3 else 900.0) if mirror > 0 else (900.0 if i < 3 else 180.0)
 			"CHUVA CALMA":
-				desired = start_x
+				# Gentle wander so the opening coins are not all in one column.
+				desired = at + rng.randi_range(-2, 2) * 60.0
+			"PASSEIO":
+				desired = at + rng.randi_range(-3, 3) * 60.0
 		at = clampf(move_toward(at, desired, 180.0), 180.0, 900.0)
 		path.append(at)
 	for i in path.size():
@@ -122,8 +125,8 @@ func build_pattern(kind: String, start_x: float) -> Array[Dictionary]:
 
 func _plan() -> void:
 	var kind := "CHUVA CALMA"
-	if GameManager.elapsed > 8.0:
-		var options := ["ARCO", "ZIGUE-ZAGUE", "CORREDOR", "TROCA DE LADO"]
+	if GameManager.elapsed > GameManager.calm_time():
+		var options := ["ARCO", "ZIGUE-ZAGUE", "CORREDOR", "TROCA DE LADO", "PASSEIO"]
 		options.erase(last_pattern)
 		kind = options[rng.randi_range(0, options.size() - 1)]
 	# Patterns are queued ahead so bombs can see where future coins will land.
@@ -197,7 +200,8 @@ func pick_bomb() -> Dictionary:
 	bomb_arrivals.assign(bomb_arrivals.filter(func(b): return b.arrive > time))
 	for attempt in 10:
 		var fall := rng.randf_range(lerpf(1.6, 1.25, p), lerpf(2.5, 1.9, p)) / speed
-		var drift := 0.0 if rng.randf() < 0.5 else rng.randf_range(-110.0, 110.0)
+		var push: float = GameManager.MODE_DRIFT[GameManager.mode]
+		var drift := 0.0 if rng.randf() < 0.5 else rng.randf_range(-push, push)
 		var land := rng.randf_range(BOMB_MIN_X, BOMB_MAX_X)
 		var start := clampf(land - drift * fall, BOMB_MIN_X, BOMB_MAX_X)
 		land = start + drift * fall
