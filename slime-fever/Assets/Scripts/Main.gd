@@ -28,9 +28,11 @@ var replay_button: Button
 var shop_button: Button
 var shop_close_button: Button
 var shop_buttons: Dictionary = {}
-const SHOP_TABS := {"upgrades": "MELHORAR", "items": "ITENS", "powers": "PODERES", "skins": "VISUAL"}
+const SHOP_TABS := {"items": "ITENS", "skins": "VISUAL"}
 var shop_tabs: Dictionary = {}
-var shop_tab: String = "upgrades"
+var shop_tab: String = "items"
+var destiny_board: Control
+var destiny_button: Button
 var run_shop_panel: Control
 var run_shop_continue: Button
 var shield_icon: TextureRect
@@ -639,8 +641,10 @@ func _show_menu() -> void:
 	shop_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	shop_row.add_theme_constant_override("separation", 24)
 	content.add_child(shop_row)
-	shop_button = HudKit.button("LOJA", "frame", Vector2(300, 140), _show_shop, 48)
+	shop_button = HudKit.button("LOJA", "frame", Vector2(240, 140), _show_shop, 40)
 	shop_row.add_child(shop_button)
+	destiny_button = HudKit.button("DESTINO", "gold", Vector2(260, 140), _show_destiny, 40)
+	shop_row.add_child(destiny_button)
 	var wallet_row := HudKit.icon_row(coin_frames[0], 2.0, "", 48, HudKit.GOLD)
 	menu_wallet_label = wallet_row.get_child(1)
 	shop_row.add_child(wallet_row)
@@ -656,7 +660,7 @@ func _refresh_modes() -> void:
 	for i in mode_buttons.size():
 		HudKit.apply_skin(mode_buttons[i], "gold" if i == GameManager.mode else "square")
 	menu_best_label.text = "RECORDE %d" % GameManager.best if GameManager.best > 0 else "SEM RECORDE AINDA"
-	menu_wallet_label.text = str(GameManager.wallet)
+	menu_wallet_label.text = GameManager.big_number(GameManager.wallet)
 
 func _powerup_collected(kind: String) -> void:
 	if kind == "magnet":
@@ -694,7 +698,7 @@ func _show_shop() -> void:
 	content.add_child(tabs)
 	shop_tabs.clear()
 	for tab in SHOP_TABS:
-		var tab_button := HudKit.button(SHOP_TABS[tab], "square", Vector2(150, 100), _select_shop_tab.bind(tab), 32)
+		var tab_button := HudKit.button(SHOP_TABS[tab], "square", Vector2(260, 100), _select_shop_tab.bind(tab), 40)
 		tabs.add_child(tab_button)
 		shop_tabs[tab] = tab_button
 	var scroll := ScrollContainer.new()
@@ -721,14 +725,6 @@ func _fill_shop() -> void:
 		child.queue_free()
 	shop_buttons.clear()
 	match shop_tab:
-		"upgrades":
-			for id in GameManager.UPGRADES:
-				var info: Dictionary = GameManager.UPGRADES[id]
-				var cost := GameManager.price(id)
-				var buy := _shop_row(load(info.icon), info.name, _upgrade_effect(id, GameManager.upgrade_level(id)),
-					"MÁX" if cost < 0 else str(cost), "gold", GameManager.can_buy(id), _buy.bind(id))
-				_add_pips(buy.get_parent().get_child(1), GameManager.upgrade_level(id), GameManager.max_level(id))
-				shop_buttons[id] = buy
 		"items":
 			for id in GameManager.ITEMS:
 				var info: Dictionary = GameManager.ITEMS[id]
@@ -737,15 +733,6 @@ func _fill_shop() -> void:
 				shop_buttons[id] = _shop_row(load(info.icon), info.name, "%s  (%d/%d)" % [info.info, have, info.max],
 					"CHEIO" if full else str(info.price), "gold", GameManager.can_buy_item(id), _buy_item.bind(id))
 			shop_list.add_child(HudKit.label("Usados sozinhos ao começar a partida", 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER))
-		"powers":
-			# Abilities won from bosses; locked ones name the boss that drops them.
-			for boss in GameManager.BOSSES:
-				var id: String = boss.ability
-				var info: Dictionary = GameManager.ABILITIES[id]
-				var owned := GameManager.has_ability(id)
-				_shop_row(load(info.icon), info.name, info.info if owned else "Derrote: " + boss.name.capitalize(),
-					"ATIVO" if owned else "?", "primary", false, func(): pass)
-			shop_list.add_child(HudKit.label("Melhor zona: %d" % (GameManager.best_zone + 1), 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER))
 		"skins":
 			for id in GameManager.SKINS:
 				var info: Dictionary = GameManager.SKINS[id]
@@ -792,44 +779,11 @@ func _shop_row(icon: Texture2D, title: String, detail: String, action: String, s
 	row.add_child(button)
 	return button
 
-func _add_pips(text: VBoxContainer, lv: int, top: int) -> void:
-	var pips := HBoxContainer.new()
-	pips.add_theme_constant_override("separation", 8)
-	text.add_child(pips)
-	for i in top:
-		var pip := ColorRect.new()
-		pip.custom_minimum_size = Vector2(36, 16)
-		pip.color = HudKit.GOLD if i < lv else Color(1, 1, 1, 0.18)
-		pips.add_child(pip)
-
-## Current value and, when not maxed, the next one.
-func _upgrade_effect(id: String, lv: int) -> String:
-	var values := []
-	for at in [lv, lv + 1]:
-		match id:
-			"magnet":
-				values.append("%.1fs" % GameManager.magnet_duration(at))
-			"fever":
-				values.append("%.1fs" % GameManager.fever_duration(at))
-			"luck":
-				values.append("a cada %ds" % roundi(GameManager.powerup_gap(at)))
-			"reach":
-				values.append("+%d%% coleta" % roundi((GameManager.reach_scale(at) - 1.0) * 100.0))
-			"speed":
-				values.append("+%d%% veloc." % roundi((GameManager.speed_bonus(at) - 1.0) * 100.0))
-	if lv >= GameManager.max_level(id):
-		return values[0] + "  (máx)"
-	return values[0] + " -> " + values[1]
-
 func _shop_bought() -> void:
 	_tone(990, 0.1, 0.2)
 	_tone(1480, 0.14, 0.18)
 	_fill_shop()
 	HudKit.pop(shop_wallet_label, 1.2)
-
-func _buy(id: String) -> void:
-	if GameManager.buy(id):
-		_shop_bought()
 
 func _buy_item(id: String) -> void:
 	if GameManager.buy_item(id):
@@ -843,6 +797,25 @@ func _pick_skin(id: String) -> void:
 	elif GameManager.buy_skin(id):
 		_shop_bought()
 	$Player.apply_skin()
+
+func _show_destiny() -> void:
+	if is_instance_valid(destiny_board):
+		return
+	if is_instance_valid(menu_panel):
+		menu_panel.hide()
+	destiny_board = preload("res://Assets/Scripts/DestinyBoard.gd").new()
+	destiny_board.closed.connect(_close_destiny)
+	destiny_board.bought.connect(func(_id):
+		_tone(990, 0.1, 0.2)
+		_tone(1480, 0.14, 0.18))
+	ui.add_child(destiny_board)
+
+func _close_destiny() -> void:
+	if is_instance_valid(destiny_board):
+		destiny_board.queue_free()
+	if is_instance_valid(menu_panel):
+		menu_panel.show()
+	_refresh_modes()
 
 func _close_shop() -> void:
 	if is_instance_valid(shop_panel):
@@ -1156,13 +1129,15 @@ func _start_game() -> void:
 	best_before_run = GameManager.best
 	if is_instance_valid(shop_panel):
 		shop_panel.queue_free()
+	if is_instance_valid(destiny_board):
+		destiny_board.queue_free()
 	if is_instance_valid(menu_panel):
 		menu_panel.hide()
 		menu_panel.queue_free()
 	GameManager.started = true
 	var used := GameManager.apply_start_items()
 	if not used.is_empty():
-		_banner(" + ".join(used.map(func(id): return GameManager.ITEMS[id].name)), HudKit.MINT)
+		_banner(" + ".join(used), HudKit.MINT)
 
 func _exit_tree() -> void:
 	for audio in sounds:

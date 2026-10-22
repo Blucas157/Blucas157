@@ -46,14 +46,31 @@ const MAX_SPEED := 1.45
 const COIN_TOP := [40, 75, 100]
 # Shop: every collected coin adds 1 to the saved wallet the moment it is caught.
 # New entries only need a line here plus whatever reads them.
-# Permanent upgrades, 5 levels each.
-const UPGRADES := {
-	"magnet": {"name": "ÍMÃ", "icon": "res://Assets/UI/icon_magnet.png", "prices": [60, 150, 300, 500, 800]},
-	"fever": {"name": "FEBRE", "icon": "res://Assets/UI/icon_fever.png", "prices": [80, 180, 350, 600, 900]},
-	"luck": {"name": "SORTE", "icon": "res://Assets/UI/icon_luck.png", "prices": [70, 160, 320, 550, 850]},
-	"reach": {"name": "ALCANCE", "icon": "res://Assets/UI/icon_reach.png", "prices": [50, 120, 250, 450, 700]},
-	"speed": {"name": "AGILIDADE", "icon": "res://Assets/UI/icon_speed.png", "prices": [60, 140, 280, 480, 750]},
+# Destiny board (Albion style): three branches of nodes with up to DESTINY_MAX levels.
+# A node opens when its parent reaches DESTINY_UNLOCK; boss nodes also need that boss beaten.
+# "pos" is the node's spot on the 1080x1920 board screen.
+const DESTINY_MAX := 25
+const DESTINY_UNLOCK := 5
+const DESTINY_GROWTH := 1.17
+const DESTINY := {
+	"reach": {"name": "ALCANCE", "icon": "res://Assets/UI/icon_reach.png", "parent": "", "cost": 30, "pos": Vector2(210, 1250), "info": "Pega moedas de mais longe"},
+	"speed": {"name": "AGILIDADE", "icon": "res://Assets/UI/icon_speed.png", "parent": "reach", "cost": 45, "pos": Vector2(210, 1010), "info": "Slime mais rápido"},
+	"value": {"name": "VALOR", "icon": "res://Assets/UI/icon_value.png", "parent": "speed", "cost": 70, "pos": Vector2(210, 770), "info": "Moedas valem mais pontos e chance de moeda extra"},
+	"golden_fever": {"name": "FEBRE DOURADA", "icon": "res://Assets/UI/icon_fever.png", "parent": "value", "cost": 150, "boss": 2, "pos": Vector2(210, 530), "info": "Na febre, moedas na carteira valem mais"},
+	"fever": {"name": "FEBRE", "icon": "res://Assets/UI/icon_fever.png", "parent": "", "cost": 35, "pos": Vector2(540, 1250), "info": "Febre dura mais"},
+	"luck": {"name": "SORTE", "icon": "res://Assets/UI/icon_luck.png", "parent": "fever", "cost": 50, "pos": Vector2(540, 1010), "info": "Ímãs aparecem mais vezes"},
+	"magnet": {"name": "ÍMÃ", "icon": "res://Assets/UI/icon_magnet.png", "parent": "luck", "cost": 60, "pos": Vector2(540, 770), "info": "Ímã dura mais e puxa de mais longe"},
+	"auto_magnet": {"name": "ÍMÃ AUTOMÁTICO", "icon": "res://Assets/UI/icon_magnet.png", "parent": "magnet", "cost": 150, "boss": 1, "pos": Vector2(540, 530), "info": "Liga o ímã sozinho de tempos em tempos"},
+	"shield": {"name": "ESCUDO", "icon": "res://Assets/UI/icon_shield.png", "parent": "", "cost": 40, "pos": Vector2(870, 1250), "info": "Chance de começar com escudo"},
+	"resist": {"name": "RESISTÊNCIA", "icon": "res://Assets/UI/icon_resist.png", "parent": "shield", "cost": 55, "pos": Vector2(870, 1010), "info": "Chance de não perder o combo ao errar"},
+	"treasure": {"name": "TESOURO", "icon": "res://Assets/UI/chest.png", "parent": "resist", "cost": 70, "pos": Vector2(870, 770), "info": "Baús dos chefões com mais moedas"},
+	"revive": {"name": "SEGUNDA CHANCE", "icon": "res://Assets/UI/icon_shield.png", "parent": "treasure", "cost": 150, "boss": 0, "pos": Vector2(870, 530), "info": "Sobrevive a bombas por partida"},
 }
+const BRANCHES := [
+	{"name": "COLETA", "color": Color("8ff0a8")},
+	{"name": "PODER", "color": Color("ffd45c")},
+	{"name": "SOBREVIVÊNCIA", "color": Color("8fd8ff")},
+]
 # Bought in the menu shop, used up automatically when the next run starts.
 const ITEMS := {
 	"start_shield": {"name": "ESCUDO INICIAL", "icon": "res://Assets/UI/icon_shield.png", "price": 60, "max": 3, "info": "Começa com escudo"},
@@ -96,7 +113,8 @@ var bests: Array[int] = [0, 0, 0]
 var mode: int = 1
 var level: int = 0
 var wallet: int = 0
-var upgrades: Dictionary = {}
+# Destiny node levels.
+var destiny: Dictionary = {}
 var items: Dictionary = {}
 var skins_owned: Array = ["verde"]
 var skin: String = "verde"
@@ -114,7 +132,7 @@ var boss_index: int = 0
 var boss_hp: int = 0
 var boss_max: int = 0
 var boss_left: float = 0.0
-var revive_used: bool = false
+var revives_used: int = 0
 var auto_magnet_clock: float = AUTO_MAGNET_GAP
 var coins: int = 0
 var muted: bool = false
@@ -130,8 +148,12 @@ func _ready() -> void:
 		muted = bool(save.get_value("settings", "muted", false))
 		mode = clampi(int(save.get_value("settings", "mode", 1)), 0, MODES.size() - 1)
 		wallet = maxi(0, int(save.get_value("progress", "wallet", 0)))
-		for id in UPGRADES:
-			upgrades[id] = clampi(int(save.get_value("upgrades", id, 0)), 0, UPGRADES[id].prices.size())
+		for id in DESTINY:
+			destiny[id] = clampi(int(save.get_value("destiny", id, 0)), 0, DESTINY_MAX)
+		# Saves from the 5-level shop: each old level is worth 3 board levels.
+		if not save.has_section("destiny") and save.has_section("upgrades"):
+			for id in ["reach", "speed", "fever", "luck", "magnet"]:
+				destiny[id] = clampi(int(save.get_value("upgrades", id, 0)) * 3, 0, DESTINY_MAX)
 		for id in ITEMS:
 			items[id] = clampi(int(save.get_value("items", id, 0)), 0, ITEMS[id].max)
 		for id in save.get_value("skins", "owned", ["verde"]):
@@ -199,7 +221,7 @@ func hit_boss() -> void:
 
 func _defeat_boss() -> void:
 	boss_active = false
-	var chest := 60 * (zone + 1)
+	var chest := roundi(60 * (zone + 1) * treasure_bonus())
 	wallet += chest
 	earned += chest
 	var ability: String = BOSSES[boss_index].ability
@@ -213,37 +235,92 @@ func _defeat_boss() -> void:
 	wallet_changed.emit(wallet)
 	boss_defeated.emit(chest, ability)
 
-## SEGUNDA CHANCE: the first lethal bomb of a run is survived.
+## SEGUNDA CHANCE: lethal bombs survived per run, more with its board level.
 func use_revive() -> bool:
-	if not has_ability("revive") or revive_used:
+	if not has_ability("revive") or revives_used >= revive_count():
 		return false
-	revive_used = true
+	revives_used += 1
 	grace_left = 2.0
 	revived.emit()
 	return true
 
 func upgrade_level(id: String) -> int:
-	return upgrades.get(id, 0)
+	return destiny.get(id, 0)
 
-func max_level(id: String) -> int:
-	return UPGRADES[id].prices.size()
+## "open", "max", "locked" (parent below DESTINY_UNLOCK) or "boss" (boss not beaten yet).
+func destiny_state(id: String) -> String:
+	var node: Dictionary = DESTINY[id]
+	if node.has("boss") and not has_ability(id):
+		return "boss"
+	if node.parent != "" and upgrade_level(node.parent) < DESTINY_UNLOCK:
+		return "locked"
+	return "max" if upgrade_level(id) >= DESTINY_MAX else "open"
 
 ## Price of the next level, or -1 when maxed.
-func price(id: String) -> int:
+func destiny_cost(id: String) -> int:
 	var lv := upgrade_level(id)
-	return UPGRADES[id].prices[lv] if lv < max_level(id) else -1
+	if lv >= DESTINY_MAX:
+		return -1
+	return roundi(DESTINY[id].cost * pow(DESTINY_GROWTH, lv))
 
-func can_buy(id: String) -> bool:
-	var cost := price(id)
-	return cost >= 0 and wallet >= cost
+func destiny_can_buy(id: String) -> bool:
+	return destiny_state(id) == "open" and wallet >= destiny_cost(id)
 
-func buy(id: String) -> bool:
-	if not can_buy(id):
+func destiny_buy(id: String) -> bool:
+	if not destiny_can_buy(id):
 		return false
-	_spend(price(id))
-	upgrades[id] = upgrade_level(id) + 1
+	_spend(destiny_cost(id))
+	destiny[id] = upgrade_level(id) + 1
 	save_progress()
 	return true
+
+## Effect of a node at a level, as shown on the board ("8,0s", "+12% coleta").
+func destiny_effect(id: String, lv: int) -> String:
+	var pct := func(v: float) -> String: return "+%d%%" % roundi(v * 100.0)
+	var sec := func(v: float) -> String: return ("%.1fs" % v).replace(".", ",")
+	match id:
+		"reach":
+			return pct.call(reach_scale(lv) - 1.0) + " alcance"
+		"speed":
+			return pct.call(speed_bonus(lv) - 1.0) + " velocidade"
+		"value":
+			return pct.call(value_bonus(lv) - 1.0) + " pontos"
+		"golden_fever":
+			return ("x%.2f" % golden_fever_bonus(lv)).replace(".", ",") + " na febre"
+		"fever":
+			return sec.call(fever_duration(lv)) + " de febre"
+		"luck":
+			return "ímã a cada " + sec.call(powerup_gap(lv))
+		"magnet":
+			return sec.call(magnet_duration(lv)) + " de ímã"
+		"auto_magnet":
+			return "a cada " + sec.call(auto_magnet_gap(lv))
+		"shield":
+			return pct.call(shield_chance(lv)) + " de chance"
+		"resist":
+			return pct.call(resist_chance(lv)) + " de chance"
+		"treasure":
+			return pct.call(treasure_bonus(lv) - 1.0) + " no baú"
+		"revive":
+			return "%d por partida" % revive_count(lv)
+	return ""
+
+## Board-wide progress, for the menu.
+func destiny_total() -> int:
+	var total := 0
+	for id in DESTINY:
+		total += upgrade_level(id)
+	return total
+
+## 1234 -> "1,2 mil", 2500000 -> "2,5 mi" for the incremental numbers.
+static func big_number(value: int) -> String:
+	if value >= 1000000:
+		return ("%.1f mi" % (value / 1000000.0)).replace(".", ",")
+	if value >= 10000:
+		return "%d mil" % (value / 1000)
+	if value >= 1000:
+		return ("%.1f mil" % (value / 1000.0)).replace(".", ",")
+	return str(value)
 
 func _spend(amount: int) -> void:
 	wallet -= amount
@@ -263,17 +340,20 @@ func buy_item(id: String) -> bool:
 	save_progress()
 	return true
 
-## Uses one of each stocked start item; returns the ids that were used.
+## Uses one of each stocked start item; returns the names to announce.
 func apply_start_items() -> Array:
 	var used := []
 	if item_count("start_shield") > 0:
 		items["start_shield"] -= 1
 		shield = 1
-		used.append("start_shield")
+		used.append(ITEMS.start_shield.name)
+	elif randf() < shield_chance():
+		shield = 1
+		used.append("ESCUDO DA SORTE")
 	if item_count("start_magnet") > 0:
 		items["start_magnet"] -= 1
 		magnet_left = magnet_duration()
-		used.append("start_magnet")
+		used.append(ITEMS.start_magnet.name)
 	if not used.is_empty():
 		save_progress()
 	return used
@@ -338,26 +418,53 @@ func equip_skin(id: String) -> void:
 func skin_hue() -> float:
 	return SKINS[skin].hue
 
+func _lv(id: String, lv: int) -> int:
+	return upgrade_level(id) if lv < 0 else lv
+
 ## Coin pickup radius multiplier.
 func reach_scale(lv: int = -1) -> float:
-	return 1.0 + 0.15 * (upgrade_level("reach") if lv < 0 else lv)
+	return 1.0 + 0.04 * _lv("reach", lv)
 
 func speed_bonus(lv: int = -1) -> float:
-	return 1.0 + 0.05 * (upgrade_level("speed") if lv < 0 else lv)
+	return 1.0 + 0.012 * _lv("speed", lv)
+
+## Coin points multiplier; also the chance (value_bonus - 1) * 0.6 of one extra wallet coin.
+func value_bonus(lv: int = -1) -> float:
+	return 1.0 + 0.05 * _lv("value", lv)
 
 func fever_duration(lv: int = -1) -> float:
-	return BASE_FEVER + 0.8 * (upgrade_level("fever") if lv < 0 else lv)
-
-func magnet_duration(lv: int = -1) -> float:
-	return BASE_MAGNET + 1.5 * (upgrade_level("magnet") if lv < 0 else lv)
-
-## Horizontal reach of the pull, in game pixels.
-func magnet_radius(lv: int = -1) -> float:
-	return 240.0 + 45.0 * (upgrade_level("magnet") if lv < 0 else lv)
+	return BASE_FEVER + 0.2 * _lv("fever", lv)
 
 ## Seconds between power-ups on the coin route.
 func powerup_gap(lv: int = -1) -> float:
-	return BASE_POWERUP_GAP * pow(0.84, upgrade_level("luck") if lv < 0 else lv)
+	return BASE_POWERUP_GAP * pow(0.96, _lv("luck", lv))
+
+func magnet_duration(lv: int = -1) -> float:
+	return BASE_MAGNET + 0.4 * _lv("magnet", lv)
+
+## Horizontal reach of the pull, in game pixels.
+func magnet_radius(lv: int = -1) -> float:
+	return 240.0 + 10.0 * _lv("magnet", lv)
+
+func auto_magnet_gap(lv: int = -1) -> float:
+	return maxf(15.0, AUTO_MAGNET_GAP - _lv("auto_magnet", lv))
+
+## Wallet multiplier while the fever lasts (FEBRE DOURADA).
+func golden_fever_bonus(lv: int = -1) -> float:
+	return 2.0 + 0.08 * _lv("golden_fever", lv)
+
+func shield_chance(lv: int = -1) -> float:
+	return 0.03 * _lv("shield", lv)
+
+## Chance that a missed coin keeps the combo.
+func resist_chance(lv: int = -1) -> float:
+	return 0.025 * _lv("resist", lv)
+
+func treasure_bonus(lv: int = -1) -> float:
+	return 1.0 + 0.08 * _lv("treasure", lv)
+
+func revive_count(lv: int = -1) -> int:
+	return 1 + _lv("revive", lv) / 10
 
 func collect_powerup(kind: String) -> void:
 	if ended or not started:
@@ -377,7 +484,7 @@ func coin_tier() -> int:
 	return 1 if fever_count >= 3 else 0
 
 func coin_points() -> int:
-	return roundi(COIN_TOP[coin_tier()] * multiplier / 4.0 * zone_bonus())
+	return roundi(COIN_TOP[coin_tier()] * multiplier / 4.0 * zone_bonus() * value_bonus())
 
 func _process(delta: float) -> void:
 	if ended or not started:
@@ -389,7 +496,7 @@ func _process(delta: float) -> void:
 	if has_ability("auto_magnet"):
 		auto_magnet_clock -= delta
 		if auto_magnet_clock <= 0.0:
-			auto_magnet_clock = AUTO_MAGNET_GAP
+			auto_magnet_clock = auto_magnet_gap()
 			magnet_left = maxf(magnet_left, magnet_duration())
 			powerup_collected.emit("magnet")
 	if boss_active:
@@ -407,8 +514,10 @@ func collect_coin() -> int:
 		return 0
 	coins += 1
 	var gain := (2 if double_left > 0.0 else 1) * (1 + zone)
+	if randf() < (value_bonus() - 1.0) * 0.6:
+		gain += 1
 	if fever_left > 0.0 and has_ability("golden_fever"):
-		gain *= 2
+		gain = roundi(gain * golden_fever_bonus())
 	earned += gain
 	wallet += gain
 	wallet_changed.emit(wallet)
@@ -430,7 +539,7 @@ func collect_coin() -> int:
 	return points
 
 func miss_coin() -> void:
-	if started and not ended and fever_left <= 0.0:
+	if started and not ended and fever_left <= 0.0 and randf() >= resist_chance():
 		combo = 0
 		multiplier = 1
 
@@ -464,8 +573,8 @@ func save_progress() -> void:
 	save.set_value("settings", "muted", muted)
 	save.set_value("settings", "mode", mode)
 	save.set_value("progress", "wallet", wallet)
-	for id in UPGRADES:
-		save.set_value("upgrades", id, upgrade_level(id))
+	for id in DESTINY:
+		save.set_value("destiny", id, upgrade_level(id))
 	for id in ITEMS:
 		save.set_value("items", id, item_count(id))
 	save.set_value("skins", "owned", skins_owned)
@@ -496,8 +605,8 @@ func reset_game() -> void:
 	boss_active = false
 	boss_hp = 0
 	boss_left = 0.0
-	revive_used = false
-	auto_magnet_clock = AUTO_MAGNET_GAP
+	revives_used = 0
+	auto_magnet_clock = auto_magnet_gap()
 
 func update_ui() -> void:
 	score_changed.emit(score)

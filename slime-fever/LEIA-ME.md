@@ -1,9 +1,19 @@
-# Slime Fever — v0.16
+# Slime Fever — v0.17
 
 ## Abrir o jogo
 Use Godot 4.7.2. Extraia o ZIP pelo Windows em uma pasta nova e importe o arquivo project.godot; aguarde a importação dos PNGs e pressione F5. Este pacote contém o projeto-fonte, não APK, executável nem build Web. O ZIP possui pastas explícitas e project.godot na raiz.
 
 Na abertura, clique/toque em JOGAR ou pressione Enter. Segure as setas na tela ou use A/D e setas do teclado. II/Esc pausa; CONTINUAR retoma. SOM/MUDO alterna efeitos sonoros. Ao perder foco, uma partida em andamento pausa.
+
+## v0.17 — Painel de Destino (fase 2 do incremental)
+- Novo botão DESTINO no menu abre o Painel de Destino, estilo Albion: um mapa de nós a partir do slime, em 3 ramos (COLETA, PODER e SOBREVIVÊNCIA), cada nó com até 25 níveis.
+  - COLETA: ALCANCE (+4% de área por nível), AGILIDADE (+1,2% de velocidade), VALOR (novo: +5% de pontos por moeda e chance de moeda extra na carteira) e FEBRE DOURADA.
+  - PODER: FEBRE (+0,2 s), SORTE (ímãs 4% mais frequentes), ÍMÃ (+0,4 s e mais alcance) e ÍMÃ AUTOMÁTICO (intervalo cai de 40 s até 15 s).
+  - SOBREVIVÊNCIA: ESCUDO (novo: +3% de chance de começar com escudo), RESISTÊNCIA (novo: +2,5% de chance de não perder o combo ao errar uma moeda), TESOURO (novo: +8% no baú dos chefões) e SEGUNDA CHANCE (1, 2 ou 3 por partida nos níveis 0, 10 e 20).
+- Regra de desbloqueio: um nó abre quando o nó abaixo dele chega ao nível 5. Os nós de chefão (topo de cada ramo) também precisam do chefão derrotado. As linhas acendem na cor do ramo conforme abrem.
+- Custo sobe 17% a cada nível (o primeiro nível custa de 30 a 150 moedas conforme o nó). Valores grandes aparecem como "1,2 mil".
+- Progresso antigo convertido: cada nível de upgrade da loja antiga vira 3 níveis no painel. A loja agora tem ITENS e VISUAL; melhorias e poderes ficam no painel.
+- Ícones novos de VALOR e RESISTÊNCIA (PixelLab). Novo teste Tests/verify_destiny.gd.
 
 ## v0.16 — Chefões animados e efeitos VFX
 - Animações PixelLab (animate-with-text-v3, 9 quadros de 128 px) para os 3 chefões: arremesso, dano e morte (Assets/Boss/boss{1,2,3}_{throw,hurt,death}.png).
@@ -73,14 +83,14 @@ Na abertura, clique/toque em JOGAR ou pressione Enter. Segure as setas na tela o
 - Novo teste Tests/verify_modes.gd; o teste da chuva agora cobre os três modos e todos os níveis (7.793 bombas auditadas).
 
 ## Versão Web (itch.io)
-Zip pronto em releases/SlimeFever-web-v0.16.zip (index.html na raiz, versão sem threads, que roda no itch.io sem configuração extra). Para gerar de novo, com os templates Web do Godot 4.7.2 instalados:
+Zip pronto em releases/SlimeFever-web-v0.17.zip (index.html na raiz, versão sem threads, que roda no itch.io sem configuração extra). Para gerar de novo, com os templates Web do Godot 4.7.2 instalados:
 
     godot --headless --path . --export-release "Web" ../web/index.html
 
 No itch.io: Kind of project = HTML, enviar o zip e marcar "This file will be played in the browser"; Viewport 450 x 800, "Mobile friendly" (orientação retrato) e "Fullscreen button".
 
 ## APK Android
-O APK pronto fica em releases/SlimeFever-v0.16.apk na raiz do repositório (arm64 e armv7, Android 7+ recomendado). Para gerar de novo: Godot 4.7.2 com os templates de exportação, apksigner do Android SDK e uma keystore; preset "Android" em export_presets.cfg (pacote com.blucas157.slimefever, sem Gradle, ícone em Assets/Icon/).
+O APK pronto fica em releases/SlimeFever-v0.17.apk na raiz do repositório (arm64 e armv7, Android 7+ recomendado). Para gerar de novo: Godot 4.7.2 com os templates de exportação, apksigner do Android SDK e uma keystore; preset "Android" em export_presets.cfg (pacote com.blucas157.slimefever, sem Gradle, ícone em Assets/Icon/).
 
     godot --headless --path . --export-release "Android" ../releases/SlimeFever.apk
 

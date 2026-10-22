@@ -64,7 +64,7 @@ func run_tests() -> void:
 	bomb.position = player.position
 	scene.add_child(bomb)
 	bomb._on_area_entered(player)
-	check(not gm.ended and gm.revive_used and gm.grace_left > 0.0, "second chance saves the slime once")
+	check(not gm.ended and gm.revives_used == 1 and gm.grace_left > 0.0, "second chance saves the slime once")
 	# Auto magnet and golden fever.
 	gm.abilities.append("auto_magnet")
 	gm.magnet_left = 0.0
@@ -84,6 +84,6 @@ func run_tests() -> void:
 	gm.end_game()
 	scene._restart()
 	await process_frame
-	check(gm.zone == 0 and not gm.boss_active and not scene.boss_sprite.visible and not gm.revive_used, "replay resets zone and boss")
+	check(gm.zone == 0 and not gm.boss_active and not scene.boss_sprite.visible and gm.revives_used == 0, "replay resets zone and boss")
 	print("BOSS: %d failures; boss timing, throw-back, victory rewards, zones, escape, powers, save" % failures)
 	quit(1 if failures else 0)

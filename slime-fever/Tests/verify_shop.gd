@@ -9,28 +9,19 @@ func check(ok: bool, label: String) -> void:
 func run_tests() -> void:
 	var gm = root.get_node("GameManager")
 	gm.save_path = OS.get_environment("SLIME_TEST_SAVE") if OS.has_environment("SLIME_TEST_SAVE") else "user://test-shop-save.cfg"
-	for id in gm.UPGRADES:
-		gm.upgrades[id] = 0
-	# Buying: needs enough coins, spends them, stops at the max level.
-	gm.wallet = 10
-	check(not gm.can_buy("magnet") and not gm.buy("magnet") and gm.wallet == 10, "cannot buy without coins")
-	gm.wallet = 5000
-	check(gm.buy("magnet") and gm.upgrade_level("magnet") == 1 and gm.wallet == 5000 - 60, "first magnet level costs 60")
-	while gm.buy("magnet"):
-		pass
-	check(gm.upgrade_level("magnet") == gm.max_level("magnet") and gm.price("magnet") == -1, "magnet stops at max level")
-	check(gm.wallet == 5000 - 60 - 150 - 300 - 500 - 800, "all magnet levels charged once")
-	# Effects grow with the level.
-	check(gm.magnet_duration(5) > gm.magnet_duration(0) and gm.magnet_radius(5) > gm.magnet_radius(0), "magnet upgrades last longer and reach farther")
+	for id in gm.DESTINY:
+		gm.destiny[id] = 0
+	# Board effects grow with the level (buying is covered by verify_destiny.gd).
+	check(gm.magnet_duration(5) > gm.magnet_duration(0) and gm.magnet_radius(5) > gm.magnet_radius(0), "magnet levels last longer and reach farther")
 	check(gm.powerup_gap(5) < gm.powerup_gap(0), "luck makes power-ups more frequent")
-	gm.upgrades["fever"] = 2
+	gm.destiny["fever"] = 2
 	gm.reset_game()
 	gm.started = true
 	var before: int = gm.wallet
 	for i in 20:
 		gm.collect_coin()
 	check(gm.wallet == before + 20 and gm.earned == 20, "each caught coin goes straight to the wallet")
-	check(is_equal_approx(gm.fever_left, gm.BASE_FEVER + 1.6), "fever upgrade lengthens the fever")
+	check(is_equal_approx(gm.fever_left, gm.fever_duration(2)) and gm.fever_duration(2) > gm.BASE_FEVER, "fever level lengthens the fever")
 	gm.collect_powerup("magnet")
 	check(is_equal_approx(gm.magnet_left, gm.magnet_duration()), "magnet power-up starts its timer")
 	gm.end_game()
@@ -38,7 +29,7 @@ func run_tests() -> void:
 	check(gm.wallet == before + 20, "ending the run does not count coins twice")
 	# Saved and loaded back.
 	var save := ConfigFile.new()
-	check(save.load(gm.save_path) == OK and int(save.get_value("progress", "wallet")) == gm.wallet and int(save.get_value("upgrades", "magnet")) == 5 and int(save.get_value("upgrades", "fever")) == 2, "wallet and upgrades saved")
+	check(save.load(gm.save_path) == OK and int(save.get_value("progress", "wallet")) == gm.wallet and int(save.get_value("destiny", "fever")) == 2, "wallet and board levels saved")
 	# Magnet pulls a nearby coin sideways toward the slime, and not a far one.
 	var scene = load("res://Assets/Cenas/main.tscn").instantiate()
 	root.add_child(scene)
@@ -76,15 +67,15 @@ func run_tests() -> void:
 	scene._back_to_menu()
 	await process_frame
 	gm.wallet = 1000
-	gm.upgrades["luck"] = 0
+	gm.items["start_magnet"] = 0
 	scene._show_shop()
 	await process_frame
-	scene._buy("luck")
+	scene._buy_item("start_magnet")
 	await process_frame
-	check(gm.upgrade_level("luck") == 1 and gm.wallet == 930 and scene.shop_wallet_label.text == "930", "shop buys and refreshes")
+	check(gm.item_count("start_magnet") == 1 and gm.wallet == 960 and scene.shop_wallet_label.text == "960", "shop buys and refreshes")
 	scene._close_shop()
 	await process_frame
-	check(not is_instance_valid(scene.shop_panel) and scene.menu_wallet_label.text == "930", "shop closes and menu shows the wallet")
+	check(not is_instance_valid(scene.shop_panel) and scene.menu_wallet_label.text == "960", "shop closes and menu shows the wallet")
 	# Menu items: stocked, capped, used automatically at the next start.
 	scene._close_shop()
 	gm.wallet = 1000
@@ -128,7 +119,7 @@ func run_tests() -> void:
 	check(not is_instance_valid(scene.run_shop_panel) and not paused, "no mini-shop when nothing is affordable")
 	# Collecting upgrades.
 	check(gm.reach_scale(5) > gm.reach_scale(0) and gm.speed_bonus(5) > gm.speed_bonus(0), "reach and speed grow")
-	gm.upgrades["reach"] = 3
+	gm.destiny["reach"] = 12
 	var coin = load("res://Assets/Cenas/moeda.tscn").instantiate()
 	scene.add_child(coin)
 	check(coin.get_node("CollisionShape2D").shape.radius > 10.0 * 1.4, "reach widens the coin pickup")
