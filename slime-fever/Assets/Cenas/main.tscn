@@ -1,7 +1,5 @@
 [gd_scene format=3 uid="uid://dq0514nnguyty"]
 
-[ext_resource type="Texture2D" path="res://Assets/untitled (1).png" id="1_38v46"]
-[ext_resource type="Texture2D" path="res://Assets/original_art_2.png" id="2_38v46"]
 [ext_resource type="Script" path="res://Assets/Scripts/player.gd" id="3_38v46"]
 [ext_resource type="Texture2D" path="res://Assets/animations/slime_idle/south/frame_000.png" id="4_p6abg"]
 [ext_resource type="Texture2D" path="res://Assets/animations/slime_idle/south/frame_001.png" id="5_2gu1r"]
@@ -95,24 +93,6 @@ script = ExtResource("23_main")
 [node name="Cenario_Background" type="CanvasLayer" parent="." unique_id=678655187]
 layer = -1
 
-[node name="Fundo_Parede" type="TextureRect" parent="Cenario_Background" unique_id=1719868507]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -693.0
-offset_top = -1315.0
-offset_right = -571.095
-offset_bottom = -1240.7139
-grow_horizontal = 2
-grow_vertical = 2
-scale = Vector2(2.1, 2.1)
-texture = ExtResource("1_38v46")
-
-[node name="Chao_Visual" type="Sprite2D" parent="." unique_id=1991276153]
-position = Vector2(540, 1738)
-scale = Vector2(18, 12)
-texture = ExtResource("2_38v46")
-
 [node name="Player" type="Area2D" parent="." unique_id=1780505255]
 position = Vector2(540, 1640)
 scale = Vector2(7, 7)
@@ -139,14 +119,6 @@ one_shot = true
 autostart = true
 
 [node name="HUD" type="CanvasLayer" parent="." unique_id=217270002]
-
-[node name="ScoreLabel" type="Label" parent="HUD" unique_id=1323671920]
-offset_left = 416.0
-offset_top = 100.0
-offset_right = 688.0
-offset_bottom = 199.0
-theme_override_font_sizes/font_size = 72
-text = "Score: 0"
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1240859668]
 position = Vector2(544, 978)

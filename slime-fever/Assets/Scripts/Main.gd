@@ -19,6 +19,8 @@ var pause_button: Button
 var sound_button: Button
 var resume_button: Button
 var replay_button: Button
+var menu_button: Button
+var result_menu_button: Button
 var result_panel: Control
 var score_label: Label
 var best_label: Label
@@ -60,8 +62,6 @@ func _ready() -> void:
 	$Player.collision_layer = 1
 	$Player.collision_mask = 2
 	$Camera2D.position = Vector2(540, 960)
-	$Chao_Visual.hide()
-	$Cenario_Background/Fundo_Parede.hide()
 	var backdrop := TextureRect.new()
 	backdrop.texture = load("res://Assets/New/cave.png")
 	backdrop.size = Vector2(1080, 1920)
@@ -72,7 +72,6 @@ func _ready() -> void:
 	shade.size = Vector2(1080, 1920)
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	$Cenario_Background.add_child(shade)
-	$HUD/ScoreLabel.hide()
 	for i in COIN_FRAMES:
 		coin_frames.append(load("res://Assets/moeda/Moeda_%04d.png" % (i + 1)))
 	sound_icon = load("res://Assets/UI/icon_sound.png")
@@ -364,6 +363,8 @@ func _toggle_pause() -> void:
 		content.add_child(HudKit.label("PAUSADO", 96, HudKit.MINT, HORIZONTAL_ALIGNMENT_CENTER))
 		resume_button = _centered(HudKit.button("CONTINUAR", "primary", Vector2(620, 170), _toggle_pause, 64)) as Button
 		content.add_child(resume_button)
+		menu_button = _centered(HudKit.button("MENU PRINCIPAL", "frame", Vector2(620, 160), _back_to_menu, 48)) as Button
+		content.add_child(menu_button)
 		content.add_child(HudKit.label("ESC TAMBÉM CONTINUA", 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER))
 
 func _stat(row: HBoxContainer, value: String, caption: String) -> void:
@@ -449,9 +450,23 @@ func _show_result() -> void:
 		content.add_child(HudKit.label("Progresso só nesta sessão", 32, HudKit.CORAL, HORIZONTAL_ALIGNMENT_CENTER))
 	replay_button = _centered(HudKit.button("JOGAR DE NOVO", "gold", Vector2(680, 160), _restart, 64)) as Button
 	content.add_child(replay_button)
+	result_menu_button = _centered(HudKit.button("MENU PRINCIPAL", "frame", Vector2(680, 160), _back_to_menu, 48)) as Button
+	content.add_child(result_menu_button)
 	replay_button.grab_focus()
 
 func _restart() -> void:
+	_reset_run()
+	_start_game()
+
+## Leaves the current run (paused or finished) and shows the main menu.
+## An unfinished run is abandoned: its score does not count as a record.
+func _back_to_menu() -> void:
+	_reset_run()
+	if not is_instance_valid(menu_panel):
+		_show_menu()
+
+## Clears everything a run leaves behind, without starting a new one.
+func _reset_run() -> void:
 	for audio in sounds:
 		audio.stop()
 		audio.stream = null
@@ -477,7 +492,8 @@ func _restart() -> void:
 			node.queue_free()
 	if is_instance_valid(result_panel):
 		result_panel.queue_free()
-	_start_game()
+	if is_instance_valid(pause_panel):
+		pause_panel.queue_free()
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_node_ready() and GameManager.started and not GameManager.ended:

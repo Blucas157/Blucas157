@@ -58,6 +58,23 @@ func run_tests() -> void:
 		check(scene.get_node("Player").sprite.position == Vector2.ZERO, "visual reset")
 	check(get_nodes_in_group("direction_buttons").size() == 2, "no duplicate controls")
 	check(gm.fever_started.get_connections().size() == 3, "no duplicate signal connections")
+	# Back to the main menu from the pause screen and from the result screen.
+	scene._toggle_pause()
+	await tap(scene.menu_button)
+	await process_frame
+	check(not paused and not gm.started and is_instance_valid(scene.menu_panel) and scene.menu_panel.visible, "pause menu button opens main menu")
+	check(not is_instance_valid(scene.pause_panel) or scene.pause_panel.is_queued_for_deletion(), "pause card closed")
+	check(scene.get_children().filter(func(n): return n is Area2D and n != scene.get_node("Player") and not n.is_queued_for_deletion()).is_empty(), "falling items cleared")
+	await tap(scene.play_button)
+	check(gm.started and not gm.ended, "play again from menu")
+	gm.end_game()
+	await create_timer(scene.RESULT_DELAY + 0.2).timeout
+	await tap(scene.result_menu_button)
+	await process_frame
+	check(not gm.started and is_instance_valid(scene.menu_panel) and not is_instance_valid(scene.result_panel), "result menu button opens main menu")
+	await tap(scene.play_button)
+	check(gm.started and gm.score == 0, "new run after result menu")
+	check(get_nodes_in_group("direction_buttons").size() == 2, "no duplicate controls after menu trips")
 	print("FLOW: %d failures; touch GUI, menu, stats, audio and 20 replays" % failures)
 	quit(1 if failures else 0)
 
