@@ -3,8 +3,13 @@ extends Area2D
 @export var min_speed: float = 500.0
 @export var max_speed: float = 900.0
 @export var is_bomb: bool = false
+# PixelLab bomb strips, 48x48 frames: lit fuse loop and the swell into the explosion.
+const FUSE_SHEET := "res://Assets/VFX/bomb_fuse.png"
+const DETONATE_SHEET := "res://Assets/VFX/bomb_detonate.png"
+const BOMB_FRAME := 48
+static var bomb_frames: SpriteFrames
 var drift: float = 0.0
-var art: Sprite2D
+var art: AnimatedSprite2D
 var age: float = 0.0
 var speed: float
 var resolved: bool = false
@@ -18,11 +23,43 @@ func _ready() -> void:
 	if is_bomb:
 		$CollisionShape2D.shape = $CollisionShape2D.shape.duplicate()
 		$CollisionShape2D.shape.radius = 10.0
-	if is_bomb and ResourceLoader.exists("res://Assets/New/bomb.png"):
-		$AnimatedSprite2D.hide()
-		art = Sprite2D.new()
-		art.texture = load("res://Assets/New/bomb.png")
-		add_child(art)
+	if is_bomb:
+		art = $AnimatedSprite2D
+		art.sprite_frames = _bomb_frames()
+		# The bomb body sits 4 px below the centre of its 48 px frame.
+		art.offset = Vector2(0, -4)
+		art.play("fuse")
+		art.frame = randi() % art.sprite_frames.get_frame_count("fuse")
+
+static func _bomb_frames() -> SpriteFrames:
+	if bomb_frames == null:
+		bomb_frames = SpriteFrames.new()
+		bomb_frames.remove_animation("default")
+		for anim in [["fuse", FUSE_SHEET, 12.0, true], ["detonate", DETONATE_SHEET, 24.0, false]]:
+			var sheet: Texture2D = load(anim[1])
+			bomb_frames.add_animation(anim[0])
+			bomb_frames.set_animation_speed(anim[0], anim[2])
+			bomb_frames.set_animation_loop(anim[0], anim[3])
+			for i in sheet.get_width() / BOMB_FRAME:
+				var frame := AtlasTexture.new()
+				frame.atlas = sheet
+				frame.region = Rect2(i * BOMB_FRAME, 0, BOMB_FRAME, BOMB_FRAME)
+				bomb_frames.add_frame(anim[0], frame)
+	return bomb_frames
+
+## Stops the bomb, plays its swell and hands over to the explosion effect.
+func _detonate(size: float, flash: bool) -> void:
+	speed = 0.0
+	drift = 0.0
+	set_deferred("monitoring", false)
+	set_deferred("monitorable", false)
+	art.rotation = 0.0
+	art.play("detonate")
+	var swell := create_tween()
+	swell.tween_property(art, "scale", Vector2(1.35, 1.35), 0.2)
+	await art.animation_finished
+	get_tree().current_scene.explode(global_position, size, flash)
+	queue_free()
 
 func _process(delta: float) -> void:
 	if GameManager.ended or not GameManager.started:
@@ -30,7 +67,7 @@ func _process(delta: float) -> void:
 	position.y += speed * delta
 	position.x += drift * delta
 	age += delta
-	if art:
+	if art and art.animation == "fuse":
 		# Swing like a lit fuse; drifting bombs lean into their motion.
 		art.rotation = sin(age * 7.0 + position.x) * 0.18 + drift * 0.0015
 	if is_bomb and not startled:
@@ -55,14 +92,16 @@ func _on_area_entered(area: Area2D) -> void:
 	if is_bomb:
 		if GameManager.fever_left > 0.0:
 			GameManager.add_score(20)
-			main.explode(position, 3.0)
 			main.juice(position, Color("a3ffce"), "+20", 2)
+			_detonate(3.0, false)
+			return
 		elif GameManager.grace_left > 0.0:
 			main.juice(position, Color("92c9ff"), "PROTEGIDO", 0)
 		else:
-			main.explode(position, 5.0, true)
 			main.juice(position, Color("ff816b"), "POW!", 3)
 			GameManager.end_game()
+			_detonate(5.0, true)
+			return
 	else:
 		var points := GameManager.collect_coin()
 		main.juice(position, Color("ffe497"), "+%d" % points, 1)

@@ -81,7 +81,9 @@ func run_tests() -> void:
 	bomb._on_area_entered(other)
 	check(not gm.ended, "non-player filtering")
 	bomb._on_area_entered(player)
-	check(gm.ended and get_nodes_in_group("run_effects").any(func(n): return n is AnimatedSprite2D), "bomb explodes")
+	check(gm.ended and bomb.art.animation == "detonate", "bomb swells before exploding")
+	await create_timer(0.4).timeout
+	check(get_nodes_in_group("run_effects").any(func(n): return n is AnimatedSprite2D) and not is_instance_valid(bomb), "swell hands over to explosion")
 	await create_timer(scene.RESULT_DELAY + 0.2).timeout
 	check(gm.ended and scene.result_panel != null, "bomb ends game with result after the blast")
 	var save := ConfigFile.new()

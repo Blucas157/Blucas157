@@ -1,36 +1,8 @@
 [gd_scene format=3 uid="uid://y4mckew4hjp"]
 
 [ext_resource type="Script" path="res://Assets/Scripts/FallingItem.gd" id="1_sqlji"]
-[ext_resource type="Texture2D" path="res://Assets/north/frame_001.png" id="2_41ofj"]
-[ext_resource type="Texture2D" path="res://Assets/north/frame_002.png" id="3_wwddw"]
-[ext_resource type="Texture2D" path="res://Assets/north/frame_000.png" id="4_bf7ao"]
-[ext_resource type="Texture2D" path="res://Assets/north/frame_004.png" id="5_8u0dg"]
-[ext_resource type="Texture2D" path="res://Assets/north/frame_003.png" id="6_2aqso"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_fijet"]
-
-[sub_resource type="SpriteFrames" id="SpriteFrames_fijet"]
-animations = [{
-"frames": [{
-"duration": 1.0,
-"texture": ExtResource("2_41ofj")
-}, {
-"duration": 1.0,
-"texture": ExtResource("3_wwddw")
-}, {
-"duration": 1.0,
-"texture": ExtResource("4_bf7ao")
-}, {
-"duration": 1.0,
-"texture": ExtResource("5_8u0dg")
-}, {
-"duration": 1.0,
-"texture": ExtResource("6_2aqso")
-}],
-"loop": 1,
-"name": &"default",
-"speed": 5.0
-}]
 
 [node name="Bomba" type="Area2D" unique_id=365024249]
 scale = Vector2(3, 3)
@@ -41,7 +13,3 @@ is_bomb = true
 shape = SubResource("CircleShape2D_fijet")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1320375534]
-sprite_frames = SubResource("SpriteFrames_fijet")
-autoplay = "default"
-frame_progress = 0.9996742
-

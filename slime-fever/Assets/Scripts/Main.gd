@@ -7,8 +7,8 @@ const BAR_INSET := Vector2(26, 22)
 const EXPLOSION_FRAMES := 10
 const EXPLOSION_SIZE := Vector2(80, 87)
 const EXPLOSION_ANCHOR := Vector2(43, 54)
-# Time the defeat blast plays before the result card covers it.
-const RESULT_DELAY := 1.0
+# Time the bomb swell and blast play before the result card covers it.
+const RESULT_DELAY := 1.2
 
 @onready var hud: CanvasLayer = $HUD
 var ui: Control
