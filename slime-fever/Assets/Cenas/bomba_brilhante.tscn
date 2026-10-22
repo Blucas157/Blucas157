@@ -1,0 +1,16 @@
+[gd_scene format=3 uid="uid://c7reflectbomb1"]
+
+[ext_resource type="Script" path="res://Assets/Scripts/FallingItem.gd" id="1_refl"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_refl"]
+radius = 14.0
+
+[node name="BombaBrilhante" type="Area2D"]
+scale = Vector2(3, 3)
+script = ExtResource("1_refl")
+kind = "reflect"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_refl")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]

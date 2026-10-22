@@ -168,6 +168,7 @@ func run_tests() -> void:
 	var fall_max := 0.0
 	var drifting := 0
 	var powerups := 0
+	var reflects := 0
 	var bursts := 0
 	director.dry_run = true
 	for seed_value in 40:
@@ -182,11 +183,14 @@ func run_tests() -> void:
 		gm.level = 0
 		for frame in 90 * 30:
 			gm.elapsed += 1.0 / 30.0
-			gm.level = mini(gm.MAX_LEVEL, frame / (30 * 12))
+			gm.level = mini(12, frame / (30 * 6))
+			# Every fourth run is spent in a boss fight, adding glowing bombs to the route.
+			gm.boss_active = seed_value % 4 == 0
 			director.step(1.0 / 30.0)
 		var coins: Array = []
 		var bombs: Array = []
 		powerups += director.history.filter(func(h): return h.powerup).size()
+		reflects += director.history.filter(func(h): return h.reflect).size()
 		for item in director.history:
 			(bombs if item.bomb else coins).append(item)
 		check(coins.size() > 100, "coins keep flowing")
@@ -227,6 +231,8 @@ func run_tests() -> void:
 	check(bursts > 50, "bursts break the rhythm")
 	# Power-ups replace route coins, so the same bomb audit above already covers them.
 	check(powerups >= 40, "power-ups appear on the coin route (%d)" % powerups)
+	check(reflects >= 100, "boss fights put glowing bombs on the coin route (%d)" % reflects)
+	gm.boss_active = false
 	print("BOMB RAIN: %d bombs, %d landing slots, fall %.2f-%.2fs, %d drifting, %d burst drops" % [bombs_tested, landing_slots.size(), fall_min, fall_max, drifting, bursts])
 	gm.elapsed = 60.0
 	director.pending.clear()

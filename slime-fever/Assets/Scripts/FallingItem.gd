@@ -29,7 +29,7 @@ func _ready() -> void:
 		# ALCANCE upgrade: coins and power-ups can be caught from farther away.
 		$CollisionShape2D.shape = $CollisionShape2D.shape.duplicate()
 		$CollisionShape2D.shape.radius *= GameManager.reach_scale()
-	if is_bomb:
+	if is_bomb or kind == "reflect":
 		art = $AnimatedSprite2D
 		art.sprite_frames = _bomb_frames()
 		# The bomb body sits 4 px below the centre of its 48 px frame.
@@ -81,7 +81,11 @@ func _process(delta: float) -> void:
 		if player and position.y > player.position.y - 280 and position.y < player.position.y - 100 and absf(position.x - player.position.x) < 260:
 			startled = true
 			player.react_startle()
-	if kind != "":
+	if kind == "reflect":
+		# Glowing bomb: gold pulse, drawn in _draw.
+		art.modulate = Color(1.0, 0.82, 0.25).lerp(Color(1.0, 1.0, 0.7), 0.5 + 0.5 * sin(age * 12.0))
+		queue_redraw()
+	elif kind != "":
 		# Power-ups bob so they stand out from the coins.
 		$Sprite2D.scale = Vector2.ONE * (1.0 + sin(age * 9.0) * 0.08)
 	elif not is_bomb:
@@ -90,6 +94,16 @@ func _process(delta: float) -> void:
 		if not is_bomb and kind == "":
 			GameManager.miss_coin()
 		queue_free()
+
+func _draw() -> void:
+	if kind == "reflect":
+		var pulse := 1.0 + sin(age * 12.0) * 0.12
+		draw_circle(Vector2(0, -2), 21.0 * pulse, Color(1.0, 0.8, 0.2, 0.42))
+		draw_arc(Vector2(0, -2), 21.0 * pulse, 0, TAU, 28, Color(1.0, 0.95, 0.55, 1.0), 2.0)
+		# Four spinning sparks mark it as throwable.
+		for i in 4:
+			var angle := age * 4.0 + i * TAU / 4.0
+			draw_circle(Vector2(cos(angle), sin(angle)) * 26.0 * pulse + Vector2(0, -2), 2.2, Color(1.0, 1.0, 0.75, 0.95))
 
 ## Fever and the magnet drag nearby coins sideways toward the slime.
 func _pull(delta: float) -> void:
@@ -121,11 +135,17 @@ func _on_area_entered(area: Area2D) -> void:
 			main.juice(position, Color("8ff0ff"), "ESCUDO!", 2)
 			_detonate(2.5, false)
 			return
+		elif GameManager.use_revive():
+			main.juice(position, Color("ffd45c"), "SEGUNDA CHANCE!", 2)
+			_detonate(3.0, false)
+			return
 		else:
 			main.juice(position, Color("ff816b"), "POW!", 3)
 			GameManager.end_game()
 			_detonate(5.0, true)
 			return
+	elif kind == "reflect":
+		main.throw_back(global_position)
 	elif kind != "":
 		GameManager.collect_powerup(kind)
 		main.juice(position, Color("ff9db0"), "ÍMÃ!", 0)

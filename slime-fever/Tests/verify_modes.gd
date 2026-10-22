@@ -30,17 +30,18 @@ func run_tests() -> void:
 		gm.fever_left = 0.0
 	check(gm.fever_count == 6, "six fevers collected")
 	check(tiers == [75, 100], "tier announcements %s" % [tiers])
-	# Speed levels every 5000 points, capped.
+	# Levels every LEVEL_POINTS, without a cap; speed has its own cap.
 	gm.reset_game()
 	gm.started = true
 	var levels: Array = []
 	gm.level_up.connect(func(l): levels.append(l))
-	gm.add_score(4999)
-	check(gm.level == 0, "no level before 5000")
+	gm.add_score(gm.LEVEL_POINTS - 1)
+	check(gm.level == 0, "no level before the first threshold")
 	gm.add_score(1)
-	check(gm.level == 1 and levels == [1], "level 1 at 5000")
-	gm.add_score(100000)
-	check(gm.level == gm.MAX_LEVEL, "level capped")
+	check(gm.level == 1 and levels == [1], "level 1 at the threshold")
+	gm.boss_started.connect(func(_i): gm.boss_active = false)
+	gm.add_score(gm.LEVEL_POINTS * 40)
+	check(gm.level == 41, "levels keep going")
 	# Modes order and speed cap.
 	gm.level = 0
 	var speeds: Array = []
@@ -54,10 +55,11 @@ func run_tests() -> void:
 	gm.mode = 0
 	var easy_start: float = gm.speed_scale()
 	gm.level = 1
-	check(gm.speed_scale() > easy_start and gm.bomb_gap_scale() < gaps[0], "5000 points in easy speeds up and adds bombs")
+	check(gm.speed_scale() > easy_start and gm.bomb_gap_scale() < gaps[0], "a level in easy speeds up and adds bombs")
 	gm.mode = 2
-	gm.level = gm.MAX_LEVEL
+	gm.level = 200
 	check(gm.speed_scale() <= gm.MAX_SPEED, "speed cap")
+	check(gm.bomb_gap_scale() >= gm.MODE_BOMB_GAP[2] * gm.MIN_BOMB_GAP - 0.0001, "bomb density cap")
 	# Records are kept per mode and survive a reload.
 	gm.reset_game()
 	gm.bests.fill(0)

@@ -1,9 +1,19 @@
-# Slime Fever — v0.14
+# Slime Fever — v0.15
 
 ## Abrir o jogo
 Use Godot 4.7.2. Extraia o ZIP pelo Windows em uma pasta nova e importe o arquivo project.godot; aguarde a importação dos PNGs e pressione F5. Este pacote contém o projeto-fonte, não APK, executável nem build Web. O ZIP possui pastas explícitas e project.godot na raiz.
 
 Na abertura, clique/toque em JOGAR ou pressione Enter. Segure as setas na tela ou use A/D e setas do teclado. II/Esc pausa; CONTINUAR retoma. SOM/MUDO alterna efeitos sonoros. Ao perder foco, uma partida em andamento pausa.
+
+## v0.15 — Fase 1 do incremental: chefões e zonas
+- Níveis sem limite: um nível a cada 1.000 pontos. A velocidade continua com teto (1,45x) e a densidade de bombas tem piso, então seguir as moedas continua sempre seguro.
+- Chefão a cada 5 níveis (NV 5, 10, 15...): TOUPEIRA BOMBARDEIRA, GOLEM DE CRISTAL e REI SLIME (arte PixelLab), depois repetem mais fortes. O chefão chega pelo topo da caverna, com barra de vida e 45 s.
+- Luta: uma a cada 4 moedas da rota vira uma BOMBA DOURADA (anel e faíscas). Pegando, o slime arremessa a bomba de volta no chefão. Bombas normais continuam machucando; a dourada sempre cai na rota segura. Vida do chefão: 4 + 2 por zona.
+- Vitória: baú com 60 x zona moedas, a próxima ZONA (cenário muda de cor: Caverna Azul, Gruta de Cristal, Covil do Rei; moedas valem +50% de pontos e +1 na carteira por zona) e a lojinha de recompensa. Se o tempo acabar, o chefão foge sem recompensa.
+- Poderes ganhos na primeira vitória contra cada chefão (permanentes, aba PODERES da loja): SEGUNDA CHANCE (sobrevive a 1 bomba por partida), ÍMÃ AUTOMÁTICO (a cada 40 s) e FEBRE DOURADA (moedas em dobro na febre).
+- A lojinha da partida agora aparece depois de cada chefão vencido, não a cada nível. Os 3 modos continuam.
+- Teste novo Tests/verify_boss.gd e auditoria da chuva de bombas incluindo as lutas. Partida automática de teste vence o primeiro chefão em ~11 s sem erros.
+- Próximas fases: painel de destino (estilo Albion) com habilidades de 25+ níveis e renascimento (prestígio).
 
 ## v0.14 — Loja com vendedor, lojinha na partida, itens e visuais
 - Cada moeda pega entra na carteira na hora (com MOEDAS x2 entra em dobro), então dá para gastar durante a partida.
@@ -56,14 +66,14 @@ Na abertura, clique/toque em JOGAR ou pressione Enter. Segure as setas na tela o
 - Novo teste Tests/verify_modes.gd; o teste da chuva agora cobre os três modos e todos os níveis (7.793 bombas auditadas).
 
 ## Versão Web (itch.io)
-Zip pronto em releases/SlimeFever-web-v0.14.zip (index.html na raiz, versão sem threads, que roda no itch.io sem configuração extra). Para gerar de novo, com os templates Web do Godot 4.7.2 instalados:
+Zip pronto em releases/SlimeFever-web-v0.15.zip (index.html na raiz, versão sem threads, que roda no itch.io sem configuração extra). Para gerar de novo, com os templates Web do Godot 4.7.2 instalados:
 
     godot --headless --path . --export-release "Web" ../web/index.html
 
 No itch.io: Kind of project = HTML, enviar o zip e marcar "This file will be played in the browser"; Viewport 450 x 800, "Mobile friendly" (orientação retrato) e "Fullscreen button".
 
 ## APK Android
-O APK pronto fica em releases/SlimeFever-v0.14.apk na raiz do repositório (arm64 e armv7, Android 7+ recomendado). Para gerar de novo: Godot 4.7.2 com os templates de exportação, apksigner do Android SDK e uma keystore; preset "Android" em export_presets.cfg (pacote com.blucas157.slimefever, sem Gradle, ícone em Assets/Icon/).
+O APK pronto fica em releases/SlimeFever-v0.15.apk na raiz do repositório (arm64 e armv7, Android 7+ recomendado). Para gerar de novo: Godot 4.7.2 com os templates de exportação, apksigner do Android SDK e uma keystore; preset "Android" em export_presets.cfg (pacote com.blucas157.slimefever, sem Gradle, ícone em Assets/Icon/).
 
     godot --headless --path . --export-release "Android" ../releases/SlimeFever.apk
 

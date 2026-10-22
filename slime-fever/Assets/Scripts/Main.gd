@@ -21,7 +21,7 @@ var replay_button: Button
 var shop_button: Button
 var shop_close_button: Button
 var shop_buttons: Dictionary = {}
-const SHOP_TABS := {"upgrades": "MELHORAR", "items": "ITENS", "skins": "VISUAL"}
+const SHOP_TABS := {"upgrades": "MELHORAR", "items": "ITENS", "powers": "PODERES", "skins": "VISUAL"}
 var shop_tabs: Dictionary = {}
 var shop_tab: String = "upgrades"
 var run_shop_panel: Control
@@ -64,6 +64,15 @@ var shown_multiplier: int = 1
 var best_before_run: int = 0
 var ui_time: float = 0.0
 var explosion_frames: SpriteFrames
+var backdrop: TextureRect
+var boss_sprite: Sprite2D
+var boss_bar: Control
+var boss_name_label: Label
+var boss_fill: ColorRect
+var boss_time_label: Label
+var boss_bob: Tween
+const BOSS_POS := Vector2(540, 650)
+const BOSS_BAR_WIDTH := 600.0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -76,14 +85,22 @@ func _ready() -> void:
 	GameManager.level_up.connect(_level_up)
 	GameManager.coin_tier_up.connect(_coin_tier_up)
 	GameManager.powerup_collected.connect(_powerup_collected)
+	GameManager.boss_started.connect(_boss_started)
+	GameManager.boss_hit.connect(_boss_hit)
+	GameManager.boss_defeated.connect(_boss_defeated)
+	GameManager.boss_escaped.connect(_boss_escaped)
+	GameManager.revived.connect(func(): _banner("SEGUNDA CHANCE!", HudKit.GOLD))
 	$Player.collision_layer = 1
 	$Player.collision_mask = 2
 	$Camera2D.position = Vector2(540, 960)
-	var backdrop := TextureRect.new()
+	backdrop = TextureRect.new()
 	backdrop.texture = load("res://Assets/New/cave.png")
 	backdrop.size = Vector2(1080, 1920)
 	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	backdrop.material = ShaderMaterial.new()
+	backdrop.material.shader = preload("res://Assets/Shaders/zone_hue.gdshader")
 	$Cenario_Background.add_child(backdrop)
+	_set_zone_tint(false)
 	var shade := ColorRect.new()
 	shade.color = Color(0.025, 0.05, 0.12, 0.34)
 	shade.size = Vector2(1080, 1920)
@@ -118,6 +135,7 @@ func _ready() -> void:
 	shield_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	shield_icon.hide()
 	_place(HudKit.label("SETAS OU A/D", 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER), Vector2(330, 1770), Vector2(420, 80))
+	_build_boss()
 	_add_direction(Vector2(205, 1810), -1)
 	_add_direction(Vector2(875, 1810), 1)
 	for i in 6:
@@ -202,7 +220,12 @@ func _process(delta: float) -> void:
 		shown_score = GameManager.score
 	score_label.text = str(GameManager.score)
 	best_label.text = "RECORDE %d" % maxi(GameManager.best, GameManager.score)
-	level_label.text = "%s  NV %d" % [GameManager.mode_name(), GameManager.level + 1]
+	level_label.text = "%s  NV %d  Z%d" % [GameManager.mode_name(), GameManager.level + 1, GameManager.zone + 1]
+	boss_bar.visible = GameManager.boss_active
+	pattern_label.visible = not GameManager.boss_active
+	if GameManager.boss_active:
+		boss_fill.size.x = BOSS_BAR_WIDTH * float(GameManager.boss_hp) / GameManager.boss_max
+		boss_time_label.text = "%ds" % ceili(GameManager.boss_left)
 	coin_icon.texture = coin_frames[int(ui_time * 10.0) % COIN_FRAMES]
 	sound_button.icon = mute_icon if GameManager.muted else sound_icon
 	if pattern_label.text != $Spawner.current_pattern:
@@ -212,7 +235,7 @@ func _process(delta: float) -> void:
 		shown_multiplier = GameManager.multiplier
 		HudKit.pop(multiplier_badge, 1.25)
 	multiplier_label.text = "x%d" % GameManager.multiplier
-	combo_label.text = "%d SEGUIDAS" % GameManager.combo if GameManager.combo > 0 else "PEGUE AS MOEDAS"
+	combo_label.text = "%d SEGUIDAS" % GameManager.combo if GameManager.combo > 0 else "PEGUE MOEDAS"
 	var fever: bool = GameManager.fever_left > 0.0
 	var ratio := GameManager.fever_left / GameManager.fever_duration() if fever else GameManager.charge / 100.0
 	magnet_badge.visible = GameManager.magnet_left > 0.0
@@ -464,7 +487,7 @@ func _show_result() -> void:
 	var column: VBoxContainer = parts[1]
 	column.add_child(HudKit.label("FIM DE JOGO", 112, HudKit.CORAL, HORIZONTAL_ALIGNMENT_CENTER))
 	var content := _card(column, 26)
-	content.add_child(HudKit.label("PONTOS  -  %s  NÍVEL %d" % [GameManager.mode_name(), GameManager.level + 1], 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER))
+	content.add_child(HudKit.label("%s  -  NÍVEL %d  -  ZONA %d" % [GameManager.mode_name(), GameManager.level + 1, GameManager.zone + 1], 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER))
 	var total := HudKit.label("0", 128, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	content.add_child(total)
 	var final_score := GameManager.score
@@ -539,6 +562,10 @@ func _reset_run() -> void:
 		pause_panel.queue_free()
 	if is_instance_valid(run_shop_panel):
 		run_shop_panel.queue_free()
+	if boss_bob and boss_bob.is_valid():
+		boss_bob.kill()
+	boss_sprite.hide()
+	_set_zone_tint(false)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_node_ready() and GameManager.started and not GameManager.ended:
@@ -576,7 +603,7 @@ func _show_menu() -> void:
 	content.add_child(HudKit.icon_row(coin_frames[0], 2.0, "Pegue as moedas", 48, Color.WHITE))
 	content.add_child(HudKit.icon_row(load("res://Assets/New/bomb.png"), 2.0, "Desvie das bombas", 48, Color.WHITE))
 	content.add_child(HudKit.label("20 moedas = FEBRE!", 48, HudKit.MINT, HORIZONTAL_ALIGNMENT_CENTER))
-	content.add_child(HudKit.label("A cada %d pontos fica mais rápido" % GameManager.LEVEL_POINTS, 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER))
+	content.add_child(HudKit.label("Chefão a cada %d níveis!" % GameManager.BOSS_EVERY, 32, HudKit.CORAL, HORIZONTAL_ALIGNMENT_CENTER))
 	var modes := HBoxContainer.new()
 	modes.alignment = BoxContainer.ALIGNMENT_CENTER
 	modes.add_theme_constant_override("separation", 16)
@@ -649,7 +676,7 @@ func _show_shop() -> void:
 	content.add_child(tabs)
 	shop_tabs.clear()
 	for tab in SHOP_TABS:
-		var tab_button := HudKit.button(SHOP_TABS[tab], "square", Vector2(200, 100), _select_shop_tab.bind(tab), 32)
+		var tab_button := HudKit.button(SHOP_TABS[tab], "square", Vector2(150, 100), _select_shop_tab.bind(tab), 32)
 		tabs.add_child(tab_button)
 		shop_tabs[tab] = tab_button
 	var scroll := ScrollContainer.new()
@@ -692,6 +719,15 @@ func _fill_shop() -> void:
 				shop_buttons[id] = _shop_row(load(info.icon), info.name, "%s  (%d/%d)" % [info.info, have, info.max],
 					"CHEIO" if full else str(info.price), "gold", GameManager.can_buy_item(id), _buy_item.bind(id))
 			shop_list.add_child(HudKit.label("Usados sozinhos ao começar a partida", 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER))
+		"powers":
+			# Abilities won from bosses; locked ones name the boss that drops them.
+			for boss in GameManager.BOSSES:
+				var id: String = boss.ability
+				var info: Dictionary = GameManager.ABILITIES[id]
+				var owned := GameManager.has_ability(id)
+				_shop_row(load(info.icon), info.name, info.info if owned else "Derrote: " + boss.name.capitalize(),
+					"ATIVO" if owned else "?", "primary", false, func(): pass)
+			shop_list.add_child(HudKit.label("Melhor zona: %d" % (GameManager.best_zone + 1), 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER))
 		"skins":
 			for id in GameManager.SKINS:
 				var info: Dictionary = GameManager.SKINS[id]
@@ -729,7 +765,9 @@ func _shop_row(icon: Texture2D, title: String, detail: String, action: String, s
 	row.add_child(text)
 	text.add_child(HudKit.label(title, 48))
 	if detail != "":
-		text.add_child(HudKit.label(detail, 32, HudKit.SKY))
+		var info_label := HudKit.label(detail, 32, HudKit.SKY)
+		info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		text.add_child(info_label)
 	var button := HudKit.button(action, skin_name if enabled else "square", Vector2(190, 110), callback, 40)
 	button.disabled = not enabled
 	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -810,8 +848,8 @@ func _show_run_shop() -> void:
 	var parts := _overlay(0.6)
 	run_shop_panel = parts[0]
 	var column: VBoxContainer = parts[1]
-	column.add_child(HudKit.label("NÍVEL %d!" % (GameManager.level + 1), 96, HudKit.CORAL, HORIZONTAL_ALIGNMENT_CENTER))
-	column.add_child(HudKit.label("LOJINHA", 64, HudKit.GOLD, HORIZONTAL_ALIGNMENT_CENTER))
+	column.add_child(HudKit.label("VITÓRIA!", 96, HudKit.GOLD, HORIZONTAL_ALIGNMENT_CENTER))
+	column.add_child(HudKit.label("LOJINHA  -  ZONA %d" % (GameManager.zone + 1), 48, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER))
 	var content := _card(column, 20)
 	var wallet_row := HudKit.icon_row(coin_frames[0], 2.0, "", 64, HudKit.GOLD)
 	shop_wallet_label = wallet_row.get_child(1)
@@ -853,8 +891,145 @@ func _level_up(level: int) -> void:
 	$Camera2D.start_shake(6)
 	_tone(520, 0.12, 0.2)
 	_tone(780, 0.18, 0.2)
-	# Opened after the collision that crossed the threshold finishes.
-	call_deferred("_show_run_shop")
+
+func _build_boss() -> void:
+	boss_sprite = Sprite2D.new()
+	boss_sprite.scale = Vector2(4, 4)
+	boss_sprite.position = BOSS_POS
+	# Behind the falling items, so bombs stay readable over the boss.
+	boss_sprite.z_index = -1
+	boss_sprite.hide()
+	add_child(boss_sprite)
+	boss_bar = _place(Control.new(), Vector2(40, 470), Vector2(1000, 90))
+	boss_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	boss_name_label = HudKit.label("", 32, HudKit.CORAL)
+	boss_name_label.size = Vector2(760, 40)
+	boss_bar.add_child(boss_name_label)
+	boss_time_label = HudKit.label("", 32, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
+	boss_time_label.position = Vector2(760, 0)
+	boss_time_label.size = Vector2(240, 40)
+	boss_bar.add_child(boss_time_label)
+	var back := ColorRect.new()
+	back.color = Color(0.05, 0.02, 0.08, 0.85)
+	back.position = Vector2(194, 46)
+	back.size = Vector2(BOSS_BAR_WIDTH + 12, 34)
+	boss_bar.add_child(back)
+	boss_fill = ColorRect.new()
+	boss_fill.color = Color("ff5a6e")
+	boss_fill.position = Vector2(200, 52)
+	boss_fill.size = Vector2(BOSS_BAR_WIDTH, 22)
+	boss_bar.add_child(boss_fill)
+	boss_bar.hide()
+
+func _boss_started(index: int) -> void:
+	var info: Dictionary = GameManager.BOSSES[index]
+	boss_sprite.texture = load(info.art)
+	boss_sprite.modulate = Color.WHITE
+	boss_sprite.scale = Vector2(4, 4)
+	boss_sprite.position = BOSS_POS - Vector2(0, 700)
+	boss_sprite.show()
+	boss_name_label.text = "CHEFÃO: " + info.name
+	if boss_bob and boss_bob.is_valid():
+		boss_bob.kill()
+	# Drops in, then hovers.
+	boss_bob = boss_sprite.create_tween()
+	boss_bob.tween_property(boss_sprite, "position", BOSS_POS, 0.9).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+	boss_bob.tween_callback(func():
+		boss_bob = boss_sprite.create_tween().set_loops().set_trans(Tween.TRANS_SINE)
+		boss_bob.tween_property(boss_sprite, "position:y", BOSS_POS.y - 18.0, 0.8)
+		boss_bob.tween_property(boss_sprite, "position:y", BOSS_POS.y + 6.0, 0.8))
+	_banner("CHEFÃO: " + info.name, HudKit.CORAL)
+	_banner("DEVOLVA AS BOMBAS DOURADAS!", HudKit.GOLD)
+	$Camera2D.start_shake(10)
+	_tone(110, 0.35, 0.3)
+
+## The slime hurls a caught glowing bomb at the boss.
+func throw_back(from: Vector2) -> void:
+	_tone(660, 0.08, 0.18)
+	var shot := Sprite2D.new()
+	shot.texture = load("res://Assets/New/bomb.png")
+	shot.scale = Vector2(3, 3)
+	shot.position = from
+	shot.z_index = 15
+	shot.modulate = Color(1.0, 0.9, 0.5)
+	shot.process_mode = Node.PROCESS_MODE_PAUSABLE
+	add_child(shot)
+	shot.add_to_group("run_effects")
+	var target := boss_sprite.position if GameManager.boss_active else Vector2(from.x, 300)
+	var fly := shot.create_tween().set_parallel(true)
+	fly.tween_property(shot, "position", target, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	fly.tween_property(shot, "rotation", TAU * 2.0, 0.35)
+	fly.chain().tween_callback(func():
+		explode(target, 3.5)
+		shot.queue_free()
+		GameManager.hit_boss())
+
+func _boss_hit(hp: int) -> void:
+	$Camera2D.start_shake(8)
+	_tone(180, 0.15, 0.25)
+	juice(boss_sprite.position + Vector2(0, 120), HudKit.GOLD, "ACERTOU!" if hp > 0 else "K.O.!", 0)
+	var flash := boss_sprite.create_tween()
+	flash.tween_property(boss_sprite, "modulate", Color(1, 0.35, 0.35), 0.06)
+	flash.tween_property(boss_sprite, "modulate", Color.WHITE, 0.2)
+
+func _boss_defeated(chest: int, ability: String) -> void:
+	if boss_bob and boss_bob.is_valid():
+		boss_bob.kill()
+	explode(boss_sprite.position, 7.0, true)
+	var fall := boss_sprite.create_tween().set_parallel(true)
+	fall.tween_property(boss_sprite, "modulate:a", 0.0, 0.6)
+	fall.tween_property(boss_sprite, "scale", Vector2(4.8, 2.0), 0.6)
+	fall.chain().tween_callback(boss_sprite.hide)
+	_banner("VITÓRIA!  +%d MOEDAS" % chest, HudKit.GOLD)
+	if ability != "":
+		_banner("NOVO PODER: " + GameManager.ABILITIES[ability].name, HudKit.MINT)
+	_banner("ZONA %d: %s" % [GameManager.zone + 1, GameManager.zone_name()], Color.WHITE)
+	_show_chest()
+	_set_zone_tint(true)
+	_tone(523, 0.12, 0.22)
+	_tone(784, 0.2, 0.2)
+	# Reward shop once the celebration has played (timer pauses with the game).
+	get_tree().create_timer(2.2, false).timeout.connect(_show_run_shop)
+
+func _boss_escaped() -> void:
+	if boss_bob and boss_bob.is_valid():
+		boss_bob.kill()
+	var away := boss_sprite.create_tween()
+	away.tween_property(boss_sprite, "position:y", -400.0, 0.8).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	away.tween_callback(boss_sprite.hide)
+	_banner("O CHEFÃO FUGIU!", HudKit.CORAL)
+
+func _show_chest() -> void:
+	var chest := TextureRect.new()
+	chest.texture = load("res://Assets/UI/chest.png")
+	chest.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	chest.size = chest.texture.get_size() * 5.0
+	chest.position = Vector2(540, 1180) - chest.size / 2.0
+	chest.pivot_offset = chest.size / 2.0
+	chest.scale = Vector2(0.2, 0.2)
+	chest.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud_top.add_child(chest)
+	chest.add_to_group("run_effects")
+	var pop := chest.create_tween()
+	pop.tween_property(chest, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	pop.tween_interval(1.2)
+	pop.tween_property(chest, "modulate:a", 0.0, 0.4)
+	pop.tween_callback(chest.queue_free)
+
+## Each zone recolours the cave.
+func _set_zone_tint(animated: bool) -> void:
+	var info := GameManager.zone_info()
+	var material := backdrop.material as ShaderMaterial
+	if not animated:
+		material.set_shader_parameter("hue_shift", info.hue)
+		material.set_shader_parameter("saturation", info.sat)
+		return
+	var from_hue: float = material.get_shader_parameter("hue_shift")
+	var from_sat: float = material.get_shader_parameter("saturation")
+	var fade := backdrop.create_tween()
+	fade.tween_method(func(t: float):
+		material.set_shader_parameter("hue_shift", lerpf(from_hue, info.hue, t))
+		material.set_shader_parameter("saturation", lerpf(from_sat, info.sat, t)), 0.0, 1.0, 1.2)
 
 func _coin_tier_up(top_value: int) -> void:
 	_banner("MOEDAS VALEM ATÉ %d!" % top_value, HudKit.GOLD)
@@ -864,7 +1039,13 @@ func _coin_tier_up(top_value: int) -> void:
 func _banner(text: String, color: Color) -> void:
 	# Stack under banners that are still on screen.
 	var stack := get_tree().get_nodes_in_group("banners").size()
-	var banner := _make_label(text, Vector2(0, 700 + stack * 130), Vector2(1080, 120), 64, color, true)
+	# The pixel font is about 0.7 em per glyph: shrink long lines to stay on screen.
+	var font_size := 64
+	for candidate in [64, 48, 32]:
+		font_size = candidate
+		if text.length() * 0.7 * candidate <= 1020.0:
+			break
+	var banner := _make_label(text, Vector2(0, 700 + stack * 130), Vector2(1080, 120), font_size, color, true)
 	banner.add_to_group("run_effects")
 	banner.add_to_group("banners")
 	banner.pivot_offset = banner.size / 2.0

@@ -4,16 +4,42 @@ signal score_changed(value: int)
 signal game_ended
 signal fever_started
 signal level_up(level: int)
+signal boss_started(index: int)
+signal boss_hit(hp: int)
+signal boss_defeated(chest: int, ability: String)
+signal boss_escaped
+signal revived
 signal coin_tier_up(top_value: int)
 const MODES := ["FÁCIL", "MÉDIO", "DIFÍCIL"]
 # Per mode: starting fall speed and bomb spacing (higher = calmer).
 const MODE_SPEED := [0.88, 1.0, 1.15]
 const MODE_BOMB_GAP := [1.35, 1.0, 0.75]
-# Every LEVEL_POINTS the run speeds up and bombs get denser.
-const LEVEL_POINTS := 5000
-const MAX_LEVEL := 6
-const LEVEL_SPEED := 0.07
-const LEVEL_BOMB_GAP := 0.9
+# Every LEVEL_POINTS the run speeds up and bombs get denser, with no level cap;
+# MAX_SPEED and MIN_BOMB_GAP keep later levels fair.
+const LEVEL_POINTS := 1000
+const LEVEL_SPEED := 0.06
+const LEVEL_BOMB_GAP := 0.94
+const MIN_BOMB_GAP := 0.5
+# A mini boss arrives every BOSS_EVERY levels. Beating it moves the run to the next zone.
+const BOSS_EVERY := 5
+const BOSS_TIME := 45.0
+const BOSSES := [
+	{"name": "TOUPEIRA BOMBARDEIRA", "art": "res://Assets/Boss/boss1.png", "ability": "revive"},
+	{"name": "GOLEM DE CRISTAL", "art": "res://Assets/Boss/boss2.png", "ability": "auto_magnet"},
+	{"name": "REI SLIME", "art": "res://Assets/Boss/boss3.png", "ability": "golden_fever"},
+]
+const ZONES := [
+	{"name": "CAVERNA AZUL", "hue": 0.0, "sat": 1.0},
+	{"name": "GRUTA DE CRISTAL", "hue": -0.17, "sat": 1.25},
+	{"name": "COVIL DO REI", "hue": 0.38, "sat": 1.2},
+]
+# Unlocked forever the first time their boss falls.
+const ABILITIES := {
+	"revive": {"name": "SEGUNDA CHANCE", "icon": "res://Assets/UI/icon_shield.png", "info": "1 vez por partida, sobrevive a uma bomba"},
+	"auto_magnet": {"name": "ÍMÃ AUTOMÁTICO", "icon": "res://Assets/UI/icon_magnet.png", "info": "Liga o ímã sozinho a cada 40 s"},
+	"golden_fever": {"name": "FEBRE DOURADA", "icon": "res://Assets/UI/icon_fever.png", "info": "Na febre, moedas valem o dobro"},
+}
+const AUTO_MAGNET_GAP := 40.0
 # Keeps a coin step plus reaction time inside the shortest row interval.
 const MAX_SPEED := 1.45
 # Coin value at the x4 multiplier: 3+ fevers raise it to 75, 5+ to 100.
@@ -79,6 +105,17 @@ var double_left: float = 0.0
 var shield: int = 0
 # Coins added to the wallet during this run (doubled ones count twice).
 var earned: int = 0
+var abilities: Array = []
+var best_zone: int = 0
+# Run progress through zones and bosses.
+var zone: int = 0
+var boss_active: bool = false
+var boss_index: int = 0
+var boss_hp: int = 0
+var boss_max: int = 0
+var boss_left: float = 0.0
+var revive_used: bool = false
+var auto_magnet_clock: float = AUTO_MAGNET_GAP
 var coins: int = 0
 var muted: bool = false
 var save_path: String = "user://slime.cfg"
@@ -100,6 +137,10 @@ func _ready() -> void:
 		for id in save.get_value("skins", "owned", ["verde"]):
 			if SKINS.has(id) and not skins_owned.has(id):
 				skins_owned.append(id)
+		for id in save.get_value("abilities", "unlocked", []):
+			if ABILITIES.has(id) and not abilities.has(id):
+				abilities.append(id)
+		best_zone = maxi(0, int(save.get_value("progress", "best_zone", 0)))
 		var worn: String = save.get_value("skins", "equipped", "verde")
 		skin = worn if skins_owned.has(worn) else "verde"
 	best = bests[mode]
@@ -118,7 +159,68 @@ func speed_scale() -> float:
 	return minf(MAX_SPEED, MODE_SPEED[mode] * (1.0 + LEVEL_SPEED * level))
 
 func bomb_gap_scale() -> float:
-	return MODE_BOMB_GAP[mode] * pow(LEVEL_BOMB_GAP, level)
+	return MODE_BOMB_GAP[mode] * maxf(MIN_BOMB_GAP, pow(LEVEL_BOMB_GAP, level))
+
+func has_ability(id: String) -> bool:
+	return abilities.has(id)
+
+func zone_info(z: int = -1) -> Dictionary:
+	return ZONES[(zone if z < 0 else z) % ZONES.size()]
+
+func zone_name(z: int = -1) -> String:
+	var at := zone if z < 0 else z
+	var info := zone_info(at)
+	# Zones repeat with a lap number after the last one.
+	var lap := at / ZONES.size()
+	return info.name if lap == 0 else "%s %d" % [info.name, lap + 1]
+
+## Each zone makes coins worth more, in points and in the wallet.
+func zone_bonus() -> float:
+	return 1.0 + 0.5 * zone
+
+func start_boss() -> void:
+	if boss_active or ended or not started:
+		return
+	boss_active = true
+	boss_index = zone % BOSSES.size()
+	boss_max = 4 + 2 * zone
+	boss_hp = boss_max
+	boss_left = BOSS_TIME
+	boss_started.emit(boss_index)
+
+## A thrown-back bomb lands on the boss.
+func hit_boss() -> void:
+	if not boss_active or ended:
+		return
+	boss_hp -= 1
+	boss_hit.emit(boss_hp)
+	if boss_hp <= 0:
+		_defeat_boss()
+
+func _defeat_boss() -> void:
+	boss_active = false
+	var chest := 60 * (zone + 1)
+	wallet += chest
+	earned += chest
+	var ability: String = BOSSES[boss_index].ability
+	if has_ability(ability):
+		ability = ""
+	else:
+		abilities.append(ability)
+	zone += 1
+	best_zone = maxi(best_zone, zone)
+	save_progress()
+	wallet_changed.emit(wallet)
+	boss_defeated.emit(chest, ability)
+
+## SEGUNDA CHANCE: the first lethal bomb of a run is survived.
+func use_revive() -> bool:
+	if not has_ability("revive") or revive_used:
+		return false
+	revive_used = true
+	grace_left = 2.0
+	revived.emit()
+	return true
 
 func upgrade_level(id: String) -> int:
 	return upgrades.get(id, 0)
@@ -275,7 +377,7 @@ func coin_tier() -> int:
 	return 1 if fever_count >= 3 else 0
 
 func coin_points() -> int:
-	return roundi(COIN_TOP[coin_tier()] * multiplier / 4.0)
+	return roundi(COIN_TOP[coin_tier()] * multiplier / 4.0 * zone_bonus())
 
 func _process(delta: float) -> void:
 	if ended or not started:
@@ -284,6 +386,17 @@ func _process(delta: float) -> void:
 	grace_left = maxf(0.0, grace_left - delta)
 	magnet_left = maxf(0.0, magnet_left - delta)
 	double_left = maxf(0.0, double_left - delta)
+	if has_ability("auto_magnet"):
+		auto_magnet_clock -= delta
+		if auto_magnet_clock <= 0.0:
+			auto_magnet_clock = AUTO_MAGNET_GAP
+			magnet_left = maxf(magnet_left, magnet_duration())
+			powerup_collected.emit("magnet")
+	if boss_active:
+		boss_left = maxf(0.0, boss_left - delta)
+		if boss_left == 0.0:
+			boss_active = false
+			boss_escaped.emit()
 	if fever_left > 0.0:
 		fever_left = maxf(0.0, fever_left - delta)
 		if fever_left == 0.0:
@@ -293,7 +406,9 @@ func collect_coin() -> int:
 	if ended or not started:
 		return 0
 	coins += 1
-	var gain := 2 if double_left > 0.0 else 1
+	var gain := (2 if double_left > 0.0 else 1) * (1 + zone)
+	if fever_left > 0.0 and has_ability("golden_fever"):
+		gain *= 2
 	earned += gain
 	wallet += gain
 	wallet_changed.emit(wallet)
@@ -324,10 +439,13 @@ func add_score(amount: int) -> void:
 		return
 	score += amount
 	score_changed.emit(score)
-	var reached := mini(MAX_LEVEL, score / LEVEL_POINTS)
+	var reached := score / LEVEL_POINTS
 	if reached > level:
 		level = reached
 		level_up.emit(level)
+		# The HUD shows level + 1, so bosses arrive on NV 5, 10, 15...
+		if (level + 1) % BOSS_EVERY == 0:
+			start_boss()
 
 func end_game() -> void:
 	if ended or not started:
@@ -352,6 +470,8 @@ func save_progress() -> void:
 		save.set_value("items", id, item_count(id))
 	save.set_value("skins", "owned", skins_owned)
 	save.set_value("skins", "equipped", skin)
+	save.set_value("abilities", "unlocked", abilities)
+	save.set_value("progress", "best_zone", best_zone)
 	save_ok = save.save(save_path) == OK
 
 func reset_game() -> void:
@@ -372,6 +492,12 @@ func reset_game() -> void:
 	double_left = 0.0
 	shield = 0
 	earned = 0
+	zone = 0
+	boss_active = false
+	boss_hp = 0
+	boss_left = 0.0
+	revive_used = false
+	auto_magnet_clock = AUTO_MAGNET_GAP
 
 func update_ui() -> void:
 	score_changed.emit(score)

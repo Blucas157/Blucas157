@@ -16,6 +16,10 @@ const CONTACT_WINDOW := 0.45
 const TIMING_SLACK := 0.15
 const MAX_CLUSTER := 3
 const POWERUP_SCENE := preload("res://Assets/Cenas/ima.tscn")
+const REFLECT_SCENE := preload("res://Assets/Cenas/bomba_brilhante.tscn")
+# During a boss fight every REFLECT_EVERY-th route coin is a glowing bomb to throw back.
+const REFLECT_EVERY := 4
+const BOSS_BOMB_GAP := 0.85
 # First power-up comes this many seconds after bombs start.
 const FIRST_POWERUP := 6.0
 var rng := RandomNumberGenerator.new()
@@ -29,6 +33,7 @@ var time: float = 0.0
 var bomb_clock: float = 0.0
 var burst_left: int = 0
 var powerup_clock: float = FIRST_POWERUP
+var boss_rows: int = 0
 var arrivals: Array[Dictionary] = []
 var bomb_arrivals: Array[Dictionary] = []
 var dry_run: bool = false
@@ -59,7 +64,7 @@ func step(delta: float) -> void:
 			_queue_powerup()
 	bomb_clock -= delta
 	if bomb_clock <= 0.0:
-		bomb_clock = _next_bomb_gap() * GameManager.bomb_gap_scale()
+		bomb_clock = _next_bomb_gap() * GameManager.bomb_gap_scale() * (BOSS_BOMB_GAP if GameManager.boss_active else 1.0)
 		_drop_bomb()
 
 func reset_hazards() -> void:
@@ -67,6 +72,7 @@ func reset_hazards() -> void:
 	bomb_clock = 0.0
 	burst_left = 0
 	powerup_clock = FIRST_POWERUP
+	boss_rows = 0
 	arrivals.clear()
 	bomb_arrivals.clear()
 	history.clear()
@@ -133,7 +139,15 @@ func spawn_item() -> Dictionary:
 	current_pattern = row.pattern
 	last_x = row.coin_x
 	arrivals.append({"arrive": time + row.fall, "coin_x": row.coin_x})
-	_spawn(POWERUP_SCENE if row.get("powerup", "") != "" else moeda_scene, row.coin_x, false, row.fall)
+	var scene := moeda_scene
+	if row.get("powerup", "") != "":
+		scene = POWERUP_SCENE
+	elif GameManager.boss_active:
+		# Rides the coin route, so a throwable bomb is always reachable and bomb-free.
+		boss_rows += 1
+		if boss_rows % REFLECT_EVERY == 0:
+			scene = REFLECT_SCENE
+	_spawn(scene, row.coin_x, false, row.fall)
 	row_spawned.emit(row)
 	return row
 
@@ -217,7 +231,7 @@ func _drop_bomb() -> void:
 
 func _spawn(scene: PackedScene, x: float, bomb: bool, fall: float = FALL_TIME, drift: float = 0.0) -> void:
 	if dry_run:
-		history.append({"bomb": bomb, "powerup": scene == POWERUP_SCENE, "x": x, "fall": fall, "drift": drift, "time": time})
+		history.append({"bomb": bomb, "powerup": scene == POWERUP_SCENE, "reflect": scene == REFLECT_SCENE, "x": x, "fall": fall, "drift": drift, "time": time})
 		return
 	if not scene:
 		return

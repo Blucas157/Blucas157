@@ -107,10 +107,9 @@ func run_tests() -> void:
 	# Run mini-shop: opens at a level-up when affordable, items act immediately.
 	gm.wallet = 200
 	gm.magnet_left = 0.0
-	gm.add_score(gm.LEVEL_POINTS)
+	scene._show_run_shop()
 	await process_frame
-	await process_frame
-	check(is_instance_valid(scene.run_shop_panel) and paused, "level-up opens the paused mini-shop")
+	check(is_instance_valid(scene.run_shop_panel) and paused, "reward mini-shop opens paused")
 	scene._buy_run_item("shield")
 	scene._buy_run_item("double")
 	scene._buy_run_item("magnet_now")
@@ -124,8 +123,7 @@ func run_tests() -> void:
 	gm.collect_coin()
 	check(gm.wallet == wallet_now + 2, "double coins count twice")
 	gm.wallet = 0
-	gm.add_score(gm.LEVEL_POINTS)
-	await process_frame
+	scene._show_run_shop()
 	await process_frame
 	check(not is_instance_valid(scene.run_shop_panel) and not paused, "no mini-shop when nothing is affordable")
 	# Collecting upgrades.
