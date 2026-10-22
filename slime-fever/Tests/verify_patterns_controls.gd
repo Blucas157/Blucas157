@@ -167,6 +167,7 @@ func run_tests() -> void:
 	var fall_min := 99.0
 	var fall_max := 0.0
 	var drifting := 0
+	var powerups := 0
 	var bursts := 0
 	director.dry_run = true
 	for seed_value in 40:
@@ -185,6 +186,7 @@ func run_tests() -> void:
 			director.step(1.0 / 30.0)
 		var coins: Array = []
 		var bombs: Array = []
+		powerups += director.history.filter(func(h): return h.powerup).size()
 		for item in director.history:
 			(bombs if item.bomb else coins).append(item)
 		check(coins.size() > 100, "coins keep flowing")
@@ -223,6 +225,8 @@ func run_tests() -> void:
 	check(fall_max - fall_min > 0.8, "bomb speeds vary")
 	check(drifting > bombs_tested / 4, "some bombs drift sideways")
 	check(bursts > 50, "bursts break the rhythm")
+	# Power-ups replace route coins, so the same bomb audit above already covers them.
+	check(powerups >= 40, "power-ups appear on the coin route (%d)" % powerups)
 	print("BOMB RAIN: %d bombs, %d landing slots, fall %.2f-%.2fs, %d drifting, %d burst drops" % [bombs_tested, landing_slots.size(), fall_min, fall_max, drifting, bursts])
 	gm.elapsed = 60.0
 	director.pending.clear()

@@ -90,6 +90,13 @@ func _draw() -> void:
 	if GameManager.fever_left > 0.0 and not GameManager.ended:
 		var pulse := 1.0 + sin(visual_time * 8.0) * 0.08
 		draw_arc(Vector2(0, 6), 17.0 * pulse, 0, TAU, 32, Color(0.5, 1, 0.8, 0.45), 1.0)
+	if GameManager.magnet_left > 0.0 and not GameManager.ended:
+		# Shows the magnet's reach (game pixels divided by this node's scale).
+		var reach := GameManager.magnet_radius() / scale.x
+		var spin := visual_time * 2.0
+		for i in 8:
+			var start := spin + i * TAU / 8.0
+			draw_arc(Vector2(0, 2), reach, start, start + TAU / 14.0, 8, Color(1.0, 0.45, 0.6, 0.85), 1.6)
 
 func get_direction() -> float:
 	var left := Input.is_action_pressed("ui_left") or Input.is_physical_key_pressed(KEY_A)

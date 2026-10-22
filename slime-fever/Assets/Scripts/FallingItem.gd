@@ -3,6 +3,8 @@ extends Area2D
 @export var min_speed: float = 500.0
 @export var max_speed: float = 900.0
 @export var is_bomb: bool = false
+## Power-up id ("magnet"); empty for coins and bombs.
+@export var kind: String = ""
 # PixelLab bomb strips, 48x48 frames: lit fuse loop and the swell into the explosion.
 const FUSE_SHEET := "res://Assets/VFX/bomb_fuse.png"
 const DETONATE_SHEET := "res://Assets/VFX/bomb_detonate.png"
@@ -75,14 +77,28 @@ func _process(delta: float) -> void:
 		if player and position.y > player.position.y - 280 and position.y < player.position.y - 100 and absf(position.x - player.position.x) < 260:
 			startled = true
 			player.react_startle()
-	if not is_bomb and GameManager.fever_left > 0.0 and position.y > 1250.0:
-		var player := get_tree().get_first_node_in_group("player") as Node2D
-		if player and absf(player.position.x - position.x) < 210.0:
-			position.x = move_toward(position.x, player.position.x, 1000.0 * delta)
+	if kind != "":
+		# Power-ups bob so they stand out from the coins.
+		$Sprite2D.scale = Vector2.ONE * (1.0 + sin(age * 9.0) * 0.08)
+	elif not is_bomb:
+		_pull(delta)
 	if position.y > 2050:
-		if not is_bomb:
+		if not is_bomb and kind == "":
 			GameManager.miss_coin()
 		queue_free()
+
+## Fever and the magnet drag nearby coins sideways toward the slime.
+func _pull(delta: float) -> void:
+	var reach := 0.0
+	if GameManager.fever_left > 0.0 and position.y > 1250.0:
+		reach = 210.0
+	if GameManager.magnet_left > 0.0 and position.y > 900.0:
+		reach = maxf(reach, GameManager.magnet_radius())
+	if reach <= 0.0:
+		return
+	var player := get_tree().get_first_node_in_group("player") as Node2D
+	if player and absf(player.position.x - position.x) < reach:
+		position.x = move_toward(position.x, player.position.x, 1400.0 * delta)
 
 func _on_area_entered(area: Area2D) -> void:
 	if resolved or GameManager.ended or not area.is_in_group("player"):
@@ -102,6 +118,9 @@ func _on_area_entered(area: Area2D) -> void:
 			GameManager.end_game()
 			_detonate(5.0, true)
 			return
+	elif kind != "":
+		GameManager.collect_powerup(kind)
+		main.juice(position, Color("ff9db0"), "ÍMÃ!", 0)
 	else:
 		var points := GameManager.collect_coin()
 		main.juice(position, Color("ffe497"), "+%d" % points, 1)

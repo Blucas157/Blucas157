@@ -18,6 +18,18 @@ const LEVEL_BOMB_GAP := 0.9
 const MAX_SPEED := 1.45
 # Coin value at the x4 multiplier: 3+ fevers raise it to 75, 5+ to 100.
 const COIN_TOP := [40, 75, 100]
+# Shop: every collected coin adds 1 to the saved wallet. New upgrades only need an
+# entry here plus whatever reads their level.
+const UPGRADES := {
+	"magnet": {"name": "ÍMÃ", "icon": "res://Assets/UI/icon_magnet.png", "prices": [60, 150, 300, 500, 800]},
+	"fever": {"name": "FEBRE", "icon": "res://Assets/UI/icon_fever.png", "prices": [80, 180, 350, 600, 900]},
+	"luck": {"name": "SORTE", "icon": "res://Assets/UI/icon_luck.png", "prices": [70, 160, 320, 550, 850]},
+}
+const BASE_FEVER := 6.0
+const BASE_MAGNET := 5.0
+const BASE_POWERUP_GAP := 22.0
+signal powerup_collected(kind: String)
+signal wallet_changed(value: int)
 var score: int = 0
 var ended: bool = false
 var started: bool = false
@@ -34,6 +46,10 @@ var best: int = 0
 var bests: Array[int] = [0, 0, 0]
 var mode: int = 1
 var level: int = 0
+var wallet: int = 0
+var upgrades: Dictionary = {"magnet": 0, "fever": 0, "luck": 0}
+var magnet_left: float = 0.0
+var banked: bool = false
 var coins: int = 0
 var muted: bool = false
 var save_path: String = "user://slime.cfg"
@@ -47,6 +63,9 @@ func _ready() -> void:
 			bests[i] = maxi(0, int(save.get_value("progress", "best_%d" % i, legacy if i == 1 else 0)))
 		muted = bool(save.get_value("settings", "muted", false))
 		mode = clampi(int(save.get_value("settings", "mode", 1)), 0, MODES.size() - 1)
+		wallet = maxi(0, int(save.get_value("progress", "wallet", 0)))
+		for id in UPGRADES:
+			upgrades[id] = clampi(int(save.get_value("upgrades", id, 0)), 0, UPGRADES[id].prices.size())
 	best = bests[mode]
 
 func set_mode(value: int) -> void:
@@ -65,6 +84,60 @@ func speed_scale() -> float:
 func bomb_gap_scale() -> float:
 	return MODE_BOMB_GAP[mode] * pow(LEVEL_BOMB_GAP, level)
 
+func upgrade_level(id: String) -> int:
+	return upgrades.get(id, 0)
+
+func max_level(id: String) -> int:
+	return UPGRADES[id].prices.size()
+
+## Price of the next level, or -1 when maxed.
+func price(id: String) -> int:
+	var lv := upgrade_level(id)
+	return UPGRADES[id].prices[lv] if lv < max_level(id) else -1
+
+func can_buy(id: String) -> bool:
+	var cost := price(id)
+	return cost >= 0 and wallet >= cost
+
+func buy(id: String) -> bool:
+	if not can_buy(id):
+		return false
+	wallet -= price(id)
+	upgrades[id] = upgrade_level(id) + 1
+	save_progress()
+	wallet_changed.emit(wallet)
+	return true
+
+func fever_duration(lv: int = -1) -> float:
+	return BASE_FEVER + 0.8 * (upgrade_level("fever") if lv < 0 else lv)
+
+func magnet_duration(lv: int = -1) -> float:
+	return BASE_MAGNET + 1.5 * (upgrade_level("magnet") if lv < 0 else lv)
+
+## Horizontal reach of the pull, in game pixels.
+func magnet_radius(lv: int = -1) -> float:
+	return 240.0 + 45.0 * (upgrade_level("magnet") if lv < 0 else lv)
+
+## Seconds between power-ups on the coin route.
+func powerup_gap(lv: int = -1) -> float:
+	return BASE_POWERUP_GAP * pow(0.84, upgrade_level("luck") if lv < 0 else lv)
+
+func collect_powerup(kind: String) -> void:
+	if ended or not started:
+		return
+	if kind == "magnet":
+		magnet_left = magnet_duration()
+	powerup_collected.emit(kind)
+
+## Moves this run's coins into the wallet once, when the run ends or is abandoned.
+func bank_run() -> void:
+	if banked or not started:
+		return
+	banked = true
+	wallet += coins
+	save_progress()
+	wallet_changed.emit(wallet)
+
 func coin_tier() -> int:
 	if fever_count >= 5:
 		return 2
@@ -78,6 +151,7 @@ func _process(delta: float) -> void:
 		return
 	elapsed += delta
 	grace_left = maxf(0.0, grace_left - delta)
+	magnet_left = maxf(0.0, magnet_left - delta)
 	if fever_left > 0.0:
 		fever_left = maxf(0.0, fever_left - delta)
 		if fever_left == 0.0:
@@ -96,7 +170,7 @@ func collect_coin() -> int:
 		charge = minf(100.0, charge + 5.0)
 		if charge >= 100.0:
 			charge = 0.0
-			fever_left = 6.0
+			fever_left = fever_duration()
 			var tier := coin_tier()
 			fever_count += 1
 			fever_started.emit()
@@ -125,6 +199,7 @@ func end_game() -> void:
 	ended = true
 	best = maxi(best, score)
 	bests[mode] = best
+	bank_run()
 	save_progress()
 	game_ended.emit()
 
@@ -134,6 +209,9 @@ func save_progress() -> void:
 		save.set_value("progress", "best_%d" % i, bests[i])
 	save.set_value("settings", "muted", muted)
 	save.set_value("settings", "mode", mode)
+	save.set_value("progress", "wallet", wallet)
+	for id in UPGRADES:
+		save.set_value("upgrades", id, upgrade_level(id))
 	save_ok = save.save(save_path) == OK
 
 func reset_game() -> void:
@@ -150,6 +228,8 @@ func reset_game() -> void:
 	elapsed = 0.0
 	coins = 0
 	level = 0
+	magnet_left = 0.0
+	banked = false
 
 func update_ui() -> void:
 	score_changed.emit(score)

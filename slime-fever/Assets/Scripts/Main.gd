@@ -1,7 +1,6 @@
 extends Node2D
 
 const COIN_FRAMES := 7
-const FEVER_TIME := 6.0
 const BAR_INSET := Vector2(26, 22)
 # PixelLab VFX sheet: 10 frames of 80x87 in 4 columns, blast centre at (43, 54).
 const EXPLOSION_FRAMES := 10
@@ -19,6 +18,9 @@ var pause_button: Button
 var sound_button: Button
 var resume_button: Button
 var replay_button: Button
+var shop_button: Button
+var shop_close_button: Button
+var shop_buttons: Dictionary = {}
 var menu_button: Button
 var result_menu_button: Button
 var result_panel: Control
@@ -28,6 +30,12 @@ var combo_label: Label
 var level_label: Label
 var mode_buttons: Array[Button] = []
 var menu_best_label: Label
+var menu_wallet_label: Label
+var shop_panel: Control
+var shop_list: VBoxContainer
+var shop_wallet_label: Label
+var magnet_badge: HBoxContainer
+var magnet_label: Label
 var multiplier_badge: PanelContainer
 var multiplier_label: Label
 var pattern_label: Label
@@ -59,6 +67,7 @@ func _ready() -> void:
 	GameManager.fever_started.connect(_fever_start)
 	GameManager.level_up.connect(_level_up)
 	GameManager.coin_tier_up.connect(_coin_tier_up)
+	GameManager.powerup_collected.connect(_powerup_collected)
 	$Player.collision_layer = 1
 	$Player.collision_mask = 2
 	$Camera2D.position = Vector2(540, 960)
@@ -89,6 +98,9 @@ func _ready() -> void:
 	_build_scoreboard()
 	_build_fever_bar()
 	pattern_label = _place(HudKit.label("", 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER), Vector2(40, 490), Vector2(1000, 60)) as Label
+	magnet_badge = _place(HudKit.icon_row(load("res://Assets/UI/icon_magnet.png"), 2.0, "", 48, Color("ff9db0")), Vector2(810, 476), Vector2(240, 80)) as HBoxContainer
+	magnet_label = magnet_badge.get_child(1)
+	magnet_badge.hide()
 	_place(HudKit.label("SETAS OU A/D", 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER), Vector2(330, 1770), Vector2(420, 80))
 	_add_direction(Vector2(205, 1810), -1)
 	_add_direction(Vector2(875, 1810), 1)
@@ -186,7 +198,11 @@ func _process(delta: float) -> void:
 	multiplier_label.text = "x%d" % GameManager.multiplier
 	combo_label.text = "%d SEGUIDAS" % GameManager.combo if GameManager.combo > 0 else "PEGUE AS MOEDAS"
 	var fever: bool = GameManager.fever_left > 0.0
-	var ratio := GameManager.fever_left / FEVER_TIME if fever else GameManager.charge / 100.0
+	var ratio := GameManager.fever_left / GameManager.fever_duration() if fever else GameManager.charge / 100.0
+	magnet_badge.visible = GameManager.magnet_left > 0.0
+	magnet_label.text = "%.1fs" % GameManager.magnet_left
+	# Blink in the last second so the end of the magnet is not a surprise.
+	magnet_badge.modulate.a = 0.35 if GameManager.magnet_left < 1.0 and int(GameManager.magnet_left * 10) % 2 == 0 else 1.0
 	var inner := fever_box.size - BAR_INSET * 2.0
 	fever_fill.size = Vector2(inner.x * clampf(ratio, 0.0, 1.0), inner.y)
 	fever_shine.size = Vector2(fever_fill.size.x, 10)
@@ -439,6 +455,8 @@ func _show_result() -> void:
 		count.tween_callback(func(): HudKit.pop(record, 1.3))
 	else:
 		content.add_child(HudKit.label("RECORDE %d" % GameManager.best, 48, HudKit.GOLD, HORIZONTAL_ALIGNMENT_CENTER))
+	if GameManager.coins > 0:
+		content.add_child(HudKit.icon_row(coin_frames[0], 1.5, "+%d MOEDAS  (%d)" % [GameManager.coins, GameManager.wallet], 32, HudKit.GOLD))
 	var stats := HBoxContainer.new()
 	stats.alignment = BoxContainer.ALIGNMENT_CENTER
 	stats.add_theme_constant_override("separation", 20)
@@ -461,6 +479,8 @@ func _restart() -> void:
 ## Leaves the current run (paused or finished) and shows the main menu.
 ## An unfinished run is abandoned: its score does not count as a record.
 func _back_to_menu() -> void:
+	# Coins caught in an abandoned run still go to the wallet.
+	GameManager.bank_run()
 	_reset_run()
 	if not is_instance_valid(menu_panel):
 		_show_menu()
@@ -545,7 +565,15 @@ func _show_menu() -> void:
 	content.add_child(play_button)
 	menu_best_label = HudKit.label("", 48, HudKit.GOLD, HORIZONTAL_ALIGNMENT_CENTER)
 	content.add_child(menu_best_label)
-	content.add_child(HudKit.label("Segure as setas ou use A/D", 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER))
+	var shop_row := HBoxContainer.new()
+	shop_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	shop_row.add_theme_constant_override("separation", 24)
+	content.add_child(shop_row)
+	shop_button = HudKit.button("LOJA", "frame", Vector2(300, 140), _show_shop, 48)
+	shop_row.add_child(shop_button)
+	var wallet_row := HudKit.icon_row(coin_frames[0], 2.0, "", 48, HudKit.GOLD)
+	menu_wallet_label = wallet_row.get_child(1)
+	shop_row.add_child(wallet_row)
 	_refresh_modes()
 	play_button.grab_focus()
 
@@ -558,6 +586,106 @@ func _refresh_modes() -> void:
 	for i in mode_buttons.size():
 		HudKit.apply_skin(mode_buttons[i], "gold" if i == GameManager.mode else "square")
 	menu_best_label.text = "RECORDE %d" % GameManager.best if GameManager.best > 0 else "SEM RECORDE AINDA"
+	menu_wallet_label.text = str(GameManager.wallet)
+
+func _powerup_collected(kind: String) -> void:
+	if kind == "magnet":
+		_tone(880, 0.12, 0.2)
+		_tone(1320, 0.16, 0.16)
+		HudKit.pop(magnet_badge, 1.3)
+
+## Shop overlay on top of the menu. Rows are rebuilt after every purchase.
+func _show_shop() -> void:
+	if is_instance_valid(shop_panel):
+		return
+	if is_instance_valid(menu_panel):
+		menu_panel.hide()
+	var parts := _overlay(0.45)
+	shop_panel = parts[0]
+	var column: VBoxContainer = parts[1]
+	column.add_child(HudKit.label("LOJA", 112, HudKit.GOLD, HORIZONTAL_ALIGNMENT_CENTER))
+	var content := _card(column, 24)
+	var wallet_row := HudKit.icon_row(coin_frames[0], 2.0, "", 64, HudKit.GOLD)
+	shop_wallet_label = wallet_row.get_child(1)
+	content.add_child(wallet_row)
+	shop_list = VBoxContainer.new()
+	shop_list.add_theme_constant_override("separation", 22)
+	content.add_child(shop_list)
+	content.add_child(HudKit.label("Cada moeda pega vale 1 aqui", 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER))
+	shop_close_button = _centered(HudKit.button("VOLTAR", "primary", Vector2(560, 150), _close_shop, 64)) as Button
+	content.add_child(shop_close_button)
+	_fill_shop()
+
+func _fill_shop() -> void:
+	shop_wallet_label.text = str(GameManager.wallet)
+	for child in shop_list.get_children():
+		child.queue_free()
+	shop_buttons.clear()
+	for id in GameManager.UPGRADES:
+		var info: Dictionary = GameManager.UPGRADES[id]
+		var lv := GameManager.upgrade_level(id)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 18)
+		shop_list.add_child(row)
+		var icon := TextureRect.new()
+		icon.texture = load(info.icon)
+		icon.custom_minimum_size = Vector2(96, 96)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(icon)
+		var text := VBoxContainer.new()
+		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		text.add_theme_constant_override("separation", 4)
+		row.add_child(text)
+		text.add_child(HudKit.label(info.name, 48))
+		text.add_child(HudKit.label(_upgrade_effect(id, lv), 32, HudKit.SKY))
+		var pips := HBoxContainer.new()
+		pips.add_theme_constant_override("separation", 8)
+		text.add_child(pips)
+		for i in GameManager.max_level(id):
+			var pip := ColorRect.new()
+			pip.custom_minimum_size = Vector2(36, 16)
+			pip.color = HudKit.GOLD if i < lv else Color(1, 1, 1, 0.18)
+			pips.add_child(pip)
+		var cost := GameManager.price(id)
+		var buy := HudKit.button("MÁX" if cost < 0 else str(cost), "gold" if GameManager.can_buy(id) else "square", Vector2(190, 110), _buy.bind(id), 48)
+		buy.disabled = not GameManager.can_buy(id)
+		buy.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(buy)
+		shop_buttons[id] = buy
+
+## Current value and, when not maxed, the next one.
+func _upgrade_effect(id: String, lv: int) -> String:
+	var now := ""
+	var next := ""
+	match id:
+		"magnet":
+			now = "%.1fs" % GameManager.magnet_duration(lv)
+			next = "%.1fs" % GameManager.magnet_duration(lv + 1)
+		"fever":
+			now = "%.1fs" % GameManager.fever_duration(lv)
+			next = "%.1fs" % GameManager.fever_duration(lv + 1)
+		"luck":
+			now = "a cada %ds" % roundi(GameManager.powerup_gap(lv))
+			next = "%ds" % roundi(GameManager.powerup_gap(lv + 1))
+	if lv >= GameManager.max_level(id):
+		return now + "  (máximo)"
+	return now + "  ->  " + next
+
+func _buy(id: String) -> void:
+	if GameManager.buy(id):
+		_tone(990, 0.1, 0.2)
+		_tone(1480, 0.14, 0.18)
+		_fill_shop()
+		HudKit.pop(shop_wallet_label, 1.2)
+		_refresh_modes()
+
+func _close_shop() -> void:
+	if is_instance_valid(shop_panel):
+		shop_panel.queue_free()
+	if is_instance_valid(menu_panel):
+		menu_panel.show()
+	_refresh_modes()
 
 func _level_up(level: int) -> void:
 	_banner("NÍVEL %d!  MAIS RÁPIDO" % (level + 1), HudKit.CORAL)
@@ -587,6 +715,8 @@ func _start_game() -> void:
 		return
 	_clear_controls()
 	best_before_run = GameManager.best
+	if is_instance_valid(shop_panel):
+		shop_panel.queue_free()
 	if is_instance_valid(menu_panel):
 		menu_panel.hide()
 		menu_panel.queue_free()

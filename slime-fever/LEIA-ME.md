@@ -1,9 +1,19 @@
-# Slime Fever — v0.12
+# Slime Fever — v0.13
 
 ## Abrir o jogo
 Use Godot 4.7.2. Extraia o ZIP pelo Windows em uma pasta nova e importe o arquivo project.godot; aguarde a importação dos PNGs e pressione F5. Este pacote contém o projeto-fonte, não APK, executável nem build Web. O ZIP possui pastas explícitas e project.godot na raiz.
 
 Na abertura, clique/toque em JOGAR ou pressione Enter. Segure as setas na tela ou use A/D e setas do teclado. II/Esc pausa; CONTINUAR retoma. SOM/MUDO alterna efeitos sonoros. Ao perder foco, uma partida em andamento pausa.
+
+## v0.13 — Ímã, carteira e loja de upgrades
+- Ímã (power-up): a cada ~22 s (depois dos 8 s iniciais) uma moeda da rota vira um ímã, então ele sempre cai num lugar seguro. Pegar o ímã atrai as moedas próximas por alguns segundos; um anel rosa mostra o alcance e o HUD mostra o tempo restante. Não conta como moeda nem quebra o combo.
+- Carteira: cada moeda pega soma 1, salva entre partidas (também quando a partida é abandonada pelo menu). O fim de jogo mostra "+N MOEDAS".
+- LOJA no menu, com 3 upgrades de 5 níveis:
+  - ÍMÃ: 5 s +1,5 s por nível e alcance maior (60/150/300/500/800 moedas).
+  - FEBRE: 6 s +0,8 s por nível (80/180/350/600/900).
+  - SORTE: power-ups mais frequentes, de 22 s até ~9 s (70/160/320/550/850).
+- Novos upgrades: basta adicionar uma entrada em GameManager.UPGRADES e ler o nível onde fizer efeito.
+- Ícones (ímã, chama, trevo) gerados no PixelLab. Novo teste Tests/verify_shop.gd; o teste da chuva de bombas confirma que os power-ups caem na rota protegida.
 
 ## v0.12 — Correção: seta presa no navegador do celular
 - Bug: jogando pelo navegador no celular, uma seta podia ficar "segurada" depois de soltar o dedo; segurando a outra, as duas se anulavam e o slime ficava parado na borda.
@@ -35,14 +45,14 @@ Na abertura, clique/toque em JOGAR ou pressione Enter. Segure as setas na tela o
 - Novo teste Tests/verify_modes.gd; o teste da chuva agora cobre os três modos e todos os níveis (7.793 bombas auditadas).
 
 ## Versão Web (itch.io)
-Zip pronto em releases/SlimeFever-web-v0.12.zip (index.html na raiz, versão sem threads, que roda no itch.io sem configuração extra). Para gerar de novo, com os templates Web do Godot 4.7.2 instalados:
+Zip pronto em releases/SlimeFever-web-v0.13.zip (index.html na raiz, versão sem threads, que roda no itch.io sem configuração extra). Para gerar de novo, com os templates Web do Godot 4.7.2 instalados:
 
     godot --headless --path . --export-release "Web" ../web/index.html
 
 No itch.io: Kind of project = HTML, enviar o zip e marcar "This file will be played in the browser"; Viewport 450 x 800, "Mobile friendly" (orientação retrato) e "Fullscreen button".
 
 ## APK Android
-O APK pronto fica em releases/SlimeFever-v0.12.apk na raiz do repositório (arm64 e armv7, Android 7+ recomendado). Para gerar de novo: Godot 4.7.2 com os templates de exportação, apksigner do Android SDK e uma keystore; preset "Android" em export_presets.cfg (pacote com.blucas157.slimefever, sem Gradle, ícone em Assets/Icon/).
+O APK pronto fica em releases/SlimeFever-v0.13.apk na raiz do repositório (arm64 e armv7, Android 7+ recomendado). Para gerar de novo: Godot 4.7.2 com os templates de exportação, apksigner do Android SDK e uma keystore; preset "Android" em export_presets.cfg (pacote com.blucas157.slimefever, sem Gradle, ícone em Assets/Icon/).
 
     godot --headless --path . --export-release "Android" ../releases/SlimeFever.apk
 

@@ -15,6 +15,9 @@ const CONTACT_WINDOW := 0.45
 # Rows spawn on the first frame after their timer, so queued landings can slip a little.
 const TIMING_SLACK := 0.15
 const MAX_CLUSTER := 3
+const POWERUP_SCENE := preload("res://Assets/Cenas/ima.tscn")
+# First power-up comes this many seconds after bombs start.
+const FIRST_POWERUP := 6.0
 var rng := RandomNumberGenerator.new()
 var clock: float = 0.1
 var pending: Array[Dictionary] = []
@@ -25,6 +28,7 @@ var current_pattern: String = "APRENDA A COLETAR"
 var time: float = 0.0
 var bomb_clock: float = 0.0
 var burst_left: int = 0
+var powerup_clock: float = FIRST_POWERUP
 var arrivals: Array[Dictionary] = []
 var bomb_arrivals: Array[Dictionary] = []
 var dry_run: bool = false
@@ -49,6 +53,10 @@ func step(delta: float) -> void:
 	if clock <= 0.0:
 		# Never burst multiple rows after a slow frame: retain a readable interval.
 		clock = spawn_item().interval
+	if difficulty() > 0:
+		powerup_clock -= delta
+		if powerup_clock <= 0.0:
+			_queue_powerup()
 	bomb_clock -= delta
 	if bomb_clock <= 0.0:
 		bomb_clock = _next_bomb_gap() * GameManager.bomb_gap_scale()
@@ -58,6 +66,7 @@ func reset_hazards() -> void:
 	time = 0.0
 	bomb_clock = 0.0
 	burst_left = 0
+	powerup_clock = FIRST_POWERUP
 	arrivals.clear()
 	bomb_arrivals.clear()
 	history.clear()
@@ -124,7 +133,7 @@ func spawn_item() -> Dictionary:
 	current_pattern = row.pattern
 	last_x = row.coin_x
 	arrivals.append({"arrive": time + row.fall, "coin_x": row.coin_x})
-	_spawn(moeda_scene, row.coin_x, false, row.fall)
+	_spawn(POWERUP_SCENE if row.get("powerup", "") != "" else moeda_scene, row.coin_x, false, row.fall)
 	row_spawned.emit(row)
 	return row
 
@@ -146,6 +155,16 @@ func coin_windows(horizon: float) -> Array[Dictionary]:
 		var next: float = line[i + 1].coin_x if i + 1 < line.size() else x
 		list.append({"arrive": line[i].arrive, "low": minf(previous, minf(x, next)), "high": maxf(previous, maxf(x, next))})
 	return list
+
+## Swaps a queued coin for a power-up: it rides the coin route, so bombs never cover it.
+func _queue_powerup() -> void:
+	if GameManager.magnet_left > 0.0:
+		powerup_clock = 3.0
+		return
+	powerup_clock = GameManager.powerup_gap() * rng.randf_range(0.8, 1.2)
+	while pending.size() < 4:
+		_plan()
+	pending[3].powerup = "magnet"
 
 func _next_bomb_gap() -> float:
 	if burst_left > 0:
@@ -198,7 +217,7 @@ func _drop_bomb() -> void:
 
 func _spawn(scene: PackedScene, x: float, bomb: bool, fall: float = FALL_TIME, drift: float = 0.0) -> void:
 	if dry_run:
-		history.append({"bomb": bomb, "x": x, "fall": fall, "drift": drift, "time": time})
+		history.append({"bomb": bomb, "powerup": scene == POWERUP_SCENE, "x": x, "fall": fall, "drift": drift, "time": time})
 		return
 	if not scene:
 		return
