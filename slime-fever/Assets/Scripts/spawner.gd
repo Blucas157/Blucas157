@@ -245,5 +245,7 @@ func _spawn(scene: PackedScene, x: float, bomb: bool, fall: float = FALL_TIME, d
 	get_parent().add_child(item)
 	if bomb:
 		get_tree().current_scene.warn_bomb(x)
+		if GameManager.boss_active:
+			get_tree().current_scene.boss_lob(item)
 
 

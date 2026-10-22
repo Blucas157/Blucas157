@@ -46,7 +46,7 @@ func run_tests() -> void:
 	check(rewards == [[60, "revive"]] and gm.wallet == wallet_before + 60, "boss 1 gives 60 coins and SEGUNDA CHANCE")
 	check(gm.zone == 1 and gm.best_zone == 1 and gm.has_ability("revive"), "victory moves to zone 2 and unlocks the power")
 	check(gm.zone_bonus() > 1.0, "zone 2 coins are worth more")
-	await create_timer(2.6).timeout
+	await create_timer(3.8).timeout
 	check(is_instance_valid(scene.run_shop_panel) and paused, "reward mini-shop opens after the victory")
 	scene._close_run_shop()
 	await process_frame

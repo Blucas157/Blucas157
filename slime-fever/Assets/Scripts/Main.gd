@@ -2,10 +2,17 @@ extends Node2D
 
 const COIN_FRAMES := 7
 const BAR_INSET := Vector2(26, 22)
-# PixelLab VFX sheet: 10 frames of 80x87 in 4 columns, blast centre at (43, 54).
-const EXPLOSION_FRAMES := 10
-const EXPLOSION_SIZE := Vector2(80, 87)
-const EXPLOSION_ANCHOR := Vector2(43, 54)
+# PixelLab VFX sheets: frame size, columns, frame count, fps and the effect's centre.
+const VFX := {
+	"explosion": {"sheet": "res://Assets/VFX/explosion.png", "size": Vector2(80, 87), "cols": 4, "frames": 10, "fps": 10.0, "anchor": Vector2(43, 54)},
+	"boss_hit": {"sheet": "res://Assets/VFX/boss_hit.png", "size": Vector2(64, 64), "cols": 3, "frames": 6, "fps": 14.0, "anchor": Vector2(32, 32)},
+	"boss_death": {"sheet": "res://Assets/VFX/boss_death.png", "size": Vector2(155, 179), "cols": 4, "frames": 12, "fps": 12.0, "anchor": Vector2(72, 77)},
+}
+# Boss animation strips: 9 frames of 128x128 each (PixelLab animate-with-text).
+const BOSS_ANIMS := {"throw": 16.0, "hurt": 16.0, "death": 10.0}
+const BOSS_FRAME := 128
+# Where the boss's hands are, relative to its centre, for bombs it throws.
+const BOSS_HANDS := [Vector2(-170, 40), Vector2(170, 40)]
 # Time the bomb swell and blast play before the result card covers it.
 const RESULT_DELAY := 1.2
 
@@ -63,9 +70,11 @@ var shown_score: int = 0
 var shown_multiplier: int = 1
 var best_before_run: int = 0
 var ui_time: float = 0.0
-var explosion_frames: SpriteFrames
+var vfx_frames: Dictionary = {}
+var boss_throw_ready: float = 0.0
+var boss_hand: int = 0
 var backdrop: TextureRect
-var boss_sprite: Sprite2D
+var boss_sprite: AnimatedSprite2D
 var boss_bar: Control
 var boss_name_label: Label
 var boss_fill: ColorRect
@@ -442,21 +451,30 @@ func _stat(row: HBoxContainer, value: String, caption: String) -> void:
 	column.add_child(HudKit.label(caption, 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER))
 
 func explode(at: Vector2, size: float, flash: bool = false) -> void:
-	if explosion_frames == null:
-		explosion_frames = SpriteFrames.new()
-		explosion_frames.add_animation("boom")
-		explosion_frames.set_animation_loop("boom", false)
-		explosion_frames.set_animation_speed("boom", 10.0)
-		var sheet: Texture2D = load("res://Assets/VFX/explosion.png")
-		for i in EXPLOSION_FRAMES:
+	play_vfx("explosion", at, size, flash)
+
+func _vfx_frames(name: String) -> SpriteFrames:
+	if not vfx_frames.has(name):
+		var info: Dictionary = VFX[name]
+		var frames := SpriteFrames.new()
+		frames.add_animation("boom")
+		frames.set_animation_loop("boom", false)
+		frames.set_animation_speed("boom", info.fps)
+		var sheet: Texture2D = load(info.sheet)
+		for i in info.frames:
 			var frame := AtlasTexture.new()
 			frame.atlas = sheet
-			frame.region = Rect2(Vector2(i % 4, i / 4) * EXPLOSION_SIZE, EXPLOSION_SIZE)
-			explosion_frames.add_frame("boom", frame)
+			frame.region = Rect2(Vector2(i % info.cols, i / info.cols) * info.size, info.size)
+			frames.add_frame("boom", frame)
+		vfx_frames[name] = frames
+	return vfx_frames[name]
+
+## One-shot PixelLab effect centred on `at`; optional white screen flash.
+func play_vfx(name: String, at: Vector2, size: float, flash: bool = false) -> void:
 	var blast := AnimatedSprite2D.new()
-	blast.sprite_frames = explosion_frames
+	blast.sprite_frames = _vfx_frames(name)
 	blast.centered = false
-	blast.offset = -EXPLOSION_ANCHOR
+	blast.offset = -VFX[name].anchor
 	blast.scale = Vector2.ONE * size
 	blast.position = at
 	blast.z_index = 20
@@ -887,13 +905,18 @@ func _close_run_shop() -> void:
 		audio.stream_paused = false
 
 func _level_up(level: int) -> void:
-	_banner("NÍVEL %d!  MAIS RÁPIDO" % (level + 1), HudKit.CORAL)
+	# Boss levels announce the boss instead.
+	if (level + 1) % GameManager.BOSS_EVERY != 0:
+		_banner("NÍVEL %d!  MAIS RÁPIDO" % (level + 1), HudKit.CORAL)
 	$Camera2D.start_shake(6)
 	_tone(520, 0.12, 0.2)
 	_tone(780, 0.18, 0.2)
 
 func _build_boss() -> void:
-	boss_sprite = Sprite2D.new()
+	boss_sprite = AnimatedSprite2D.new()
+	boss_sprite.animation_finished.connect(func():
+		if boss_sprite.animation != "death":
+			boss_sprite.play("idle"))
 	boss_sprite.scale = Vector2(4, 4)
 	boss_sprite.position = BOSS_POS
 	# Behind the falling items, so bombs stay readable over the boss.
@@ -923,7 +946,9 @@ func _build_boss() -> void:
 
 func _boss_started(index: int) -> void:
 	var info: Dictionary = GameManager.BOSSES[index]
-	boss_sprite.texture = load(info.art)
+	boss_sprite.sprite_frames = _boss_frames(index)
+	boss_sprite.play("idle")
+	boss_throw_ready = 0.0
 	boss_sprite.modulate = Color.WHITE
 	boss_sprite.scale = Vector2(4, 4)
 	boss_sprite.position = BOSS_POS - Vector2(0, 700)
@@ -943,6 +968,52 @@ func _boss_started(index: int) -> void:
 	$Camera2D.start_shake(10)
 	_tone(110, 0.35, 0.3)
 
+func _boss_frames(index: int) -> SpriteFrames:
+	var frames := SpriteFrames.new()
+	frames.add_frame("default", load(GameManager.BOSSES[index].art))
+	frames.rename_animation("default", "idle")
+	for anim in BOSS_ANIMS:
+		var sheet: Texture2D = load("res://Assets/Boss/boss%d_%s.png" % [index + 1, anim])
+		frames.add_animation(anim)
+		frames.set_animation_loop(anim, false)
+		frames.set_animation_speed(anim, BOSS_ANIMS[anim])
+		for i in sheet.get_width() / BOSS_FRAME:
+			var frame := AtlasTexture.new()
+			frame.atlas = sheet
+			frame.region = Rect2(i * BOSS_FRAME, 0, BOSS_FRAME, BOSS_FRAME)
+			frames.add_frame(anim, frame)
+	return frames
+
+## A bomb spawned during the fight is hidden for a moment while a copy flies from the
+## boss's hand to the spot where it starts falling, so the boss visibly throws it.
+func boss_lob(bomb: Node2D) -> void:
+	if not GameManager.boss_active or not boss_sprite.visible or boss_sprite.animation == "death":
+		return
+	if ui_time >= boss_throw_ready and boss_sprite.animation == "idle":
+		boss_sprite.play("throw")
+		boss_throw_ready = ui_time + 0.7
+	boss_hand = 1 - boss_hand
+	var hand: Vector2 = boss_sprite.position + BOSS_HANDS[boss_hand]
+	bomb.visible = false
+	var shot := Sprite2D.new()
+	shot.texture = load("res://Assets/New/bomb.png")
+	shot.scale = Vector2(3, 3)
+	shot.z_index = 12
+	shot.position = hand
+	shot.process_mode = Node.PROCESS_MODE_PAUSABLE
+	add_child(shot)
+	shot.add_to_group("run_effects")
+	var arc := shot.create_tween()
+	arc.tween_method(func(t: float):
+		if not is_instance_valid(bomb):
+			return
+		shot.position = hand.lerp(bomb.position, t) + Vector2(0, -140.0 * sin(PI * t))
+		shot.rotation = t * TAU, 0.0, 1.0, 0.24)
+	arc.tween_callback(func():
+		if is_instance_valid(bomb):
+			bomb.visible = true
+		shot.queue_free())
+
 ## The slime hurls a caught glowing bomb at the boss.
 func throw_back(from: Vector2) -> void:
 	_tone(660, 0.08, 0.18)
@@ -960,7 +1031,8 @@ func throw_back(from: Vector2) -> void:
 	fly.tween_property(shot, "position", target, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	fly.tween_property(shot, "rotation", TAU * 2.0, 0.35)
 	fly.chain().tween_callback(func():
-		explode(target, 3.5)
+		play_vfx("boss_hit", target, 5.0)
+		explode(target, 2.5)
 		shot.queue_free()
 		GameManager.hit_boss())
 
@@ -968,28 +1040,46 @@ func _boss_hit(hp: int) -> void:
 	$Camera2D.start_shake(8)
 	_tone(180, 0.15, 0.25)
 	juice(boss_sprite.position + Vector2(0, 120), HudKit.GOLD, "ACERTOU!" if hp > 0 else "K.O.!", 0)
+	if hp > 0:
+		boss_sprite.play("hurt")
+	# Red flash plus a recoil, so every boss visibly takes the hit.
 	var flash := boss_sprite.create_tween()
-	flash.tween_property(boss_sprite, "modulate", Color(1, 0.35, 0.35), 0.06)
-	flash.tween_property(boss_sprite, "modulate", Color.WHITE, 0.2)
+	flash.tween_property(boss_sprite, "modulate", Color(1, 0.3, 0.3), 0.05)
+	flash.tween_property(boss_sprite, "modulate", Color.WHITE, 0.25)
+	var recoil := boss_sprite.create_tween()
+	recoil.tween_property(boss_sprite, "offset:y", -10.0, 0.06)
+	recoil.tween_property(boss_sprite, "offset:y", 0.0, 0.25).set_trans(Tween.TRANS_BACK)
 
 func _boss_defeated(chest: int, ability: String) -> void:
 	if boss_bob and boss_bob.is_valid():
 		boss_bob.kill()
-	explode(boss_sprite.position, 7.0, true)
-	var fall := boss_sprite.create_tween().set_parallel(true)
-	fall.tween_property(boss_sprite, "modulate:a", 0.0, 0.6)
-	fall.tween_property(boss_sprite, "scale", Vector2(4.8, 2.0), 0.6)
-	fall.chain().tween_callback(boss_sprite.hide)
-	_banner("VITÓRIA!  +%d MOEDAS" % chest, HudKit.GOLD)
-	if ability != "":
-		_banner("NOVO PODER: " + GameManager.ABILITIES[ability].name, HudKit.MINT)
-	_banner("ZONA %d: %s" % [GameManager.zone + 1, GameManager.zone_name()], Color.WHITE)
-	_show_chest()
-	_set_zone_tint(true)
-	_tone(523, 0.12, 0.22)
-	_tone(784, 0.2, 0.2)
-	# Reward shop once the celebration has played (timer pauses with the game).
-	get_tree().create_timer(2.2, false).timeout.connect(_show_run_shop)
+	# Death animation with small blasts, then the big PixelLab defeat explosion.
+	boss_sprite.play("death")
+	var at := boss_sprite.position
+	var finale := boss_sprite.create_tween()
+	for i in 3:
+		finale.tween_callback(func(): play_vfx("boss_hit", at + Vector2(randf_range(-160, 160), randf_range(-140, 120)), 4.0))
+		finale.tween_interval(0.25)
+	finale.tween_callback(func():
+		play_vfx("boss_death", at, 5.0, true)
+		$Camera2D.start_shake(14)
+		_tone(70, 0.45, 0.3))
+	finale.set_parallel(true)
+	finale.tween_property(boss_sprite, "modulate:a", 0.0, 0.7).set_delay(0.2)
+	finale.tween_property(boss_sprite, "scale", Vector2(4.8, 2.4), 0.7).set_trans(Tween.TRANS_BACK)
+	finale.chain().tween_callback(boss_sprite.hide)
+	# Celebration once the defeat explosion is over (timers pause with the game).
+	var zone_text := "ZONA %d: %s" % [GameManager.zone + 1, GameManager.zone_name()]
+	get_tree().create_timer(1.2, false).timeout.connect(func():
+		_banner("VITÓRIA!  +%d MOEDAS" % chest, HudKit.GOLD)
+		if ability != "":
+			_banner("NOVO PODER: " + GameManager.ABILITIES[ability].name, HudKit.MINT)
+		_banner(zone_text, Color.WHITE)
+		_show_chest()
+		_set_zone_tint(true)
+		_tone(523, 0.12, 0.22)
+		_tone(784, 0.2, 0.2))
+	get_tree().create_timer(3.4, false).timeout.connect(_show_run_shop)
 
 func _boss_escaped() -> void:
 	if boss_bob and boss_bob.is_valid():
@@ -1004,7 +1094,7 @@ func _show_chest() -> void:
 	chest.texture = load("res://Assets/UI/chest.png")
 	chest.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	chest.size = chest.texture.get_size() * 5.0
-	chest.position = Vector2(540, 1180) - chest.size / 2.0
+	chest.position = Vector2(540, 1420) - chest.size / 2.0
 	chest.pivot_offset = chest.size / 2.0
 	chest.scale = Vector2(0.2, 0.2)
 	chest.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1045,7 +1135,9 @@ func _banner(text: String, color: Color) -> void:
 		font_size = candidate
 		if text.length() * 0.7 * candidate <= 1020.0:
 			break
-	var banner := _make_label(text, Vector2(0, 700 + stack * 130), Vector2(1080, 120), font_size, color, true)
+	# Below the boss while one is on screen, so it stays visible.
+	var top := 980 if boss_sprite.visible else 700
+	var banner := _make_label(text, Vector2(0, top + stack * 130), Vector2(1080, 120), font_size, color, true)
 	banner.add_to_group("run_effects")
 	banner.add_to_group("banners")
 	banner.pivot_offset = banner.size / 2.0
