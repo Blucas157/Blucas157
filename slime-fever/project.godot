@@ -10,6 +10,8 @@ config_version=5
 
 [application]
 
+boot_splash/bg_color=Color(0.027, 0.067, 0.165, 1)
+
 config/name="Slime Fever - v0.11"
 run/main_scene="res://Assets/Cenas/main.tscn"
 config/use_custom_user_dir=true

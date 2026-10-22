@@ -28,6 +28,13 @@ Na abertura, clique/toque em JOGAR ou pressione Enter. Segure as setas na tela o
 - A velocidade máxima é limitada (1,45x) para que a distância entre moedas continue alcançável, e a chuva de bombas continua sem cair no caminho das moedas em todos os modos e níveis.
 - Novo teste Tests/verify_modes.gd; o teste da chuva agora cobre os três modos e todos os níveis (7.793 bombas auditadas).
 
+## Versão Web (itch.io)
+Zip pronto em releases/SlimeFever-web-v0.11.zip (index.html na raiz, versão sem threads, que roda no itch.io sem configuração extra). Para gerar de novo, com os templates Web do Godot 4.7.2 instalados:
+
+    godot --headless --path . --export-release "Web" ../web/index.html
+
+No itch.io: Kind of project = HTML, enviar o zip e marcar "This file will be played in the browser"; Viewport 450 x 800, "Mobile friendly" (orientação retrato) e "Fullscreen button".
+
 ## APK Android
 O APK pronto fica em releases/SlimeFever-v0.11.apk na raiz do repositório (arm64 e armv7, Android 7+ recomendado). Para gerar de novo: Godot 4.7.2 com os templates de exportação, apksigner do Android SDK e uma keystore; preset "Android" em export_presets.cfg (pacote com.blucas157.slimefever, sem Gradle, ícone em Assets/Icon/).
 
