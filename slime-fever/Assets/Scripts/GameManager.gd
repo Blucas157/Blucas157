@@ -144,6 +144,8 @@ var revives_used: int = 0
 var auto_magnet_clock: float = AUTO_MAGNET_GAP
 var coins: int = 0
 var muted: bool = false
+## -1 = detect from the device; 0 / 1 force arrows / touch steering (tests).
+var touch_override: int = -1
 var save_path: String = "user://slime.cfg"
 
 func _ready() -> void:
@@ -205,6 +207,12 @@ func zone_name(z: int = -1) -> String:
 	return info.name if lap == 0 else "%s %d" % [info.name, lap + 1]
 
 ## Each zone makes coins worth more, in points and in the wallet.
+## Touch screens steer by dragging; keyboards and mice use the arrows.
+func touch_controls() -> bool:
+	if touch_override >= 0:
+		return touch_override == 1
+	return DisplayServer.is_touchscreen_available()
+
 func calm_time() -> float:
 	return MODE_CALM[mode]
 

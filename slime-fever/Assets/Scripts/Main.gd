@@ -72,6 +72,7 @@ var shown_score: int = 0
 var shown_multiplier: int = 1
 var best_before_run: int = 0
 var ui_time: float = 0.0
+var touch_steer: Node2D
 var vfx_frames: Dictionary = {}
 var boss_throw_ready: float = 0.0
 var boss_hand: int = 0
@@ -145,10 +146,17 @@ func _ready() -> void:
 	shield_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	shield_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	shield_icon.hide()
-	_place(HudKit.label("SETAS OU A/D", 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER), Vector2(330, 1770), Vector2(420, 80))
+	var touch := GameManager.touch_controls()
+	_place(HudKit.label("ARRASTE O DEDO" if touch else "SETAS OU A/D", 32, HudKit.SKY, HORIZONTAL_ALIGNMENT_CENTER), Vector2(240, 1770), Vector2(600, 80))
+	touch_steer = preload("res://Assets/Scripts/TouchSteer.gd").new()
+	touch_steer.enabled = touch
+	touch_steer.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(touch_steer)
 	_build_boss()
-	_add_direction(Vector2(205, 1810), -1)
-	_add_direction(Vector2(875, 1810), 1)
+	# PC keeps the on-screen arrows; touch screens drag instead.
+	if not touch:
+		_add_direction(Vector2(205, 1810), -1)
+		_add_direction(Vector2(875, 1810), 1)
 	for i in 6:
 		var audio := AudioStreamPlayer.new()
 		add_child(audio)
@@ -366,6 +374,8 @@ func _toggle_sound() -> void:
 func _clear_controls() -> void:
 	for button in get_tree().get_nodes_in_group("direction_buttons"):
 		button.clear_input()
+	if touch_steer:
+		touch_steer.clear_input()
 
 ## Full-screen dimmed layer with a centered column; blocks clicks to the HUD below.
 func _overlay(dim: float) -> Array:

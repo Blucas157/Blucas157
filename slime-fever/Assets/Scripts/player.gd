@@ -110,6 +110,10 @@ func apply_skin() -> void:
 	(sprite.material as ShaderMaterial).set_shader_parameter("hue_shift", GameManager.skin_hue())
 
 func get_direction() -> float:
+	# Mobile: a finger on the screen steers the slime to its position.
+	var steer := get_tree().get_first_node_in_group("touch_steer")
+	if steer and steer.active():
+		return steer.direction_to(position.x)
 	var left := Input.is_action_pressed("ui_left") or Input.is_physical_key_pressed(KEY_A)
 	var right := Input.is_action_pressed("ui_right") or Input.is_physical_key_pressed(KEY_D)
 	for button in get_tree().get_nodes_in_group("direction_buttons"):
