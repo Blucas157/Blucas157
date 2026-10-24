@@ -105,24 +105,6 @@ def shadow(cell, cx, ground, rx):
                 px[x, y] = P["shadow"]
 
 
-def _spider_fix(im, anim, direction):
-    """From behind the abdomen must not show the red 'eyes and smile' v3 sometimes paints;
-    also drop stray pink pixels some hurt frames get."""
-    px = im.load()
-    for y in range(im.height):
-        for x in range(im.width):
-            r, g, b, a = px[x, y]
-            if a == 0:
-                continue
-            if direction == "north" and ((r > 150 and g < 90) or (r > 190 and g > 190 and b > 190)):
-                px[x, y] = (83, 83, 100, 255)
-            elif r > 200 and 100 < g < 200 and b > 120:
-                px[x, y] = (0, 0, 0, 0)
-            elif r < 110 and g > 150 and b > 150:
-                px[x, y] = (214, 58, 64, 255)  # some idle frames turn the red eyes cyan
-    return im
-
-
 def _golem_fix(im, anim, direction):
     """Stone golem: remove the pale ground puddle PixelLab drew under it, drop the stray cyan orbs
     its walk cycle grows from the side and back, and lift the near-black navy to a stone grey that
@@ -173,13 +155,24 @@ def _ghost_fix(im, anim, direction):
     return im
 
 
+def _spider_fix(im, anim, direction):
+    """Drop the white impact sparks the spider's hurt clip scatters around the cell."""
+    px = im.load()
+    for y in range(im.height):
+        for x in range(im.width):
+            r, g, b, a = px[x, y]
+            if a and anim == "damaged" and r > 215 and g > 215 and b > 215:
+                px[x, y] = (0, 0, 0, 0)
+    return im
+
+
 # per-monster clean-ups applied to every frame after palette handling
 FIXES = {"spider": _spider_fix, "golem": _golem_fix, "bat": _bat_fix, "ghost": _ghost_fix}
 # frames picked out of a generated clip (e.g. a hurt clip that ends with the monster lying down
 # would read as a death, so only the flinch is kept and it returns to its feet)
 FRAME_PICK = {"goblin": {"damaged": [0, 1, 2, 1, 0], "attack:east": [0, 1, 2, 3, 4, 6, 8]}, "golem": {"damaged": [0, 1, 2, 0], "move:north": [0, 1, 2, 1]},
               "treant": {"attack:south": [0, 1, 2, 3, 4, 4, 6]},
-              "spider": {"idle:north": [0, 1, 0, 1], "move:north": [0, 1, 6, 0, 1, 6], "damaged:north": [0, 0, 0, 0]}}
+              "spider": {"attack:north": [0, 1, 2, 4, 5, 6, 8]}}
 
 
 def load_export(export_dir):
