@@ -87,7 +87,7 @@
     "source": "pixellab"
   },
   "spider": {
-    "size": 64,
+    "size": 32,
     "frames": {
       "idle": 5,
       "move": 7,

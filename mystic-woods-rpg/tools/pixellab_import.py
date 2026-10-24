@@ -156,12 +156,13 @@ def _ghost_fix(im, anim, direction):
 
 
 def _spider_fix(im, anim, direction):
-    """Drop the white impact sparks the spider's hurt clip scatters around the cell."""
+    """Drop the white impact sparks the spider's hurt clip scatters around the cell, and stray
+    white specks on its back view (it has no white parts seen from behind)."""
     px = im.load()
     for y in range(im.height):
         for x in range(im.width):
             r, g, b, a = px[x, y]
-            if a and anim == "damaged" and r > 215 and g > 215 and b > 215:
+            if a and (anim == "damaged" or direction == "north") and r > 215 and g > 215 and b > 215:
                 px[x, y] = (0, 0, 0, 0)
     return im
 

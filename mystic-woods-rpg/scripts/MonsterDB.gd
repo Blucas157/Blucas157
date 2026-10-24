@@ -76,9 +76,9 @@ const DATA := {
 		"fps_move": 12.0,
 	},
 	"spider": {
-		"name": "Aranha Espinhosa", "path": NEW + "spider.png", "grid": 64, "feet": 56,
-		"hp": 34, "atk": 11, "speed": 58.0, "xp": 20, "gold": [3, 8], "reach": 24.0, "aggro": 120.0,
-		"hit_frame": 3, "cooldown": 1.4, "behavior": "walk", "attack": "melee", "lunge": 110.0, "radius": 9.0,
+		"name": "Aranha Espinhosa", "path": NEW + "spider.png", "grid": 32, "feet": 24,
+		"hp": 26, "atk": 10, "speed": 60.0, "xp": 15, "gold": [2, 6], "reach": 20.0, "aggro": 120.0,
+		"hit_frame": 3, "cooldown": 1.3, "behavior": "walk", "attack": "melee", "lunge": 110.0, "radius": 6.0,
 		"fps_move": 12.0,
 	},
 	"frog": {
