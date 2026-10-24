@@ -199,6 +199,75 @@ func run() -> void:
 	await frames(2)
 	check(p.alive() and game.hp == game.max_hp and main.world.pos_to_cell(p.global_position).distance_to(WorldGen.CENTER) < 4, "respawns in the village")
 
+	# mining, gathering and crafting
+	clear_enemies(false)
+	var ore: Node = null
+	var plant: Node = null
+	for r in get_nodes_in_group("resources"):
+		if ore == null and r.type == "veio_cobre":
+			ore = r
+		if plant == null and r.type == "moita_erva":
+			plant = r
+	check(ore != null and plant != null, "copper veins and herb bushes exist")
+	if ore:
+		var c0: int = game.count("cobre")
+		for i in 4:
+			p.global_position = ore.global_position + Vector2(0, 14)
+			p.facing = Vector2.UP
+			p.state = "move"
+			p.attack_cd = 0.0
+			p.do_attack()
+			await create_timer(0.35).timeout
+		await create_timer(1.2).timeout
+		check(ore.depleted and game.count("cobre") > c0, "mining copper (%d -> %d)" % [c0, game.count("cobre")])
+	if plant:
+		var e0: int = game.count("erva")
+		p.global_position = plant.global_position + Vector2(0, 12)
+		await frames(2)
+		main.interact(p)
+		await create_timer(1.2).timeout
+		check(plant.depleted and game.count("erva") > e0, "picking herbs")
+	# iron needs a pickaxe
+	var iron: Node = null
+	for r in get_nodes_in_group("resources"):
+		if r.type == "veio_ferro":
+			iron = r
+			break
+	if iron:
+		game.tool_tier = 0
+		iron.hit(main)
+		iron.hit(main)
+		iron.hit(main)
+		iron.hit(main)
+		check(not iron.depleted, "iron needs a copper pickaxe")
+	game.items["cobre"] = 10
+	game.gold = 500
+	var pick: Dictionary = ItemDB.RECIPES["ferreiro"][0]
+	check(main.craft(pick) and game.tool_tier == 1 and game.count("cobre") == 5, "forging a copper pickaxe")
+	check(main.recipe_state(pick) != "", "pickaxe cannot be forged twice")
+	game.items["erva"] = 2
+	game.items["gosma"] = 1
+	game.potions = 0
+	check(main.craft(ItemDB.RECIPES["alquimista"][0]) and game.potions == 1, "alchemist brews a potion")
+	var g1: int = game.gold
+	game.items["rubi"] = 2
+	game.sell("rubi", 2)
+	check(game.gold == g1 + 100 and game.count("rubi") == 0, "merchant buys items")
+	for kind in ["ferreiro", "alquimista", "mercador"]:
+		main.hud.show_shop(kind)
+		await frames(2)
+	main.hud.show_inventory()
+	await frames(2)
+	main.set_paused(false)
+	check(get_nodes_in_group("interactables").size() >= 8, "village NPCs present")
+	var drop_ok := false
+	for i in 20:
+		var e2: Node = main.spawn_enemy("skeleton", p.global_position + Vector2(0, -20), 1)
+		e2.hp = 1
+		e2.take_hit(5, Vector2.UP)
+	await create_timer(1.5).timeout
+	check(game.count("osso") > 0, "skeletons drop bones (%d)" % game.count("osso"))
+
 	# pause and map
 	main.set_paused(true)
 	check(paused, "pause works")

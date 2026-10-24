@@ -36,6 +36,8 @@ var pillars: Array[Vector2i] = []
 var fences: Array[Vector2i] = []
 var objects: Array = []   # {type, cell}
 var chests: Array = []    # {id, cell, tier}
+var resources: Array = [] # {type, cell}
+var npcs: Array = []      # {type, cell, station, station_cell}
 var islands: Array[Vector2i] = []
 var lilies: Array = []    # [cell, atlas coords, source]
 var decor: Dictionary = {} # cell -> atlas coords in decor_16x16
@@ -69,6 +71,7 @@ func generate(s: int) -> void:
 	_cliffs()
 	_ruins()
 	_objects()
+	_resources()
 	_chests()
 	_decor()
 
@@ -195,6 +198,12 @@ func _village() -> void:
 		_place(p[0], p[1], true)
 	chests.append({"id": "vila", "cell": c + Vector2i(1, 6), "tier": 0})
 	blocked[idx(c + Vector2i(1, 6))] = 1
+	for n in [["ferreiro", c + Vector2i(-5, -5), c + Vector2i(-3, -5)],
+			["alquimista", c + Vector2i(5, -5), c + Vector2i(3, -5)],
+			["mercador", c + Vector2i(-4, 6), c + Vector2i(-2, 6)]]:
+		npcs.append({"type": n[0], "cell": n[1], "station_cell": n[2]})
+		blocked[idx(n[1])] = 1
+		blocked[idx(n[2])] = 1
 
 
 func _carve_path(a: Vector2i, b: Vector2i) -> void:
@@ -542,6 +551,37 @@ func _objects() -> void:
 		var c := Vector2i(rng.randi_range(10, W - 10), rng.randi_range(10, H - 10))
 		if region_at(c) != "vila":
 			_place("pot" if rng.randf() < 0.6 else "crate", c)
+
+
+func _resources() -> void:
+	for y in range(6, H - 6):
+		for x in range(6, W - 6):
+			var c := Vector2i(x, y)
+			var r := region_at(c)
+			if not ItemDB.RESOURCE_SPAWNS.has(r):
+				continue
+			var tab: Array = ItemDB.RESOURCE_SPAWNS[r]
+			if rng.randf() > float(tab[0]):
+				continue
+			if not walkable(c) or reserved[idx(c)] == 1 or t_at(c) != T.GRASS:
+				continue
+			var free := true
+			for oy in range(-1, 2):
+				for ox in range(-1, 2):
+					if is_blocked(c + Vector2i(ox, oy)):
+						free = false
+			if not free:
+				continue
+			var total := 0
+			for e in tab[1]:
+				total += int(e[1])
+			var pick := rng.randi_range(1, total)
+			for e in tab[1]:
+				pick -= int(e[1])
+				if pick <= 0:
+					resources.append({"type": e[0], "cell": c})
+					blocked[idx(c)] = 1
+					break
 
 
 func _chests() -> void:

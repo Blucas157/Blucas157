@@ -58,5 +58,60 @@
       "damaged": 3,
       "death": 6
     }
+  },
+  "orc": {
+    "size": 48,
+    "frames": {
+      "idle": 4,
+      "move": 6,
+      "attack": 6,
+      "damaged": 6,
+      "death": 7
+    },
+    "source": "pixellab"
+  },
+  "wolf": {
+    "size": 48,
+    "frames": {
+      "idle": 8,
+      "move": 6,
+      "attack": 6,
+      "damaged": 4,
+      "death": 6
+    },
+    "source": "pixellab"
+  },
+  "spider": {
+    "size": 48,
+    "frames": {
+      "idle": 4,
+      "move": 6,
+      "attack": 6,
+      "damaged": 4,
+      "death": 6
+    },
+    "source": "pixellab"
+  },
+  "frog": {
+    "size": 48,
+    "frames": {
+      "idle": 4,
+      "move": 6,
+      "attack": 6,
+      "damaged": 4,
+      "death": 6
+    },
+    "source": "pixellab"
+  },
+  "crystal_elemental": {
+    "size": 48,
+    "frames": {
+      "idle": 4,
+      "move": 6,
+      "attack": 6,
+      "damaged": 4,
+      "death": 6
+    },
+    "source": "pixellab"
   }
 }

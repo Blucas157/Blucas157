@@ -110,6 +110,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		do_potion()
 	elif event.is_action_pressed("interact"):
 		do_interact()
+	elif event.is_action_pressed("inventory") and main:
+		main.open_inventory()
 
 
 func do_attack() -> void:
@@ -182,6 +184,10 @@ func _apply_attack() -> void:
 			if crit:
 				dmg = int(dmg * 1.8)
 			e.take_hit(dmg, (e.global_position - global_position).normalized(), crit)
+			hit_any = true
+	for r in get_tree().get_nodes_in_group("resources"):
+		if (r.global_position + Vector2(0, -6)).distance_to(center) <= 18.0 and main:
+			r.hit(main)
 			hit_any = true
 	for b in get_tree().get_nodes_in_group("breakables"):
 		if (b.global_position + Vector2(0, -6)).distance_to(center) <= 20.0 and main:

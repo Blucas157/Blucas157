@@ -1,8 +1,34 @@
-# Mystic Woods RPG — v0.1
+# Mystic Woods RPG — v0.2
 
 RPG de ação de mundo aberto em pixel art, feito no **Godot 4.7.2** com o pack **Mystic Woods** e 6 monstros novos desenhados no mesmo estilo do pack.
 
 ![Novos monstros](docs/novos_monstros.png)
+
+## v0.2 — Monstros, minérios e itens da PixelLab
+![Monstros PixelLab](docs/monstros_pixellab.png)
+
+- **5 monstros novos gerados na PixelLab** e convertidos para o layout do pack (mesmas 13 linhas, pés na linha do chão, sombra do pack):
+  - Orc Guerreiro (Floresta e Coração da Floresta) — golpe de clava
+  - Lobo Sombrio (Floresta, mais à noite) — rápido, investida com mordida
+  - Aranha da Caverna (Ruínas e Pedreira) — corre e dá o bote
+  - Sapo do Pântano (Pântano e Prado) — anda pulando, ataca com a língua
+  - Elemental de Cristal (Pedreira) — lento, soco de cristal em área
+- **Minérios e plantas no mundo** (arte PixelLab): veios de cobre, carvão, ferro, prata, ouro, cristal, ametista e rubi; moitas de erva, frutinhas, hortelã, macieiras, cogumelos azuis e flores lunares. Minério se quebra com golpes; planta se colhe com E (ou golpe). Tudo volta a crescer depois de um tempo.
+- **Picaretas**: cobre e carvão saem na mão; ferro e prata pedem Picareta de Cobre; ouro, cristal, ametista e rubi pedem Picareta de Ferro; a de Ouro minera com metade dos golpes.
+- **29 itens colecionáveis** com ícones PixelLab: minérios, gemas, plantas e partes de monstros (gosma, esporos, asa, ectoplasma, osso, dente, núcleo de golem, pele de lobo, presa de orc, seda, perna de sapo, cerne do Ent). Cada monstro tem seus drops.
+- **Vila com 3 NPCs** (PixelLab, feitos a partir do herói do pack para ter as mesmas proporções):
+  - **Ferreiro**: picaretas, Espadas de Ferro/Prata/Cristal e Armaduras de Couro/Ferro.
+  - **Alquimista**: poções, Tônico de Força (+ATK), Elixir de Vida (+vida máx.) e Poção Pele de Pedra (+DEF).
+  - **Mercador**: compra qualquer material e vende poções.
+- **Mochila** (I ou B, ou pelo menu de pausa) e aviso de coleta no canto da tela.
+- Missões novas: minerar cobre, colher ervas, sapos, lobos, aranhas, forjar uma Picareta de Ferro, orcs e elementais (18 no total).
+
+### Pipeline PixelLab (tools/)
+1. Sprite de frente com `create_image_pixflux` usando a paleta do pack (`color_image`), em tela 32×32 para sair no tamanho certo.
+2. `create_character` modo v3 com esse sprite como referência → 4 direções.
+3. `animate_character` (templates para orc/lobo, v3 para o resto): idle, move, attack, damaged e death.
+4. `python3 tools/pixellab_import.py <nome> <pasta_exportada> 48` encaixa tudo no layout do pack, ajusta a paleta, alinha os pés, põe a sombra e atualiza `scripts/MonsterFrames.gd`.
+5. Ícones e veios: `create_1_direction_object` com recortes do pack como `style_images` (64 variações por chamada).
 
 ## Abrir o jogo
 1. A licença do Mystic Woods não permite redistribuir os arquivos, então eles **não** ficam no repositório. Extraia o ZIP do pack e copie a pasta `sprites` para `assets/mystic_woods/`, ficando `assets/mystic_woods/sprites/characters/player.png` etc.
@@ -18,6 +44,7 @@ RPG de ação de mundo aberto em pixel art, feito no **Godot 4.7.2** com o pack 
 | Interagir (baú, placa, fonte) | E ou Enter | Y |
 | Mapa | M ou Tab | Back |
 | Pausa | Esc ou P | Start |
+| Mochila | I ou B | RB |
 
 No celular/tablet aparecem joystick e botões na tela (ATK, ESQ, E, Q, M, II).
 

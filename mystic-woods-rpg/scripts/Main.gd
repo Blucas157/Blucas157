@@ -315,7 +315,17 @@ func _nearest_interactable() -> Node:
 		if d2 < best_d:
 			best_d = d2
 			best = s
+	for r in get_tree().get_nodes_in_group("resources"):
+		if r.can_pick():
+			var d3: float = r.global_position.distance_to(player.global_position)
+			if d3 < best_d:
+				best_d = d3
+				best = r
 	return best
+
+
+const NPC_HINTS := {"sign": "[E] Ler placa", "well": "[E] Beber da fonte", "ferreiro": "[E] Ferreiro",
+	"alquimista": "[E] Alquimista", "mercador": "[E] Mercador"}
 
 
 func _hint_text() -> String:
@@ -324,7 +334,9 @@ func _hint_text() -> String:
 		return ""
 	if n.is_in_group("chests"):
 		return "[E] Abrir baú"
-	return "[E] Ler placa" if n.get_meta("type") == "sign" else "[E] Beber da fonte"
+	if n.is_in_group("resources"):
+		return "[E] Colher " + ItemDB.item_name(n.def["item"])
+	return NPC_HINTS.get(n.get_meta("type"), "[E]")
 
 
 func interact(_p: Node) -> void:
@@ -333,16 +345,93 @@ func interact(_p: Node) -> void:
 		return
 	if n.is_in_group("chests"):
 		n.open(self)
-	elif n.get_meta("type") == "sign":
-		Sfx.play("select")
-		hud.toast("Missão: " + Game.quest_text().replace("\n", " - "), Color(1, 0.95, 0.7))
-		hud.toast("Dica: a fonte da vila cura e salva o jogo. Baús guardam espadas e cristais!", Color(0.85, 0.9, 1.0))
-	else:
-		Game.heal(Game.max_hp)
-		Game.player_pos = player.global_position
-		Game.save_game()
-		Sfx.play("potion")
-		hud.toast("Água fresca! Vida restaurada e jogo salvo.", Color(0.6, 1.0, 0.7))
+		return
+	if n.is_in_group("resources"):
+		n.hit(self)
+		return
+	var t: String = n.get_meta("type")
+	match t:
+		"sign":
+			Sfx.play("select")
+			hud.toast("Missão: " + Game.quest_text().replace("\n", " - "), Color(1, 0.95, 0.7))
+			hud.toast("Dica: minere e colha recursos e leve ao Ferreiro e à Alquimista!", Color(0.85, 0.9, 1.0))
+		"well":
+			Game.heal(Game.max_hp)
+			Game.player_pos = player.global_position
+			Game.save_game()
+			Sfx.play("potion")
+			hud.toast("Água fresca! Vida restaurada e jogo salvo.", Color(0.6, 1.0, 0.7))
+		"ferreiro", "alquimista", "mercador":
+			Sfx.play("select")
+			get_tree().paused = true
+			hud.show_shop(t)
+
+
+func open_inventory() -> void:
+	if not playing or get_tree().paused:
+		return
+	get_tree().paused = true
+	hud.show_inventory()
+
+
+func recipe_state(r: Dictionary) -> String:
+	## "" if it can be crafted, otherwise the reason
+	if r["kind"] in ["tool", "sword", "armor"] and Game.crafted.has(r["id"]):
+		return "Já forjado"
+	if r["kind"] == "tool" and Game.tool_tier >= int(r["value"]):
+		return "Já possui"
+	if r["kind"] == "armor" and Game.armor_tier >= int(r["value"]):
+		return "Já possui"
+	if r["kind"] == "potion" and Game.potions >= Game.MAX_POTIONS:
+		return "Poções cheias"
+	if not Game.has_items(r["cost"]):
+		return "Faltam materiais"
+	if Game.gold < int(r["gold"]):
+		return "Falta ouro"
+	return ""
+
+
+func craft(r: Dictionary) -> bool:
+	var why := recipe_state(r)
+	if why != "":
+		hud.toast(why, Color(1, 0.7, 0.6))
+		return false
+	Game.remove_items(r["cost"])
+	Game.gold -= int(r["gold"])
+	match r["kind"]:
+		"tool":
+			Game.tool_tier = int(r["value"])
+		"sword":
+			Game.sword_tier += int(ItemDB.SWORD_UPGRADES.get(int(r["value"]), 1))
+		"armor":
+			Game.armor_tier = int(r["value"])
+		"potion":
+			Game.potions = min(Game.MAX_POTIONS, Game.potions + int(r["value"]))
+		"stat":
+			match r["value"]:
+				"atk":
+					Game.atk += 1
+				"hp":
+					Game.max_hp += 5
+					Game.heal(5)
+				"def":
+					Game.defense += 1
+	Sfx.play("level" if r["kind"] in ["tool", "sword", "armor"] else "potion")
+	hud.toast("%s pronto! %s" % [r["name"], r["desc"]], Color(0.6, 1.0, 0.6))
+	Game.register_craft(r["id"])
+	Game.stats_changed.emit()
+	Game.save_game()
+	return true
+
+
+func buy_potion() -> void:
+	if Game.gold < 25 or Game.potions >= Game.MAX_POTIONS:
+		hud.toast("Falta ouro" if Game.gold < 25 else "Poções cheias", Color(1, 0.7, 0.6))
+		return
+	Game.gold -= 25
+	Game.potions += 1
+	Game.stats_changed.emit()
+	Sfx.play("coin")
 
 
 func break_object(b: Node) -> void:
@@ -371,6 +460,18 @@ func drop_coins(pos: Vector2, amount: int) -> void:
 	for i in n:
 		var v: int = amount / n + (1 if i < amount % n else 0)
 		drop_item(pos, "coin", v)
+
+
+func drop_material(pos: Vector2, id: String, amount: int) -> void:
+	for i in amount:
+		var p := PickupScript.new()
+		p.kind = "item"
+		p.item_id = id
+		p.value = 1
+		p.player = player
+		p.position = pos
+		p.vel = Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(15.0, 45.0)
+		world.entities.call_deferred("add_child", p)
 
 
 func drop_item(pos: Vector2, kind: String, value: int = 1) -> void:

@@ -285,6 +285,9 @@ func _die() -> void:
 	var g: Array = def["gold"]
 	var gold := int(randi_range(int(g[0]), int(g[1])) * (1.0 + 0.15 * (lvl - 1)))
 	main.drop_loot(global_position, gold, 0.08 if not is_boss else 1.0, 0.15)
+	for d in ItemDB.DROPS.get(id, []):
+		if randf() < float(d[1]):
+			main.drop_material(global_position, d[0], 1)
 	if is_boss:
 		main.boss_defeated(self)
 

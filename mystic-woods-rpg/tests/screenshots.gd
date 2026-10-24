@@ -19,6 +19,10 @@ func shot(name: String) -> void:
 	print("saved ", name)
 
 
+func get_tree_paused(p: bool) -> void:
+	paused = p
+
+
 func goto(cell: Vector2i, settle := 0.6) -> void:
 	main.player.global_position = main.world.cell_to_pos(cell)
 	main.camera.global_position = main.player.global_position
@@ -51,9 +55,12 @@ func run() -> void:
 	await shot("02_village")
 	# monster parade next to the player
 	var base: Vector2 = main.player.global_position + Vector2(0, 50)
-	var ids := ["slime", "mushroom", "bat", "ghost", "skeleton", "goblin", "golem", "slime_fire", "goblin_chief"]
+	var ids := ["slime", "mushroom", "bat", "ghost", "skeleton", "goblin", "golem", "slime_fire", "goblin_chief",
+		"orc", "wolf", "spider", "frog", "crystal_elemental"]
 	for i in ids.size():
-		var e: Node = main.spawn_enemy(ids[i], base + Vector2(-170 + i * 42, 0), 1)
+		var row := 0 if i < 9 else 1
+		var col := i if i < 9 else i - 9
+		var e: Node = main.spawn_enemy(ids[i], base + Vector2(-170 + col * 42 + row * 40, row * 44 - 20), 1)
 		e.set_physics_process(false)
 		e.sprite.play("idle_down")
 	await create_timer(0.4).timeout
@@ -98,6 +105,31 @@ func run() -> void:
 	main.toggle_map()
 	main.set_paused(true)
 	await shot("08_pause")
+	main.set_paused(false)
+	# resources near the quarry, shops and backpack
+	for id in ["cobre", "ferro", "carvao", "erva", "gosma", "osso", "cristal", "pele_lobo", "seda_aranha", "frutinhas"]:
+		game.items[id] = 6
+	game.gold = 120
+	var best: Node = null
+	for r in get_nodes_in_group("resources"):
+		if r.type == "veio_cristal":
+			best = r
+			break
+	if best:
+		main.player.global_position = best.global_position + Vector2(-30, 20)
+		main.camera.global_position = main.player.global_position
+		main.camera.reset_smoothing()
+		await create_timer(0.8).timeout
+		await shot("09_mining")
+	await goto(WorldGen.CENTER + Vector2i(-4, -3), 1.0)
+	await shot("10_village_npcs")
+	get_tree_paused(true)
+	main.hud.show_shop("ferreiro")
+	await shot("11_blacksmith")
+	main.hud.show_shop("alquimista")
+	await shot("12_alchemist")
+	main.hud.show_inventory()
+	await shot("13_backpack")
 	main.set_paused(false)
 	game.delete_save()
 	quit(0)

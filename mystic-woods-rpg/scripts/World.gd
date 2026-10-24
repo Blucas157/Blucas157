@@ -72,6 +72,8 @@ func build(world_seed: int) -> void:
 	_paint_ground()
 	_paint_overlay()
 	_spawn_objects()
+	_spawn_resources()
+	_spawn_npcs()
 	_spawn_chests()
 	_make_minimap()
 
@@ -285,6 +287,42 @@ func _spawn_objects() -> void:
 		entities.add_child(node)
 
 
+func _spawn_resources() -> void:
+	for r in gen.resources:
+		var node := preload("res://scripts/ResourceNode.gd").new()
+		node.setup(r["type"])
+		node.position = cell_to_pos(r["cell"]) + Vector2(0, 6)
+		entities.add_child(node)
+
+
+func _spawn_npcs() -> void:
+	for n in gen.npcs:
+		for part in [["station", n["station_cell"]], ["npc", n["cell"]]]:
+			var body := StaticBody2D.new()
+			body.collision_layer = 1
+			body.collision_mask = 0
+			var shape := CollisionShape2D.new()
+			var rect := RectangleShape2D.new()
+			rect.size = Vector2(14, 7)
+			shape.shape = rect
+			shape.position = Vector2(0, -3)
+			body.add_child(shape)
+			var spr := Sprite2D.new()
+			var file: String = n["type"] + ("_station" if part[0] == "station" else "")
+			spr.texture = Sheets.tex("res://assets/npcs/%s.png" % file)
+			spr.offset = Vector2(0, -spr.texture.get_height() / 2.0 + 3)
+			body.add_child(spr)
+			body.position = cell_to_pos(part[1]) + Vector2(0, 6)
+			body.add_to_group("interactables")
+			body.set_meta("type", n["type"])
+			if part[0] == "npc":
+				body.set_meta("npc", true)
+				var tw := spr.create_tween().set_loops()
+				tw.tween_property(spr, "scale:y", 1.04, 0.6)
+				tw.tween_property(spr, "scale:y", 1.0, 0.6)
+			entities.add_child(body)
+
+
 func _spawn_chests() -> void:
 	for ch in gen.chests:
 		var chest := preload("res://scripts/Chest.gd").new()
@@ -324,4 +362,7 @@ func _make_minimap() -> void:
 				minimap_image.set_pixel(c.x, c.y - 1, Color("2a6a2c"))
 	for f in gen.fences:
 		minimap_image.set_pixel(f.x, f.y, Color("755338"))
+	for r in gen.resources:
+		var c: Vector2i = r["cell"]
+		minimap_image.set_pixel(c.x, c.y, Color("d99945") if String(r["type"]).begins_with("veio") else Color("bc4952"))
 	minimap_texture = ImageTexture.create_from_image(minimap_image)

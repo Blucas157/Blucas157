@@ -3,6 +3,7 @@ extends Node2D
 
 var kind := "coin"
 var value := 1
+var item_id := ""
 var vel := Vector2.ZERO
 var z := 0.0
 var vz := 0.0
@@ -22,7 +23,11 @@ func _ready() -> void:
 		var s := Sprite2D.new()
 		s.texture = Sheets.tex(Sheets.MW + "objects/objects.png")
 		s.region_enabled = true
-		s.region_rect = Rect2(144, 64, 16, 16) if kind == "potion" else Rect2(128, 32, 16, 16)
+		if kind == "item":
+			s.texture = Sheets.tex(ItemDB.ICONS)
+			s.region_rect = ItemDB.icon_rect(item_id)
+		else:
+			s.region_rect = Rect2(144, 64, 16, 16) if kind == "potion" else Rect2(128, 32, 16, 16)
 		sprite = s
 	sprite.position = Vector2(0, -5)
 	add_child(sprite)
@@ -43,7 +48,7 @@ func _process(delta: float) -> void:
 	if player and age > 0.45 and player.alive():
 		var to := player.global_position + Vector2(0, -6) - global_position
 		var d := to.length()
-		var magnet := 46.0 if kind == "coin" else 22.0
+		var magnet := 46.0 if kind in ["coin", "item"] else 22.0
 		if d < 8.0:
 			_collect()
 			return
@@ -67,4 +72,9 @@ func _collect() -> void:
 		"heart":
 			Game.heal(8)
 			Sfx.play("potion", 1.3)
+		"item":
+			Game.add_item(item_id, value)
+			Sfx.play("coin", 0.75)
+			if player and player.main:
+				player.main.hud.loot(item_id, value)
 	queue_free()

@@ -20,6 +20,7 @@ var fog_texture: ImageTexture
 var fog_dirty := false
 var map_open := false
 var touch: Control
+var loot_feed: Array = []   # {id, n, t}
 
 
 func _ready() -> void:
@@ -73,6 +74,9 @@ func _process(delta: float) -> void:
 		t["t"] -= delta
 	toasts = toasts.filter(func(t): return t["t"] > 0.0)
 	banner_t = max(0.0, banner_t - delta)
+	for l in loot_feed:
+		l["t"] -= delta
+	loot_feed = loot_feed.filter(func(l): return l["t"] > 0.0)
 	if fog_dirty and fog_texture:
 		fog_texture.update(fog_image)
 		fog_dirty = false
@@ -84,6 +88,17 @@ func toast(text: String, color: Color = Color.WHITE) -> void:
 	toasts.append({"text": text, "color": color, "t": 3.2})
 	if toasts.size() > 3:
 		toasts.pop_front()
+
+
+func loot(id: String, n: int) -> void:
+	for l in loot_feed:
+		if l["id"] == id:
+			l["n"] += n
+			l["t"] = 3.0
+			return
+	loot_feed.append({"id": id, "n": n, "t": 3.0})
+	if loot_feed.size() > 5:
+		loot_feed.pop_front()
 
 
 func show_banner(text: String) -> void:
@@ -154,7 +169,7 @@ func _draw_hud() -> void:
 	_icon(0, Vector2(8, 32))
 	_text(Vector2(22, 42), str(Game.attack_power()), 8)
 	_icon(1, Vector2(40, 32))
-	_text(Vector2(54, 42), str(Game.defense), 8)
+	_text(Vector2(54, 42), str(Game.defense_total()), 8)
 	_icon(3, Vector2(70, 32))
 	_text(Vector2(85, 42), str(Game.gold), 8, Color("ffd479"))
 	# --- quest tracker
@@ -196,6 +211,17 @@ func _draw_hud() -> void:
 		draw_root.draw_rect(Rect2(bx, 74, bw2, 26), Color(0.09, 0.11, 0.19, 0.55 * a))
 		draw_root.draw_string_outline(FONT, Vector2(bx, 93), banner, HORIZONTAL_ALIGNMENT_CENTER, bw2, 16, 4, Color(0.09, 0.11, 0.19, a))
 		draw_root.draw_string(FONT, Vector2(bx, 93), banner, HORIZONTAL_ALIGNMENT_CENTER, bw2, 16, c)
+	# --- loot feed (bottom right)
+	var ly := sz.y - 20.0
+	for i in range(loot_feed.size() - 1, -1, -1):
+		var l: Dictionary = loot_feed[i]
+		var a2: float = min(1.0, l["t"] * 2.0)
+		var txt := "+%d %s" % [l["n"], ItemDB.item_name(l["id"])]
+		var w := FONT.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x
+		draw_root.draw_rect(Rect2(sz.x - w - 30, ly - 11, w + 26, 15), Color(0.09, 0.11, 0.19, 0.6 * a2))
+		draw_root.draw_texture_rect_region(Sheets.tex(ItemDB.ICONS), Rect2(sz.x - w - 28, ly - 11, 16, 16), ItemDB.icon_rect(l["id"]), Color(1, 1, 1, a2))
+		draw_root.draw_string(FONT, Vector2(sz.x - w - 8, ly), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(1, 1, 1, a2))
+		ly -= 17.0
 	# --- toasts
 	var ty := 118.0
 	for t in toasts:
@@ -307,10 +333,11 @@ func show_title() -> void:
 
 func show_pause() -> void:
 	var stats := "Nível %d  -  XP %d/%d\nAtaque %d  -  Defesa %d  -  Ouro %d\nMonstros derrotados: %d  -  Baús: %d\nTempo de jogo: %d min" % [
-		Game.level, Game.xp, Game.xp_to_next(), Game.attack_power(), Game.defense, Game.gold,
+		Game.level, Game.xp, Game.xp_to_next(), Game.attack_power(), Game.defense_total(), Game.gold,
 		_total_kills(), Game.opened_chests.size(), int(Game.play_time / 60.0)]
 	var box := _menu_box("Pausa", stats, 220)
 	var cont := _button(box, "Continuar", func(): main.set_paused(false))
+	_button(box, "Mochila", func(): show_inventory())
 	_button(box, "Salvar jogo", func(): Game.save_game(); toast("Jogo salvo", Color(0.6, 1, 0.6)); main.set_paused(false))
 	_button(box, "Som: " + ("desligado" if Game.muted else "ligado"), func(): Game.muted = not Game.muted; show_pause())
 	_button(box, "Sair para o título", func(): main.quit_to_title())
@@ -334,3 +361,185 @@ func show_victory() -> void:
 	var box := _menu_box("Vitória!", "O Ent Ancião foi derrotado e a floresta está em paz.\nUm baú lendário apareceu na arena. Continue explorando!", 160)
 	var b := _button(box, "Continuar", func(): main.set_paused(false))
 	b.call_deferred("grab_focus")
+
+
+# ---------------------------------------------------------------- inventory and shops
+func _panel_box(title: String) -> VBoxContainer:
+	clear_menu()
+	var shade := ColorRect.new()
+	shade.color = Color(0.03, 0.04, 0.08, 0.6)
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	menu_root.add_child(shade)
+	var panel := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.09, 0.11, 0.19, 0.95)
+	sb.border_color = Color("c8b3a2")
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(3)
+	sb.set_content_margin_all(6)
+	panel.add_theme_stylebox_override("panel", sb)
+	var w := minf(screen_size().x - 20.0, 400.0)
+	panel.position = Vector2((screen_size().x - w) / 2.0, 10)
+	panel.size = Vector2(w, screen_size().y - 20.0)
+	menu_root.add_child(panel)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 4)
+	panel.add_child(box)
+	var head := HBoxContainer.new()
+	box.add_child(head)
+	var t := Label.new()
+	t.text = title
+	t.add_theme_font_size_override("font_size", 16)
+	t.add_theme_color_override("font_color", Color("ffe9a8"))
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(t)
+	var gold := Label.new()
+	gold.text = "Ouro: %d" % Game.gold
+	gold.add_theme_font_size_override("font_size", 8)
+	gold.add_theme_color_override("font_color", Color("ffd479"))
+	head.add_child(gold)
+	var close := Button.new()
+	close.text = "Fechar"
+	close.add_theme_font_size_override("font_size", 8)
+	close.pressed.connect(func(): Sfx.play("select"); main.set_paused(false))
+	head.add_child(close)
+	close.call_deferred("grab_focus")
+	return box
+
+
+func _scroll(box: VBoxContainer) -> VBoxContainer:
+	var sc := ScrollContainer.new()
+	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	box.add_child(sc)
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", 3)
+	sc.add_child(list)
+	return list
+
+
+func _icon_rect(id: String) -> TextureRect:
+	var tr := TextureRect.new()
+	var a := AtlasTexture.new()
+	a.atlas = Sheets.tex(ItemDB.ICONS)
+	a.region = ItemDB.icon_rect(id)
+	tr.texture = a
+	tr.custom_minimum_size = Vector2(16, 16)
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+	return tr
+
+
+func _small(text: String, col := Color.WHITE) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", 8)
+	l.add_theme_color_override("font_color", col)
+	l.add_theme_constant_override("outline_size", 3)
+	return l
+
+
+func show_inventory() -> void:
+	var box := _panel_box("Mochila")
+	box.add_child(_small("Espada: +%d ATK   %s   Armadura: +%d DEF   Poções: %d" % [
+		Game.sword_tier * 3, ItemDB.TOOL_NAMES[Game.tool_tier], int(ItemDB.ARMOR_DEF.get(Game.armor_tier, 0)), Game.potions],
+		Color(0.85, 0.9, 1.0)))
+	var list := _scroll(box)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 12)
+	list.add_child(grid)
+	if Game.items.is_empty():
+		list.add_child(_small("Vazia. Minere veios, colha plantas e derrote monstros!", Color(0.8, 0.8, 0.8)))
+	for id in ItemDB.ITEMS:
+		if Game.count(id) <= 0:
+			continue
+		var row := HBoxContainer.new()
+		row.custom_minimum_size = Vector2(170, 16)
+		row.add_child(_icon_rect(id))
+		row.add_child(_small("%s  x%d" % [ItemDB.item_name(id), Game.count(id)]))
+		grid.add_child(row)
+
+
+func show_shop(kind: String) -> void:
+	if kind == "mercador":
+		_show_merchant()
+		return
+	var title := "Ferreiro" if kind == "ferreiro" else "Alquimista"
+	var box := _panel_box(title)
+	box.add_child(_small("Forjas e ferramentas com os minérios que você coletar." if kind == "ferreiro"
+		else "Poções e tônicos com plantas e partes de monstros.", Color(0.85, 0.9, 1.0)))
+	var list := _scroll(box)
+	for r in ItemDB.RECIPES[kind]:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		list.add_child(row)
+		var ic := TextureRect.new()
+		var at := AtlasTexture.new()
+		at.atlas = Sheets.tex(ItemDB.ICONS)
+		at.region = ItemDB.icon_index_rect(int(r.get("icon", 38)))
+		ic.texture = at
+		ic.custom_minimum_size = Vector2(16, 16)
+		ic.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+		row.add_child(ic)
+		var info := VBoxContainer.new()
+		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		info.add_theme_constant_override("separation", 0)
+		row.add_child(info)
+		info.add_child(_small("%s  -  %s" % [r["name"], r["desc"]], Color("ffe9a8")))
+		var costs := HBoxContainer.new()
+		costs.add_theme_constant_override("separation", 2)
+		info.add_child(costs)
+		for id in r["cost"]:
+			costs.add_child(_icon_rect(id))
+			var have := Game.count(id)
+			var need: int = r["cost"][id]
+			costs.add_child(_small("%d/%d " % [have, need], Color(0.6, 1, 0.6) if have >= need else Color(1, 0.6, 0.6)))
+		costs.add_child(_small("%d ouro" % r["gold"], Color("ffd479") if Game.gold >= int(r["gold"]) else Color(1, 0.6, 0.6)))
+		var why: String = main.recipe_state(r)
+		var b := Button.new()
+		b.text = "Criar" if why == "" else why
+		b.disabled = why != ""
+		b.add_theme_font_size_override("font_size", 8)
+		b.custom_minimum_size = Vector2(70, 0)
+		b.pressed.connect(func():
+			if main.craft(r):
+				show_shop(kind))
+		row.add_child(b)
+
+
+func _show_merchant() -> void:
+	var box := _panel_box("Mercador")
+	var top := HBoxContainer.new()
+	box.add_child(top)
+	top.add_child(_small("Poção de Vida: 25 ouro (você tem %d)" % Game.potions, Color(0.85, 0.9, 1.0)))
+	var buy := Button.new()
+	buy.text = "Comprar"
+	buy.add_theme_font_size_override("font_size", 8)
+	buy.pressed.connect(func(): main.buy_potion(); _show_merchant())
+	top.add_child(buy)
+	box.add_child(_small("Vender materiais:", Color("ffe9a8")))
+	var list := _scroll(box)
+	var any := false
+	for id in ItemDB.ITEMS:
+		if Game.count(id) <= 0:
+			continue
+		any = true
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		list.add_child(row)
+		row.add_child(_icon_rect(id))
+		var l := _small("%s x%d  (%d ouro cada)" % [ItemDB.item_name(id), Game.count(id), ItemDB.ITEMS[id]["price"]])
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(l)
+		for amount in [1, -1]:
+			var b := Button.new()
+			b.text = "Vender 1" if amount == 1 else "Vender tudo"
+			b.add_theme_font_size_override("font_size", 8)
+			b.pressed.connect(func():
+				Game.sell(id, 1 if amount == 1 else Game.count(id))
+				Sfx.play("coin")
+				_show_merchant())
+			row.add_child(b)
+	if not any:
+		list.add_child(_small("Nada para vender ainda.", Color(0.8, 0.8, 0.8)))

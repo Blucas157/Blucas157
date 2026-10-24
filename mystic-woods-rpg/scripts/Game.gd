@@ -5,6 +5,7 @@ signal stats_changed
 signal message(text: String, color: Color)
 signal quest_changed
 signal leveled_up(new_level: int)
+signal items_changed
 
 const SAVE_PATH := "user://mystic_woods_save.cfg"
 const MAX_POTIONS := 9
@@ -13,10 +14,18 @@ const QUESTS := [
 	{"title": "Primeiros passos", "desc": "Derrote 5 Slimes no Prado", "type": "kill", "target": ["slime"], "count": 5, "gold": 20, "xp": 15},
 	{"title": "Cogumelos travessos", "desc": "Derrote 4 Cogumelos", "type": "kill", "target": ["mushroom"], "count": 4, "gold": 25, "xp": 20},
 	{"title": "Explorador", "desc": "Descubra 3 regiões do mapa", "type": "discover", "count": 3, "gold": 30, "xp": 30},
+	{"title": "Mãos à obra", "desc": "Minere 5 Minérios de Cobre", "type": "gather", "target": ["cobre"], "count": 5, "gold": 25, "xp": 25},
+	{"title": "Herbalista", "desc": "Colha 4 Ervas Medicinais", "type": "gather", "target": ["erva"], "count": 4, "gold": 25, "xp": 25},
 	{"title": "Caça ao tesouro", "desc": "Abra 4 baús", "type": "chests", "count": 4, "gold": 40, "xp": 30},
+	{"title": "Coaxar no pântano", "desc": "Derrote 4 Sapos do Pântano", "type": "kill", "target": ["frog"], "count": 4, "gold": 40, "xp": 40},
 	{"title": "Ameaça goblin", "desc": "Derrote 6 Goblins na Floresta", "type": "kill", "target": ["goblin", "goblin_chief"], "count": 6, "gold": 50, "xp": 50},
+	{"title": "Uivos na noite", "desc": "Derrote 4 Lobos Sombrios", "type": "kill", "target": ["wolf"], "count": 4, "gold": 50, "xp": 60},
 	{"title": "Ossos inquietos", "desc": "Derrote 6 Esqueletos nas Ruínas", "type": "kill", "target": ["skeleton", "skeleton_dark"], "count": 6, "gold": 60, "xp": 70},
 	{"title": "Almas perdidas", "desc": "Derrote 4 Fantasmas", "type": "kill", "target": ["ghost"], "count": 4, "gold": 70, "xp": 80},
+	{"title": "Teias nas ruínas", "desc": "Derrote 5 Aranhas da Caverna", "type": "kill", "target": ["spider"], "count": 5, "gold": 70, "xp": 90},
+	{"title": "Ferreiro aprendiz", "desc": "Forje uma Picareta de Ferro", "type": "craft", "target": ["picareta_ferro"], "count": 1, "gold": 50, "xp": 80},
+	{"title": "Fúria orc", "desc": "Derrote 5 Orcs Guerreiros", "type": "kill", "target": ["orc"], "count": 5, "gold": 90, "xp": 120},
+	{"title": "Cristais vivos", "desc": "Derrote 3 Elementais de Cristal", "type": "kill", "target": ["crystal_elemental"], "count": 3, "gold": 100, "xp": 140},
 	{"title": "Coração de pedra", "desc": "Derrote 2 Golens na Pedreira", "type": "kill", "target": ["golem"], "count": 2, "gold": 90, "xp": 120},
 	{"title": "O Ent Ancião", "desc": "Vença o chefe no Coração da Floresta", "type": "kill", "target": ["treant"], "count": 1, "gold": 300, "xp": 400},
 ]
@@ -34,6 +43,10 @@ var hp := 30
 var atk := 6
 var defense := 0
 var sword_tier := 0
+var tool_tier := 0
+var armor_tier := 0
+var items := {}
+var crafted := {}
 var kills := {}
 var opened_chests := {}
 var broken := {}
@@ -70,6 +83,10 @@ func new_game(seed_value: int = -1) -> void:
 	atk = 6
 	defense = 0
 	sword_tier = 0
+	tool_tier = 0
+	armor_tier = 0
+	items = {}
+	crafted = {}
 	kills = {}
 	opened_chests = {}
 	broken = {}
@@ -119,7 +136,7 @@ func add_gold(amount: int) -> void:
 
 
 func damage_player(raw: int) -> int:
-	var dmg: int = max(1, raw - defense)
+	var dmg: int = max(1, raw - defense_total())
 	hp = max(0, hp - dmg)
 	stats_changed.emit()
 	return dmg
@@ -144,6 +161,57 @@ func add_potion() -> bool:
 	potions += 1
 	stats_changed.emit()
 	return true
+
+
+func register_craft(recipe_id: String) -> void:
+	crafted[recipe_id] = int(crafted.get(recipe_id, 0)) + 1
+	var q := current_quest()
+	if not q.is_empty() and q["type"] == "craft" and recipe_id in q["target"]:
+		quest_progress += 1
+		_check_quest()
+
+
+# ---------------------------------------------------------------- items
+func add_item(id: String, n: int = 1) -> void:
+	items[id] = int(items.get(id, 0)) + n
+	items_changed.emit()
+	var q := current_quest()
+	if not q.is_empty() and q["type"] == "gather" and id in q["target"]:
+		quest_progress += n
+		_check_quest()
+
+
+func count(id: String) -> int:
+	return int(items.get(id, 0))
+
+
+func has_items(cost: Dictionary) -> bool:
+	for id in cost:
+		if count(id) < int(cost[id]):
+			return false
+	return true
+
+
+func remove_items(cost: Dictionary) -> void:
+	for id in cost:
+		items[id] = count(id) - int(cost[id])
+		if items[id] <= 0:
+			items.erase(id)
+	items_changed.emit()
+
+
+func sell(id: String, n: int = 1) -> int:
+	n = min(n, count(id))
+	if n <= 0:
+		return 0
+	remove_items({id: n})
+	var g: int = int(ItemDB.ITEMS[id]["price"]) * n
+	add_gold(g)
+	return g
+
+
+func defense_total() -> int:
+	return defense + int(ItemDB.ARMOR_DEF.get(armor_tier, 0))
 
 
 # ---------------------------------------------------------------- quests
@@ -228,6 +296,7 @@ func has_save() -> bool:
 func save_game() -> void:
 	var cfg := ConfigFile.new()
 	for key in ["world_seed", "level", "xp", "gold", "potions", "max_hp", "hp", "atk", "defense", "sword_tier",
+			"tool_tier", "armor_tier", "items", "crafted",
 			"kills", "opened_chests", "broken", "discovered", "explored", "boss_defeated", "quest_index", "quest_progress",
 			"player_pos", "play_time", "day_time", "muted"]:
 		cfg.set_value("save", key, get(key))
@@ -268,10 +337,12 @@ func _setup_input() -> void:
 		"interact": [KEY_E, KEY_ENTER],
 		"pause": [KEY_ESCAPE, KEY_P],
 		"map": [KEY_M, KEY_TAB],
+		"inventory": [KEY_I, KEY_B],
 	}
 	var pads := {
 		"attack": JOY_BUTTON_A, "dash": JOY_BUTTON_B, "potion": JOY_BUTTON_X,
 		"interact": JOY_BUTTON_Y, "pause": JOY_BUTTON_START, "map": JOY_BUTTON_BACK,
+		"inventory": JOY_BUTTON_RIGHT_SHOULDER,
 		"move_left": JOY_BUTTON_DPAD_LEFT, "move_right": JOY_BUTTON_DPAD_RIGHT,
 		"move_up": JOY_BUTTON_DPAD_UP, "move_down": JOY_BUTTON_DPAD_DOWN,
 	}

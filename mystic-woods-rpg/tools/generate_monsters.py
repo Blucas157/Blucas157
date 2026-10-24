@@ -33,7 +33,8 @@ def main():
     only = [a for a in sys.argv[1:] if not os.path.isdir(a) and a in MONSTERS]
     preview = next((a for a in sys.argv[1:] if os.path.isdir(a)), None)
     os.makedirs(OUT, exist_ok=True)
-    meta = {}
+    meta_path = os.path.join(OUT, "monsters.json")
+    meta = json.load(open(meta_path)) if os.path.exists(meta_path) else {}
     for name, (fn, size, counts) in MONSTERS.items():
         meta[name] = {"size": size, "frames": counts}
         if only and name not in only:
@@ -43,7 +44,7 @@ def main():
             bg = Image.new("RGBA", sheet.size, (0x50, 0x9b, 0x66, 255))
             bg.alpha_composite(sheet)
             bg.resize((sheet.width * 4, sheet.height * 4), Image.NEAREST).save(os.path.join(preview, name + ".png"))
-    with open(os.path.join(OUT, "monsters.json"), "w") as fh:
+    with open(meta_path, "w") as fh:
         json.dump(meta, fh, indent=2)
 
 
