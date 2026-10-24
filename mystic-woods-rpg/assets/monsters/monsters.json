@@ -10,35 +10,35 @@
     }
   },
   "bat": {
-    "size": 48,
+    "size": 32,
     "frames": {
-      "idle": 4,
-      "move": 4,
-      "attack": 6,
-      "damaged": 4,
-      "death": 6
+      "idle": 5,
+      "move": 5,
+      "attack": 7,
+      "damaged": 5,
+      "death": 9
     },
     "source": "pixellab"
   },
   "ghost": {
-    "size": 48,
+    "size": 32,
     "frames": {
-      "idle": 4,
-      "move": 4,
-      "attack": 6,
+      "idle": 5,
+      "move": 5,
+      "attack": 7,
       "damaged": 5,
-      "death": 6
+      "death": 9
     },
     "source": "pixellab"
   },
   "goblin": {
-    "size": 48,
+    "size": 32,
     "frames": {
-      "idle": 4,
-      "move": 6,
-      "attack": 6,
-      "damaged": 4,
-      "death": 6
+      "idle": 5,
+      "move": 7,
+      "attack": 7,
+      "damaged": 5,
+      "death": 9
     },
     "source": "pixellab"
   },
@@ -87,13 +87,13 @@
     "source": "pixellab"
   },
   "spider": {
-    "size": 64,
+    "size": 32,
     "frames": {
-      "idle": 4,
-      "move": 6,
-      "attack": 6,
-      "damaged": 4,
-      "death": 8
+      "idle": 5,
+      "move": 7,
+      "attack": 7,
+      "damaged": 5,
+      "death": 9
     },
     "source": "pixellab"
   },

@@ -118,6 +118,8 @@ def _spider_fix(im, anim, direction):
                 px[x, y] = (83, 83, 100, 255)
             elif r > 200 and 100 < g < 200 and b > 120:
                 px[x, y] = (0, 0, 0, 0)
+            elif r < 110 and g > 150 and b > 150:
+                px[x, y] = (214, 58, 64, 255)  # some idle frames turn the red eyes cyan
     return im
 
 
@@ -156,17 +158,6 @@ def _bat_fix(im, anim, direction):
     return im
 
 
-def _goblin_fix(im, anim, direction):
-    """Drop the detached white slash smear v3 painted on the goblin's back-view stab."""
-    px = im.load()
-    for y in range(im.height):
-        for x in range(im.width):
-            r, g, b, a = px[x, y]
-            if a and anim == "attack" and r > 215 and g > 215 and b > 215:
-                px[x, y] = (0, 0, 0, 0)
-    return im
-
-
 def _ghost_fix(im, anim, direction):
     """From behind the ghost must not show the gaping black mouth its scream attack paints."""
     px = im.load()
@@ -183,11 +174,12 @@ def _ghost_fix(im, anim, direction):
 
 
 # per-monster clean-ups applied to every frame after palette handling
-FIXES = {"spider": _spider_fix, "golem": _golem_fix, "bat": _bat_fix, "goblin": _goblin_fix, "ghost": _ghost_fix}
+FIXES = {"spider": _spider_fix, "golem": _golem_fix, "bat": _bat_fix, "ghost": _ghost_fix}
 # frames picked out of a generated clip (e.g. a hurt clip that ends with the monster lying down
 # would read as a death, so only the flinch is kept and it returns to its feet)
-FRAME_PICK = {"goblin": {"damaged": [0, 1, 1, 0]}, "golem": {"damaged": [0, 1, 2, 0], "move:north": [0, 1, 2, 1]},
-              "treant": {"attack:south": [0, 1, 2, 3, 4, 4, 6]}}
+FRAME_PICK = {"goblin": {"damaged": [0, 1, 2, 1, 0], "attack:east": [0, 1, 2, 3, 4, 6, 8]}, "golem": {"damaged": [0, 1, 2, 0], "move:north": [0, 1, 2, 1]},
+              "treant": {"attack:south": [0, 1, 2, 3, 4, 4, 6]},
+              "spider": {"idle:north": [0, 1, 0, 1], "move:north": [0, 1, 6, 0, 1, 6], "damaged:north": [0, 0, 0, 0]}}
 
 
 def load_export(export_dir):
@@ -225,7 +217,10 @@ def build(name, export_dir, grid, recolor_grass=False, flying=False, snap=True):
             ref = fix(ref, "idle", pl)
         fx, fy = feet_of(ref)
         lift = 6 if flying else 0
-        anchor[pl] = (grid / 2.0 - fx, ground - 1 - lift - fy, ref.width, ref.height)
+        rb = ref.getbbox() or (0, 0, ref.width, ref.height)
+        oy = ground - 1 - lift - fy
+        # vertical centre of the reference pose inside the cell (flyers keep every frame there)
+        anchor[pl] = (grid / 2.0 - fx, oy, ref.width, ref.height, oy + (rb[1] + rb[3]) / 2.0)
     body_w = (clean(Image.open(rot["south"]), recolor_grass, snap).getbbox() or (0, 0, 16, 0))
     rx = max(4.0, (body_w[2] - body_w[0]) / 3.2)
 
@@ -239,12 +234,19 @@ def build(name, export_dir, grid, recolor_grass=False, flying=False, snap=True):
             if pick and a in anims:
                 frames = [frames[i] for i in pick]
             rows.append((pl, frames))
+        # the game reads one frame count per animation (from the south row), so a direction
+        # with fewer frames loops its own frames instead of showing empty cells
+        n = len(rows[-3][1])
+        for k in (-2, -1):
+            pl_k, fr = rows[k]
+            if len(fr) != n:
+                rows[k] = (pl_k, [fr[i % len(fr)] for i in range(n)])
     rows.append(("south", anims.get("death", {}).get("south") or [rot["south"]]))
     cols = max(len(f) for _p, f in rows)
     sheet = Image.new("RGBA", (cols * grid, len(rows) * grid))
     counts = {}
     for r, (pl, frames) in enumerate(rows):
-        ox, oy, rw, rh = anchor[pl]
+        ox, oy, rw, rh, ref_cy = anchor[pl]
         for i, f in enumerate(frames):
             im = clean(Image.open(f), recolor_grass, snap)
             if fix:
@@ -252,6 +254,13 @@ def build(name, export_dir, grid, recolor_grass=False, flying=False, snap=True):
             # animation canvases are bigger than the rotation canvas; both are centred on the character
             dx = int(round(ox - (im.width - rw) / 2.0))
             dy = int(round(oy - (im.height - rh) / 2.0))
+            bb = im.getbbox()
+            if bb and flying and r < 12:
+                # hover clips drift up and down inside a canvas bigger than the 32 px cell:
+                # hold the body where the reference pose floats so it never leaves the cell
+                dy = int(round(ref_cy - (bb[1] + bb[3]) / 2.0))
+            if bb and dy + bb[1] < 0:
+                dy = -bb[1]  # never cut the top of the sprite off
             cell = Image.new("RGBA", (grid, grid))
             shadow(cell, grid / 2.0, ground, rx * (0.8 if flying else 1.0))
             cell.alpha_composite(im, dest=(max(dx, 0), max(dy, 0)), source=(max(-dx, 0), max(-dy, 0)))

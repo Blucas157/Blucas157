@@ -91,6 +91,8 @@ func hurt_center() -> Vector2:
 
 
 func display_name() -> String:
+	if def.get("miniboss", false):
+		return "%s (Mini-chefe) Nv.%d" % [def["name"], lvl]
 	return "%s Nv.%d" % [def["name"], lvl]
 
 
@@ -295,7 +297,10 @@ func _die() -> void:
 func _draw() -> void:
 	if bar_t <= 0.0 or state == "dead" or is_boss:
 		return
-	var w := 16.0
+	# mini-bosses get a wider bar with a gold frame so they read as a bigger threat
+	var mini: bool = def.get("miniboss", false)
+	var w := 28.0 if mini else 16.0
 	var y := {32: -20.0, 48: -30.0, 64: -42.0}.get(grid, -56.0) as float
-	draw_rect(Rect2(-w / 2 - 1, y - 1, w + 2, 4), Color(0.09, 0.11, 0.19))
+	draw_rect(Rect2(-w / 2 - 1, y - 1, w + 2, 4), Color(0.85, 0.6, 0.27) if mini else Color(0.09, 0.11, 0.19))
+	draw_rect(Rect2(-w / 2, y, w, 2), Color(0.09, 0.11, 0.19))
 	draw_rect(Rect2(-w / 2, y, w * clamp(float(hp) / max_hp, 0.0, 1.0), 2), Color(0.74, 0.29, 0.32))
