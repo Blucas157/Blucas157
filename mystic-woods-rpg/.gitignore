@@ -1,0 +1,5 @@
+.godot/
+*.import
+# Mystic Woods pack: its license forbids redistribution, so it stays out of the public repo.
+assets/mystic_woods/sprites/
+__pycache__/

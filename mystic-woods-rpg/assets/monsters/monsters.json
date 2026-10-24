@@ -1,0 +1,62 @@
+{
+  "mushroom": {
+    "size": 32,
+    "frames": {
+      "idle": 4,
+      "move": 6,
+      "attack": 6,
+      "damaged": 3,
+      "death": 5
+    }
+  },
+  "bat": {
+    "size": 32,
+    "frames": {
+      "idle": 4,
+      "move": 6,
+      "attack": 6,
+      "damaged": 3,
+      "death": 5
+    }
+  },
+  "ghost": {
+    "size": 32,
+    "frames": {
+      "idle": 4,
+      "move": 6,
+      "attack": 6,
+      "damaged": 3,
+      "death": 5
+    }
+  },
+  "goblin": {
+    "size": 48,
+    "frames": {
+      "idle": 6,
+      "move": 6,
+      "attack": 6,
+      "damaged": 3,
+      "death": 5
+    }
+  },
+  "golem": {
+    "size": 48,
+    "frames": {
+      "idle": 4,
+      "move": 6,
+      "attack": 7,
+      "damaged": 3,
+      "death": 6
+    }
+  },
+  "treant": {
+    "size": 64,
+    "frames": {
+      "idle": 4,
+      "move": 6,
+      "attack": 7,
+      "damaged": 3,
+      "death": 6
+    }
+  }
+}
