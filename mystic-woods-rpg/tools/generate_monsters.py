@@ -14,18 +14,14 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pixel import build_sheet  # noqa: E402
 import monsters_small as ms  # noqa: E402
-import monsters_big as mb  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "assets", "monsters")
 
+# Only the mushroom is still drawn by code; the other monsters now come from PixelLab
+# (see tools/pixellab_import.py).
 MONSTERS = {
     "mushroom": (ms.mushroom, 32, {"idle": 4, "move": 6, "attack": 6, "damaged": 3, "death": 5}),
-    "bat": (ms.bat, 32, {"idle": 4, "move": 6, "attack": 6, "damaged": 3, "death": 5}),
-    "ghost": (ms.ghost, 32, {"idle": 4, "move": 6, "attack": 6, "damaged": 3, "death": 5}),
-    "goblin": (mb.goblin, 48, {"idle": 6, "move": 6, "attack": 6, "damaged": 3, "death": 5}),
-    "golem": (mb.golem, 48, {"idle": 4, "move": 6, "attack": 7, "damaged": 3, "death": 6}),
-    "treant": (mb.treant, 64, {"idle": 4, "move": 6, "attack": 7, "damaged": 3, "death": 6}),
 }
 
 

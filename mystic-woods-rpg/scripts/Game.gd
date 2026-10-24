@@ -22,10 +22,10 @@ const QUESTS := [
 	{"title": "Uivos na noite", "desc": "Derrote 4 Lobos Sombrios", "type": "kill", "target": ["wolf"], "count": 4, "gold": 50, "xp": 60},
 	{"title": "Ossos inquietos", "desc": "Derrote 6 Esqueletos nas Ruínas", "type": "kill", "target": ["skeleton", "skeleton_dark"], "count": 6, "gold": 60, "xp": 70},
 	{"title": "Almas perdidas", "desc": "Derrote 4 Fantasmas", "type": "kill", "target": ["ghost"], "count": 4, "gold": 70, "xp": 80},
-	{"title": "Teias nas ruínas", "desc": "Derrote 5 Aranhas da Caverna", "type": "kill", "target": ["spider"], "count": 5, "gold": 70, "xp": 90},
+	{"title": "Teias nas ruínas", "desc": "Derrote 5 Viúvas Negras", "type": "kill", "target": ["spider"], "count": 5, "gold": 70, "xp": 90},
 	{"title": "Ferreiro aprendiz", "desc": "Forje uma Picareta de Ferro", "type": "craft", "target": ["picareta_ferro"], "count": 1, "gold": 50, "xp": 80},
 	{"title": "Fúria orc", "desc": "Derrote 5 Orcs Guerreiros", "type": "kill", "target": ["orc"], "count": 5, "gold": 90, "xp": 120},
-	{"title": "Cristais vivos", "desc": "Derrote 3 Elementais de Cristal", "type": "kill", "target": ["crystal_elemental"], "count": 3, "gold": 100, "xp": 140},
+	{"title": "Gigantes de cristal", "desc": "Derrote 3 Golens de Cristal", "type": "kill", "target": ["crystal_elemental"], "count": 3, "gold": 100, "xp": 140},
 	{"title": "Coração de pedra", "desc": "Derrote 2 Golens na Pedreira", "type": "kill", "target": ["golem"], "count": 2, "gold": 90, "xp": 120},
 	{"title": "O Ent Ancião", "desc": "Vença o chefe no Coração da Floresta", "type": "kill", "target": ["treant"], "count": 1, "gold": 300, "xp": 400},
 ]

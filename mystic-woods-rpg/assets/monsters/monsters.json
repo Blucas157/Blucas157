@@ -10,54 +10,59 @@
     }
   },
   "bat": {
-    "size": 32,
+    "size": 48,
     "frames": {
       "idle": 4,
-      "move": 6,
+      "move": 4,
       "attack": 6,
-      "damaged": 3,
-      "death": 5
-    }
+      "damaged": 4,
+      "death": 6
+    },
+    "source": "pixellab"
   },
   "ghost": {
-    "size": 32,
+    "size": 48,
     "frames": {
       "idle": 4,
-      "move": 6,
+      "move": 4,
       "attack": 6,
-      "damaged": 3,
-      "death": 5
-    }
+      "damaged": 5,
+      "death": 6
+    },
+    "source": "pixellab"
   },
   "goblin": {
     "size": 48,
     "frames": {
-      "idle": 6,
+      "idle": 4,
       "move": 6,
       "attack": 6,
-      "damaged": 3,
-      "death": 5
-    }
+      "damaged": 4,
+      "death": 6
+    },
+    "source": "pixellab"
   },
   "golem": {
-    "size": 48,
-    "frames": {
-      "idle": 4,
-      "move": 6,
-      "attack": 7,
-      "damaged": 3,
-      "death": 6
-    }
-  },
-  "treant": {
     "size": 64,
     "frames": {
-      "idle": 4,
-      "move": 6,
+      "idle": 5,
+      "move": 7,
       "attack": 7,
-      "damaged": 3,
-      "death": 6
-    }
+      "damaged": 4,
+      "death": 8
+    },
+    "source": "pixellab"
+  },
+  "treant": {
+    "size": 80,
+    "frames": {
+      "idle": 4,
+      "move": 7,
+      "attack": 7,
+      "damaged": 5,
+      "death": 9
+    },
+    "source": "pixellab"
   },
   "orc": {
     "size": 48,
@@ -66,7 +71,7 @@
       "move": 6,
       "attack": 6,
       "damaged": 6,
-      "death": 7
+      "death": 8
     },
     "source": "pixellab"
   },
@@ -82,13 +87,13 @@
     "source": "pixellab"
   },
   "spider": {
-    "size": 48,
+    "size": 64,
     "frames": {
       "idle": 4,
       "move": 6,
       "attack": 6,
       "damaged": 4,
-      "death": 6
+      "death": 8
     },
     "source": "pixellab"
   },
@@ -104,13 +109,13 @@
     "source": "pixellab"
   },
   "crystal_elemental": {
-    "size": 48,
+    "size": 64,
     "frames": {
       "idle": 4,
       "move": 6,
       "attack": 6,
       "damaged": 4,
-      "death": 6
+      "death": 8
     },
     "source": "pixellab"
   }

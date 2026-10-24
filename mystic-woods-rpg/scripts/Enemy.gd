@@ -296,6 +296,6 @@ func _draw() -> void:
 	if bar_t <= 0.0 or state == "dead" or is_boss:
 		return
 	var w := 16.0
-	var y := -20.0 if grid == 32 else -28.0
+	var y := {32: -20.0, 48: -30.0, 64: -42.0}.get(grid, -56.0) as float
 	draw_rect(Rect2(-w / 2 - 1, y - 1, w + 2, 4), Color(0.09, 0.11, 0.19))
 	draw_rect(Rect2(-w / 2, y, w * clamp(float(hp) / max_hp, 0.0, 1.0), 2), Color(0.74, 0.29, 0.32))

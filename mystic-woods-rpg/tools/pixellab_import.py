@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pixel import P  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-GROUND = {32: 24, 48: 40, 64: 56}
+GROUND = {32: 24, 48: 40, 64: 56, 80: 72}
 ANIMS = ["idle", "move", "attack", "damaged"]
 DIRS = [("down", "south"), ("right", "east"), ("up", "north")]
 # pack palette plus the hero's colours (skin, hair, clothes), also from the pack
@@ -105,6 +105,91 @@ def shadow(cell, cx, ground, rx):
                 px[x, y] = P["shadow"]
 
 
+def _spider_fix(im, anim, direction):
+    """From behind the abdomen must not show the red 'eyes and smile' v3 sometimes paints;
+    also drop stray pink pixels some hurt frames get."""
+    px = im.load()
+    for y in range(im.height):
+        for x in range(im.width):
+            r, g, b, a = px[x, y]
+            if a == 0:
+                continue
+            if direction == "north" and ((r > 150 and g < 90) or (r > 190 and g > 190 and b > 190)):
+                px[x, y] = (83, 83, 100, 255)
+            elif r > 200 and 100 < g < 200 and b > 120:
+                px[x, y] = (0, 0, 0, 0)
+    return im
+
+
+def _golem_fix(im, anim, direction):
+    """Stone golem: remove the pale ground puddle PixelLab drew under it, drop the stray cyan orbs
+    its walk cycle grows from the side and back, and lift the near-black navy to a stone grey that
+    reads on the grass and at night."""
+    px = im.load()
+    for y in range(im.height):
+        for x in range(im.width):
+            r, g, b, a = px[x, y]
+            if not a:
+                continue
+            if r > 125 and g > 120 and b > 150 and abs(r - g) < 20:
+                px[x, y] = (0, 0, 0, 0)
+                continue
+            if anim == "move" and direction != "south" and b > 120 and b > r + 30 and g > r:
+                px[x, y] = (0, 0, 0, 0)
+                continue
+            if b > r + 40 and g > r + 20:
+                continue  # crystal core and runes keep their glow
+            lum = (r + g + b) / 3.0
+            r, g, b = [int(min(255, (c * 0.6 + lum * 0.4) * 1.45 + 14)) for c in (r, g, b)]
+            px[x, y] = (r, g, b, 255)
+    return im
+
+
+def _bat_fix(im, anim, direction):
+    """Seen from behind the bat must not show the white mouth or red eyes some attack frames paint on its back."""
+    px = im.load()
+    for y in range(im.height):
+        for x in range(im.width):
+            r, g, b, a = px[x, y]
+            if a and direction == "north" and ((r > 190 and g > 190 and b > 190) or (r > 150 and g < 80 and b < 80)):
+                px[x, y] = (72, 66, 92, 255)
+    return im
+
+
+def _goblin_fix(im, anim, direction):
+    """Drop the detached white slash smear v3 painted on the goblin's back-view stab."""
+    px = im.load()
+    for y in range(im.height):
+        for x in range(im.width):
+            r, g, b, a = px[x, y]
+            if a and anim == "attack" and r > 215 and g > 215 and b > 215:
+                px[x, y] = (0, 0, 0, 0)
+    return im
+
+
+def _ghost_fix(im, anim, direction):
+    """From behind the ghost must not show the gaping black mouth its scream attack paints."""
+    px = im.load()
+    for y in range(im.height):
+        for x in range(im.width):
+            r, g, b, a = px[x, y]
+            if a and direction == "north" and anim == "attack" and r + g + b < 240:
+                # outline pixels border the transparent outside; mouth pixels sit inside the body
+                inside = all(0 <= x + dx < im.width and 0 <= y + dy < im.height and px[x + dx, y + dy][3]
+                             for dx, dy in ((4, 0), (-4, 0), (0, 4), (0, -4)))
+                if inside:
+                    px[x, y] = (178, 208, 204, 255)
+    return im
+
+
+# per-monster clean-ups applied to every frame after palette handling
+FIXES = {"spider": _spider_fix, "golem": _golem_fix, "bat": _bat_fix, "goblin": _goblin_fix, "ghost": _ghost_fix}
+# frames picked out of a generated clip (e.g. a hurt clip that ends with the monster lying down
+# would read as a death, so only the flinch is kept and it returns to its feet)
+FRAME_PICK = {"goblin": {"damaged": [0, 1, 1, 0]}, "golem": {"damaged": [0, 1, 2, 0], "move:north": [0, 1, 2, 1]},
+              "treant": {"attack:south": [0, 1, 2, 3, 4, 4, 6]}}
+
+
 def load_export(export_dir):
     meta = json.load(open(os.path.join(export_dir, "metadata.json")))
     state = meta["states"][0]
@@ -133,8 +218,11 @@ def build(name, export_dir, grid, recolor_grass=False, flying=False, snap=True):
     ground = GROUND[grid]
     # per direction: offset from the idle reference so feet sit on the ground line
     anchor = {}
+    fix = FIXES.get(name)
     for _d, pl in DIRS:
         ref = clean(Image.open(rot[pl]), recolor_grass, snap)
+        if fix:
+            ref = fix(ref, "idle", pl)
         fx, fy = feet_of(ref)
         lift = 6 if flying else 0
         anchor[pl] = (grid / 2.0 - fx, ground - 1 - lift - fy, ref.width, ref.height)
@@ -144,7 +232,12 @@ def build(name, export_dir, grid, recolor_grass=False, flying=False, snap=True):
     rows = []
     for a in ANIMS:
         for _d, pl in DIRS:
-            frames = anims.get(a, {}).get(pl) or [rot[pl]]
+            # flying creatures can reuse their hovering loop as the move cycle
+            frames = anims.get(a, {}).get(pl) or anims.get("idle", {}).get(pl) or [rot[pl]]
+            picks = FRAME_PICK.get(name, {})
+            pick = picks.get(a + ":" + pl) or picks.get(a)
+            if pick and a in anims:
+                frames = [frames[i] for i in pick]
             rows.append((pl, frames))
     rows.append(("south", anims.get("death", {}).get("south") or [rot["south"]]))
     cols = max(len(f) for _p, f in rows)
@@ -154,6 +247,8 @@ def build(name, export_dir, grid, recolor_grass=False, flying=False, snap=True):
         ox, oy, rw, rh = anchor[pl]
         for i, f in enumerate(frames):
             im = clean(Image.open(f), recolor_grass, snap)
+            if fix:
+                im = fix(im, ANIMS[r // 3] if r < 12 else "death", pl)
             # animation canvases are bigger than the rotation canvas; both are centred on the character
             dx = int(round(ox - (im.width - rw) / 2.0))
             dy = int(round(oy - (im.height - rh) / 2.0))
