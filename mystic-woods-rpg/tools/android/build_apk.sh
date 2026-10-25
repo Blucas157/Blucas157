@@ -32,6 +32,10 @@ JDK=$(dirname "$(dirname "$(readlink -f "$(which java)")")")
 grep -q java_sdk_path "$CFG" || echo "export/android/java_sdk_path = \"$JDK\"" >> "$CFG"
 mkdir -p "$(dirname "$OUT")"
 cd "$PROJ"
+# every build gets a higher version code so the phone installs it over the previous one
+CODE=$(( $(sed -n 's/^version\/code=//p' export_presets.cfg) + 1 ))
+sed -i "s/^version\/code=.*/version\/code=$CODE/" export_presets.cfg
+echo "version code $CODE"
 "$GODOT" --headless --path . --import > /dev/null 2>&1 || true
 GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$KS GODOT_ANDROID_KEYSTORE_RELEASE_USER=$ALIAS GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=$PASS \
 	"$GODOT" --headless --path . --export-release "Android" "$OUT"
