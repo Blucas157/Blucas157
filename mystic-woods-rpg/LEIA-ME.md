@@ -63,6 +63,9 @@ Dá para mover e atacar ao mesmo tempo (multitoque). O celular vibra de leve na 
 ### Baixar a versão mais nova
 Toda atualização vai para o GitHub. ZIP do projeto: https://github.com/Blucas157/Blucas157/archive/refs/heads/ccr-27b4daf4-fxt1tn.zip (o projeto do Godot é a pasta `mystic-woods-rpg`).
 
+## Efeitos visuais (assets/vfx) e botões (assets/ui/touch.png)
+Feitos no PixelLab: `vfx_workbench` para o corte da espada, a faísca de golpe, a fumaça de morte e o anel de cura da poção; `create_ui_asset` para os aros de madeira do joystick e dos botões. Os quadros de cada efeito estão em `Fx.SHEETS` e são criados com `main.vfx(tipo, posição, rotação, cor, pai, escala)`.
+
 ## Sistema de Rivais
 Monstros lembram de você:
 - **Te derrotou?** O monstro que deu o golpe final vira um **rival**: ganha nome (ex.: *Grak*), título (*Matador do Herói*) e sobe de nível.

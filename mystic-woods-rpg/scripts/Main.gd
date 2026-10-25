@@ -586,6 +586,16 @@ func shockwave(pos: Vector2, radius: float, color: Color) -> void:
 	fx_layer.add_child(f)
 
 
+## One of the vfx_workbench strips (Fx.SHEETS); returns it so callers can turn or tint it.
+func vfx(kind: String, pos: Vector2, rot := 0.0, tint := Color.WHITE, parent: Node = null, size := 1.0) -> Node2D:
+	var f := _fx(kind, pos)
+	f.rotation = rot
+	f.scale = Vector2(size, size)
+	f.color = tint
+	(parent if parent else fx_layer).add_child(f)
+	return f
+
+
 func spawn_dust(pos: Vector2) -> void:
 	world.entities.add_child(_fx("dust", pos))
 

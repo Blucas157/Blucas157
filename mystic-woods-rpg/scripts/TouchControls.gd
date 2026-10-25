@@ -4,11 +4,18 @@ extends Control
 
 const FONT := preload("res://assets/ui/pixel_font.ttf")
 const UI_ICONS := preload("res://assets/ui/icons.png")
+const TOUCH := preload("res://assets/ui/touch.png")   # PixelLab create_ui_asset: wooden rims
+## regions in touch.png
+const R_BASE := Rect2(17, 17, 77, 77)
+const R_KNOB := Rect2(131, 26, 29, 29)
+const R_BIG := Rect2(183, 33, 55, 55)
+const R_MED := Rect2(21, 146, 39, 39)
+const R_MID := Rect2(129, 149, 33, 33)
+const R_SMALL := Rect2(178, 153, 25, 25)
 const STICK_R := 34.0       # how far the knob travels
 const DEAD_ZONE := 0.18     # fraction of STICK_R ignored around the centre
 const HIT_PAD := 8.0        # buttons accept touches a little outside their circle
 const INK := Color(0.09, 0.11, 0.19)
-const BLUE := Color(0.2, 0.25, 0.54)
 
 var main: Node
 var stick_finger := -1
@@ -37,13 +44,13 @@ func stick_home() -> Vector2:
 func _buttons() -> Dictionary:
 	var s := screen()
 	return {
-		"attack": [Vector2(s.x - 50, s.y - 52), 25.0],
-		"dash": [Vector2(s.x - 108, s.y - 30), 18.0],
-		"interact": [Vector2(s.x - 102, s.y - 88), 15.0],
-		"potion": [Vector2(s.x - 42, s.y - 114), 15.0],
-		"bag": [Vector2(s.x - 154, 16), 11.0],
-		"map": [Vector2(s.x - 128, 16), 11.0],
-		"pause": [Vector2(s.x - 102, 16), 11.0],
+		"attack": [Vector2(s.x - 50, s.y - 52), 27.0],
+		"dash": [Vector2(s.x - 110, s.y - 30), 19.0],
+		"interact": [Vector2(s.x - 104, s.y - 88), 16.0],
+		"potion": [Vector2(s.x - 42, s.y - 116), 16.0],
+		"bag": [Vector2(s.x - 158, 17), 12.0],
+		"map": [Vector2(s.x - 130, 17), 12.0],
+		"pause": [Vector2(s.x - 102, 17), 12.0],
 	}
 
 
@@ -153,18 +160,17 @@ func _draw() -> void:
 
 func _draw_stick() -> void:
 	var o := stick_origin if stick_finger != -1 else stick_home()
-	var a := 1.0 if stick_finger != -1 else 0.55
-	draw_circle(o, STICK_R + 4.0, Color(INK, 0.32 * a))
-	draw_arc(o, STICK_R + 4.0, 0, TAU, 40, Color(1, 1, 1, 0.35 * a), 1.5)
-	# direction ticks so the base reads as a pad even before it is touched
-	for k in 4:
-		var d := Vector2.RIGHT.rotated(k * TAU / 4.0)
-		draw_line(o + d * (STICK_R - 6.0), o + d * (STICK_R - 1.0), Color(1, 1, 1, 0.3 * a), 1.5)
+	var a := 1.0 if stick_finger != -1 else 0.6
+	_sprite(R_BASE, o, Color(1, 1, 1, 0.85 * a))
 	var knob := o
 	if stick_finger != -1:
 		knob = o + (stick_pos - o).limit_length(STICK_R)
-	draw_circle(knob, 13.0, Color(BLUE, 0.75 * a))
-	draw_arc(knob, 13.0, 0, TAU, 28, Color(1, 1, 1, 0.7 * a), 1.5)
+	_sprite(R_KNOB, knob, Color(1, 1, 1, a))
+
+
+## Draws a region of touch.png at 1:1, centred on c.
+func _sprite(region: Rect2, c: Vector2, col := Color.WHITE) -> void:
+	draw_texture_rect_region(TOUCH, Rect2((c - region.size / 2.0).round(), region.size), region, col)
 
 
 func _draw_button(name: String, c: Vector2, r: float) -> void:
@@ -179,14 +185,24 @@ func _draw_button(name: String, c: Vector2, r: float) -> void:
 			usable = Game.potions > 0
 		"interact":
 			glow = main.hud.hint != ""
-	var fill := Color(BLUE, 0.7 if on else 0.42)
-	if not usable:
-		fill = Color(INK, 0.45)
 	if glow:
 		var g := 0.5 + 0.5 * sin(pulse * 6.0)
 		draw_circle(c, r + 3.0 + g * 2.0, Color(1.0, 0.85, 0.4, 0.25 + 0.25 * g))
-	draw_circle(c, r, fill)
-	draw_arc(c, r, 0, TAU, 36, Color(1, 1, 1, 0.75 if usable else 0.35), 1.5)
+	var tint := Color(1, 1, 1, 0.9)
+	if on:
+		tint = Color(0.72, 0.72, 0.8, 1.0)   # pressed: darker and one pixel lower
+		c += Vector2(0, 1)
+	elif not usable:
+		tint = Color(0.6, 0.6, 0.65, 0.6)
+	var region := R_SMALL
+	match name:
+		"attack":
+			region = R_BIG
+		"dash":
+			region = R_MED
+		"interact", "potion":
+			region = R_MID
+	_sprite(region, c, tint)
 	var ia := 1.0 if usable else 0.45
 	match name:
 		"attack":

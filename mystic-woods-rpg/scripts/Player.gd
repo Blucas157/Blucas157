@@ -150,6 +150,7 @@ func do_potion() -> void:
 		Sfx.play("potion")
 		if main:
 			main.float_text(global_position + Vector2(0, -28), "+VIDA", Color(0.5, 1.0, 0.5))
+			main.vfx("heal", Vector2(0, 2), 0.0, Color.WHITE, self)
 	elif main:
 		main.hud.toast("Sem poções" if Game.potions <= 0 else "Vida cheia", Color(1, 0.7, 0.6))
 
@@ -177,6 +178,8 @@ func _on_frame_changed() -> void:
 func _apply_attack() -> void:
 	var dir := attack_dir()
 	var center := global_position + Vector2(0, -8) + dir * 14.0
+	if main:
+		main.vfx("slash", global_position + Vector2(0, -8) + dir * 3.0, dir.angle(), Color.WHITE, null, 0.85)
 	var hit_any := false
 	for e in get_tree().get_nodes_in_group("enemies"):
 		if not e.alive():
@@ -220,6 +223,7 @@ func take_damage(amount: int, from: Vector2) -> void:
 	_buzz(60)
 	if main:
 		main.float_text(global_position + Vector2(0, -28), str(dmg), Color(1.0, 0.35, 0.35))
+		main.vfx("hit", global_position + Vector2(0, -10), 0.0, Color(1.0, 0.55, 0.55), null, 0.6)
 		main.shake(3.0, 0.15)
 	if Game.hp <= 0:
 		_die()

@@ -1,5 +1,13 @@
 extends Node2D
-## Short-lived visual effects: floating numbers, shock rings and dust puffs.
+## Short-lived visual effects: floating numbers, shock rings, dust puffs and the PixelLab VFX strips.
+
+## name -> [frame w, frame h, frames, fps, pivot] (strips in assets/vfx, made with vfx_workbench)
+const SHEETS := {
+	"slash": [32, 45, 6, 16.0, Vector2(8, 23)],    # crescent facing right, pivot = arc centre
+	"hit": [30, 33, 4, 16.0, Vector2(15, 17)],
+	"puff": [26, 27, 5, 12.0, Vector2(12, 12)],
+	"heal": [36, 44, 12, 12.0, Vector2(18, 35)],    # ring on the ground, pivot = feet
+}
 
 var kind := "text"
 var text := ""
@@ -25,6 +33,19 @@ func _ready() -> void:
 			a.play("default")
 			a.position = Vector2(0, -5)
 			add_child(a)
+		_:
+			if SHEETS.has(kind):
+				var d: Array = SHEETS[kind]
+				max_life = d[2] / d[3]
+				var a := AnimatedSprite2D.new()
+				a.sprite_frames = Sheets.strip("res://assets/vfx/%s.png" % kind, d[0], d[1], d[2], d[3], false)
+				a.centered = false
+				a.offset = -d[4]
+				a.modulate = color
+				a.play("default")
+				add_child(a)
+				if kind == "heal":
+					show_behind_parent = true   # the ring lies on the ground under the hero
 
 
 func _process(delta: float) -> void:

@@ -270,6 +270,7 @@ func take_hit(dmg: int, dir: Vector2, crit: bool = false) -> void:
 	Sfx.play("hit", 1.3 if crit else 1.0)
 	main.float_text(hurt_center() + Vector2(0, -10), str(dmg) + ("!" if crit else ""),
 		Color(1.0, 0.85, 0.2) if crit else Color.WHITE)
+	main.vfx("hit", hurt_center(), randf() * TAU, Color.WHITE, null, 0.6)
 	knock = dir * 160.0 * (1.0 - float(def.get("knock_resist", 0.0)))
 	if not engaged and is_boss:
 		engaged = true
@@ -352,6 +353,7 @@ func _die() -> void:
 	sprite.flip_h = false
 	sprite.play("death")
 	Sfx.play("death")
+	main.vfx("puff", hurt_center())
 	var xp := int(round(float(def["xp"]) * (1.0 + 0.2 * (lvl - 1))))
 	main.float_text(hurt_center() + Vector2(0, -18), "+%d XP" % xp, Color(0.55, 0.85, 1.0))
 	Game.add_xp(xp)
