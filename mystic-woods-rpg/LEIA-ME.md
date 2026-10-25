@@ -66,6 +66,12 @@ Toda atualização vai para o GitHub. ZIP do projeto: https://github.com/Blucas1
 ## Efeitos visuais (assets/vfx) e botões (assets/ui/touch.png)
 Feitos no PixelLab: `vfx_workbench` para o corte da espada, a faísca de golpe, a fumaça de morte e o anel de cura da poção; `create_ui_asset` para os aros de madeira do joystick e dos botões. Os quadros de cada efeito estão em `Fx.SHEETS` e são criados com `main.vfx(tipo, posição, rotação, cor, pai, escala)`.
 
+## Aplicativo Android (APK)
+O preset "Android" (`export_presets.cfg`) gera um APK que se instala direto no celular (paisagem, tela cheia, vibração, ícone do goblin).
+- A chave de assinatura fica só no repositório privado.
+- **Gerar de novo (Linux, sem Android Studio):** `tools/android/build_apk.sh <godot> <keystore> <alias> <senha> [saida.apk]` instala os modelos de exportação do Godot 4.7.2 e um assinador mínimo (`tools/android/ApkSignerTool.java`) e exporta.
+- **Pelo Godot no celular:** Projeto > Exportar > Android, com a mesma keystore em "Release".
+
 ## Sistema de Rivais
 Monstros lembram de você:
 - **Te derrotou?** O monstro que deu o golpe final vira um **rival**: ganha nome (ex.: *Grak*), título (*Matador do Herói*) e sobe de nível.
