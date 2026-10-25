@@ -171,7 +171,7 @@ def _spider_fix(im, anim, direction):
 FIXES = {"spider": _spider_fix, "golem": _golem_fix, "bat": _bat_fix, "ghost": _ghost_fix}
 # frames picked out of a generated clip (e.g. a hurt clip that ends with the monster lying down
 # would read as a death, so only the flinch is kept and it returns to its feet)
-FRAME_PICK = {"goblin": {"damaged": [0, 1, 2, 1, 0], "attack:east": [0, 1, 2, 3, 4, 6, 8]}, "golem": {"damaged": [0, 1, 2, 0], "move:north": [0, 1, 2, 1]},
+FRAME_PICK = {"golem": {"damaged": [0, 1, 2, 0], "move:north": [0, 1, 2, 1]},
               "treant": {"attack:south": [0, 1, 2, 3, 4, 4, 6]},
               "spider": {"attack:north": [0, 1, 2, 4, 5, 6, 8]}}
 

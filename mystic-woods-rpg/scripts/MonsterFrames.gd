@@ -6,7 +6,7 @@ const FRAMES := {
 	"crystal_elemental": {"idle": 4, "move": 6, "attack": 6, "damaged": 4, "death": 8},
 	"frog": {"idle": 4, "move": 6, "attack": 6, "damaged": 4, "death": 6},
 	"ghost": {"idle": 5, "move": 5, "attack": 7, "damaged": 5, "death": 9},
-	"goblin": {"idle": 5, "move": 7, "attack": 7, "damaged": 5, "death": 9},
+	"goblin": {"idle": 8, "move": 6, "attack": 6, "damaged": 6, "death": 7},
 	"golem": {"idle": 5, "move": 7, "attack": 7, "damaged": 4, "death": 8},
 	"orc": {"idle": 4, "move": 6, "attack": 6, "damaged": 6, "death": 8},
 	"spider": {"idle": 5, "move": 7, "attack": 7, "damaged": 5, "death": 9},

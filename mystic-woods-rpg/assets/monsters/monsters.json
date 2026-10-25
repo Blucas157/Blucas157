@@ -34,11 +34,11 @@
   "goblin": {
     "size": 32,
     "frames": {
-      "idle": 5,
-      "move": 7,
-      "attack": 7,
-      "damaged": 5,
-      "death": 9
+      "idle": 8,
+      "move": 6,
+      "attack": 6,
+      "damaged": 6,
+      "death": 7
     },
     "source": "pixellab"
   },
