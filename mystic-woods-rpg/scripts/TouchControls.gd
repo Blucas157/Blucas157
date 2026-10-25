@@ -80,7 +80,7 @@ func _input(event: InputEvent) -> void:
 					queue_redraw()
 					return
 			# anywhere on the left half (below the stats panel) grabs the joystick there
-			if not map_only and p.x < screen().x * 0.5 and p.y > 50.0 and stick_finger == -1:
+			if not map_only and p.x < screen().x * 0.5 and p.y > 68.0 and stick_finger == -1:
 				stick_finger = event.index
 				stick_origin = p
 				stick_pos = p

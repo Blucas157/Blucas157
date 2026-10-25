@@ -3,6 +3,17 @@ extends CanvasLayer
 
 const FONT := preload("res://assets/ui/pixel_font.ttf")
 const ICONS := preload("res://assets/ui/icons.png")
+const STATUS := preload("res://assets/ui/hud_status.png")   # PixelLab create_ui_asset: wooden frames
+## regions in hud_status.png: [region, inner rect relative to the region]
+const ST_PANEL := Rect2(8, 8, 161, 65)
+const ST_PORTRAIT := Rect2(188, 18, 47, 49)
+const ST_BAR_BIG := [Rect2(8, 95, 161, 17), Rect2(6, 5, 149, 5)]
+const ST_BAR_MID := [Rect2(8, 125, 161, 15), Rect2(5, 5, 151, 5)]
+const ST_BAR_SMALL := [Rect2(8, 153, 161, 10), Rect2(4, 4, 153, 2)]
+const HERO_SHEET := "res://assets/mystic_woods/sprites/characters/player.png"
+const HP_COL := Color("bc4952")
+const MP_COL := Color("2c65b5")
+const XP_COL := Color("e9ce7c")
 const DARK := Color(0.09, 0.11, 0.19, 0.86)
 const EDGE := Color(0.79, 0.70, 0.64)
 
@@ -152,6 +163,39 @@ func _bar(r: Rect2, ratio: float, col: Color) -> void:
 	draw_root.draw_rect(Rect2(r.position, Vector2(r.size.x * clamp(ratio, 0.0, 1.0), 1)), col.lightened(0.35))
 
 
+## Nine-slice of a hud_status.png region: corners stay 1:1, edges and middle stretch.
+func _nine(src: Rect2, dst: Rect2, m: float) -> void:
+	var xs := [0.0, m, src.size.x - m, src.size.x]
+	var xd := [0.0, m, dst.size.x - m, dst.size.x]
+	var ys := [0.0, m, src.size.y - m, src.size.y]
+	var yd := [0.0, m, dst.size.y - m, dst.size.y]
+	for j in 3:
+		for i in 3:
+			var s := Rect2(src.position + Vector2(xs[i], ys[j]), Vector2(xs[i + 1] - xs[i], ys[j + 1] - ys[j]))
+			var d := Rect2(dst.position + Vector2(xd[i], yd[j]), Vector2(xd[i + 1] - xd[i], yd[j + 1] - yd[j]))
+			draw_root.draw_texture_rect_region(STATUS, d, s)
+
+
+## A wooden bar frame (stretched in width only) with its fill.
+func _frame_bar(piece: Array, dst: Rect2, ratio: float, col: Color) -> void:
+	var src: Rect2 = piece[0]
+	var inner: Rect2 = piece[1]
+	var cap := 8.0
+	draw_root.draw_texture_rect_region(STATUS, Rect2(dst.position, Vector2(cap, src.size.y)), Rect2(src.position, Vector2(cap, src.size.y)))
+	draw_root.draw_texture_rect_region(STATUS, Rect2(dst.position + Vector2(cap, 0), Vector2(dst.size.x - 2 * cap, src.size.y)),
+		Rect2(src.position + Vector2(cap, 0), Vector2(src.size.x - 2 * cap, src.size.y)))
+	draw_root.draw_texture_rect_region(STATUS, Rect2(dst.position + Vector2(dst.size.x - cap, 0), Vector2(cap, src.size.y)),
+		Rect2(src.end - Vector2(cap, src.size.y), Vector2(cap, src.size.y)))
+	var w := dst.size.x - (src.size.x - inner.size.x)
+	var fill := Rect2(dst.position + inner.position, Vector2(roundf(w * clampf(ratio, 0.0, 1.0)), inner.size.y))
+	if fill.size.x <= 0.0:
+		return
+	draw_root.draw_rect(fill, col)
+	draw_root.draw_rect(Rect2(fill.position, Vector2(fill.size.x, 1)), col.lightened(0.35))
+	if inner.size.y > 3:
+		draw_root.draw_rect(Rect2(fill.position + Vector2(0, fill.size.y - 1), Vector2(fill.size.x, 1)), col.darkened(0.3))
+
+
 func _icon(i: int, pos: Vector2) -> void:
 	draw_root.draw_texture_rect_region(ICONS, Rect2(pos, Vector2(16, 16)), Rect2(i * 16, 0, 16, 16))
 
@@ -160,23 +204,31 @@ func _draw_hud() -> void:
 	if main == null or not main.playing:
 		return
 	var sz := screen_size()
-	# --- stats panel
-	_panel(Rect2(4, 4, 124, 40))
-	_text(Vector2(9, 15), "Nv %d" % Game.level, 8, Color("ffe9a8"))
-	_text(Vector2(40, 15), "%d/%d" % [Game.hp, Game.max_hp], 8)
-	_bar(Rect2(9, 19, 113, 6), float(Game.hp) / Game.max_hp, Color("bc4952"))
-	_bar(Rect2(9, 29, 113, 3), float(Game.xp) / Game.xp_to_next(), Color("65b1b8"))
-	_icon(0, Vector2(8, 32))
-	_text(Vector2(22, 42), str(Game.attack_power()), 8)
-	_icon(1, Vector2(40, 32))
-	_text(Vector2(54, 42), str(Game.defense_total()), 8)
-	_icon(3, Vector2(70, 32))
-	_text(Vector2(85, 42), str(Game.gold), 8, Color("ffd479"))
+	# --- stats panel: portrait + level, life, mana (for the magic skills), experience, stats
+	_nine(ST_PANEL, Rect2(3, 3, 160, 63), 8)
+	var pf := Rect2(Vector2(7, 6), ST_PORTRAIT.size)
+	draw_root.draw_texture_rect_region(STATUS, pf, ST_PORTRAIT)
+	# hero's head and shoulders at 2x inside the round frame
+	draw_root.draw_texture_rect_region(Sheets.tex(HERO_SHEET), Rect2(pf.position + Vector2(7, 9), Vector2(32, 30)), Rect2(17, 21, 16, 15))
+	_text(Vector2(pf.position.x, pf.end.y + 2), "Nv %d" % Game.level, 8, Color("ffe9a8"), HORIZONTAL_ALIGNMENT_CENTER, pf.size.x)
+	var sbx := 56.0
+	var sbw := 103.0
+	_frame_bar(ST_BAR_BIG, Rect2(sbx, 6, sbw, 17), float(Game.hp) / Game.max_hp, HP_COL)
+	_frame_bar(ST_BAR_MID, Rect2(sbx, 22, sbw, 15), float(Game.mp) / max(1, Game.max_mp), MP_COL)
+	_frame_bar(ST_BAR_SMALL, Rect2(sbx, 36, sbw, 10), float(Game.xp) / Game.xp_to_next(), XP_COL)
+	_text(Vector2(sbx, 18), "%d/%d" % [Game.hp, Game.max_hp], 8, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, sbw)
+	_text(Vector2(sbx, 33), "%d/%d" % [Game.mp, Game.max_mp], 8, Color(0.8, 0.9, 1.0), HORIZONTAL_ALIGNMENT_CENTER, sbw)
+	_icon(0, Vector2(sbx - 1, 45))
+	_text(Vector2(sbx + 14, 57), str(Game.attack_power()), 8)
+	_icon(1, Vector2(sbx + 31, 45))
+	_text(Vector2(sbx + 46, 57), str(Game.defense_total()), 8)
+	_icon(3, Vector2(sbx + 62, 45))
+	_text(Vector2(sbx + 77, 57), str(Game.gold), 8, Color("ffd479"))
 	# --- quest tracker
 	var q := Game.quest_text().split("\n")
-	_text(Vector2(6, 56), q[0], 8, Color("ffe9a8"))
+	_text(Vector2(6, 78), q[0], 8, Color("ffe9a8"))
 	if q.size() > 1:
-		_text(Vector2(6, 66), q[1], 8, Color(0.85, 0.9, 1.0))
+		_text(Vector2(6, 88), q[1], 8, Color(0.85, 0.9, 1.0))
 	# --- potion counter (bottom-left; on phones the potion button shows the count instead)
 	var touch_ui: bool = main.is_touch()
 	if not touch_ui:

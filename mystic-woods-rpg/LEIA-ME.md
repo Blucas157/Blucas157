@@ -75,6 +75,9 @@ O preset "Android" (`export_presets.cfg`) gera um APK que se instala direto no c
 - **Gerar de novo (Linux, sem Android Studio):** `tools/android/build_apk.sh <godot> <keystore> <alias> <senha> [saida.apk]` instala os modelos de exportação do Godot 4.7.2 e um assinador mínimo (`tools/android/ApkSignerTool.java`) e exporta.
 - **Pelo Godot no celular:** Projeto > Exportar > Android, com a mesma keystore em "Release".
 
+## Painel de status e mana
+O painel do canto (arte `assets/ui/hud_status.png`, feita com `create_ui_asset`) mostra o retrato do herói com o nível, a vida, a **mana** (azul) e a experiência (dourada), além de ataque, defesa e ouro. A mana começa em 20, sobe 4 a cada nível, regenera 0,6 por segundo e é salva; as futuras habilidades mágicas gastam com `Game.spend_mana(custo)`.
+
 ## Sistema de Rivais
 Monstros lembram de você:
 - **Te derrotou?** O monstro que deu o golpe final vira um **rival**: ganha nome (ex.: *Grak*), título (*Matador do Herói*) e sobe de nível.

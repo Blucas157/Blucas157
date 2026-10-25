@@ -129,6 +129,14 @@ func run() -> void:
 	p.do_potion()
 	check(game.hp > 5 and game.potions == 0, "potion heals")
 
+	# mana: spend for skills, not below zero, regenerates over time
+	check(game.max_mp >= 20 and game.mp == game.max_mp, "hero starts with full mana (%d)" % game.max_mp)
+	check(game.spend_mana(15) and game.mp == game.max_mp - 15, "spending mana")
+	check(not game.spend_mana(game.max_mp), "cannot spend more mana than there is")
+	var mp_before: int = game.mp
+	await create_timer(2.0).timeout
+	check(game.mp > mp_before, "mana regenerates (%d -> %d)" % [mp_before, game.mp])
+
 	# village chest
 	var chest: Node = null
 	for c in get_nodes_in_group("chests"):

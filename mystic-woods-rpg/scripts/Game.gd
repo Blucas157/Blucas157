@@ -9,6 +9,7 @@ signal items_changed
 
 const SAVE_PATH := "user://mystic_woods_save.cfg"
 const MAX_POTIONS := 9
+const MP_REGEN := 0.6   # mana points per second
 
 const QUESTS := [
 	{"title": "Primeiros passos", "desc": "Derrote 5 Slimes no Prado", "type": "kill", "target": ["slime"], "count": 5, "gold": 20, "xp": 15},
@@ -40,6 +41,9 @@ var gold := 0
 var potions := 2
 var max_hp := 30
 var hp := 30
+var max_mp := 20          # mana for the magic skills
+var mp := 20
+var _mp_regen := 0.0
 var atk := 6
 var defense := 0
 var sword_tier := 0
@@ -71,6 +75,13 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if not get_tree().paused:
 		play_time += delta
+		if mp < max_mp:
+			_mp_regen += MP_REGEN * delta
+			if _mp_regen >= 1.0:
+				var gain := int(_mp_regen)
+				_mp_regen -= gain
+				mp = min(max_mp, mp + gain)
+				stats_changed.emit()
 
 
 # ---------------------------------------------------------------- new game / stats
@@ -82,6 +93,8 @@ func new_game(seed_value: int = -1) -> void:
 	potions = 2
 	max_hp = 30
 	hp = 30
+	max_mp = 20
+	mp = 20
 	atk = 6
 	defense = 0
 	sword_tier = 0
@@ -126,12 +139,14 @@ func add_xp(amount: int) -> void:
 func _level_up() -> void:
 	level += 1
 	max_hp += 6
+	max_mp += 4
+	mp = max_mp
 	atk += 2
 	if level % 2 == 0:
 		defense += 1
 	hp = max_hp
 	leveled_up.emit(level)
-	message.emit("NÍVEL %d!  Vida, ataque e defesa aumentaram" % level, Color(1.0, 0.85, 0.3))
+	message.emit("NÍVEL %d!  Vida, mana, ataque e defesa aumentaram" % level, Color(1.0, 0.85, 0.3))
 
 
 func add_gold(amount: int) -> void:
@@ -148,6 +163,20 @@ func damage_player(raw: int) -> int:
 
 func heal(amount: int) -> void:
 	hp = min(max_hp, hp + amount)
+	stats_changed.emit()
+
+
+## Spends mana for a skill; false (and nothing spent) when there is not enough.
+func spend_mana(amount: int) -> bool:
+	if mp < amount:
+		return false
+	mp -= amount
+	stats_changed.emit()
+	return true
+
+
+func restore_mana(amount: int) -> void:
+	mp = min(max_mp, mp + amount)
 	stats_changed.emit()
 
 
@@ -351,7 +380,7 @@ func has_save() -> bool:
 
 func save_game() -> void:
 	var cfg := ConfigFile.new()
-	for key in ["world_seed", "level", "xp", "gold", "potions", "max_hp", "hp", "atk", "defense", "sword_tier",
+	for key in ["world_seed", "level", "xp", "gold", "potions", "max_hp", "hp", "max_mp", "mp", "atk", "defense", "sword_tier",
 			"tool_tier", "armor_tier", "items", "crafted",
 			"kills", "opened_chests", "broken", "discovered", "explored", "boss_defeated", "rivals", "rival_seq", "quest_index", "quest_progress",
 			"player_pos", "play_time", "day_time", "muted"]:
@@ -366,6 +395,10 @@ func load_game() -> bool:
 	for key in cfg.get_section_keys("save"):
 		set(key, cfg.get_value("save", key))
 	hp = clampi(hp, 1, max_hp)
+	if not cfg.has_section_key("save", "max_mp"):
+		max_mp = 20 + 4 * (level - 1)   # saves from before mana existed
+		mp = max_mp
+	mp = clampi(mp, 0, max_mp)
 	if explored.size() != WorldGen.W * WorldGen.H:
 		explored = PackedByteArray()
 		explored.resize(WorldGen.W * WorldGen.H)
