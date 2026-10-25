@@ -342,6 +342,7 @@ func show_pause() -> void:
 	var box := _menu_box("Pausa", stats, 220)
 	var cont := _button(box, "Continuar", func(): main.set_paused(false))
 	_button(box, "Mochila", func(): show_inventory())
+	_button(box, "Rivais (%d)" % Game.rivals.size(), func(): show_rivals())
 	_button(box, "Salvar jogo", func(): Game.save_game(); toast("Jogo salvo", Color(0.6, 1, 0.6)); main.set_paused(false))
 	_button(box, "Som: " + ("desligado" if Game.muted else "ligado"), func(): Game.muted = not Game.muted; show_pause())
 	_button(box, "Sair para o título", func(): main.quit_to_title())
@@ -355,8 +356,11 @@ func _total_kills() -> int:
 	return n
 
 
-func show_game_over() -> void:
-	var box := _menu_box("Você caiu...", "Você acorda na Vila do Bosque.\nMetade do ouro carregado ficou para trás.", 160)
+func show_game_over(note: String = "") -> void:
+	var text := "Você acorda na Vila do Bosque.\nMetade do ouro carregado ficou para trás."
+	if note != "":
+		text = note + "\n\n" + text
+	var box := _menu_box("Você caiu...", text, 180 if note != "" else 160)
 	var b := _button(box, "Renascer na vila", func(): main.respawn())
 	b.call_deferred("grab_focus")
 
@@ -463,6 +467,20 @@ func show_inventory() -> void:
 		row.add_child(_icon_rect(id))
 		row.add_child(_small("%s  x%d" % [ItemDB.item_name(id), Game.count(id)]))
 		grid.add_child(row)
+
+
+func show_rivals() -> void:
+	var box := _panel_box("Rivais")
+	var list := _scroll(box)
+	if Game.rivals.is_empty():
+		list.add_child(_small("Nenhum rival... por enquanto.", Color(0.85, 0.9, 1.0)))
+		list.add_child(_small("Monstros que te derrotarem ou fugirem feridos vão lembrar de você e voltar mais fortes.", Color(0.8, 0.8, 0.8)))
+		return
+	for r in Game.rivals:
+		var def := MonsterDB.get_def(r["monster"])
+		list.add_child(_small(Rivals.full_name(r), Color(1.0, 0.6, 0.5)))
+		list.add_child(_small("   %s  Nv.%d  -  %s" % [def["name"], r["level"], WorldGen.REGION_NAMES.get(r["region"], r["region"])], Color(0.85, 0.9, 1.0)))
+		list.add_child(_small("   " + Rivals.history(r), Color(0.75, 0.75, 0.8)))
 
 
 func show_shop(kind: String) -> void:

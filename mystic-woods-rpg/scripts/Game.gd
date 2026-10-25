@@ -53,6 +53,8 @@ var broken := {}
 var discovered := {}
 var explored := PackedByteArray()
 var boss_defeated := false
+var rivals: Array = []   # see Rivals.gd: {uid, monster, name, level, region, wins, scars, next_at}
+var rival_seq := 0
 var quest_index := 0
 var quest_progress := 0
 var player_pos := Vector2.ZERO
@@ -94,6 +96,8 @@ func new_game(seed_value: int = -1) -> void:
 	explored = PackedByteArray()
 	explored.resize(WorldGen.W * WorldGen.H)
 	boss_defeated = false
+	rivals = []
+	rival_seq = 0
 	quest_index = 0
 	quest_progress = 0
 	has_saved_pos = false
@@ -288,6 +292,58 @@ func _check_quest() -> void:
 	stats_changed.emit()
 
 
+# ---------------------------------------------------------------- rivals
+func rival_by_uid(uid: int) -> Dictionary:
+	for r in rivals:
+		if int(r["uid"]) == uid:
+			return r
+	return {}
+
+
+## A monster defeated the hero ("kill") or escaped badly hurt ("flee"). An existing rival grows
+## stronger; otherwise a new one is born if there is room. Returns the rival, or {} if none.
+func rival_event(monster_id: String, monster_level: int, region: String, kind: String, uid: int = -1) -> Dictionary:
+	var r := rival_by_uid(uid)
+	if r.is_empty():
+		if rivals.size() >= Rivals.MAX or region == "" or region == "vila":
+			return {}
+		var taken: Array = []
+		for o in rivals:
+			taken.append(o["name"])
+		rival_seq += 1
+		r = {"uid": rival_seq, "monster": monster_id, "name": Rivals.make_name(monster_id, taken),
+			"level": monster_level, "region": region, "wins": 0, "scars": 0}
+		rivals.append(r)
+	r["level"] = mini(int(r["level"]) + 1, Rivals.MAX_LEVEL)
+	if kind == "kill":
+		r["wins"] = int(r["wins"]) + 1
+	else:
+		r["scars"] = int(r["scars"]) + 1
+	r["next_at"] = play_time + Rivals.RETURN_DELAY
+	return r
+
+
+## A rival ready to come back in this region (not on cooldown), or {}.
+func rival_due(region: String) -> Dictionary:
+	for r in rivals:
+		if r["region"] == region and play_time >= float(r.get("next_at", 0.0)):
+			return r
+	return {}
+
+
+func rival_seen(uid: int) -> void:
+	var r := rival_by_uid(uid)
+	if not r.is_empty():
+		r["next_at"] = play_time + Rivals.SEEN_DELAY
+
+
+func rival_defeated(uid: int) -> Dictionary:
+	var r := rival_by_uid(uid)
+	if not r.is_empty():
+		rivals.erase(r)
+	return r
+
+
 # ---------------------------------------------------------------- save / load
 func has_save() -> bool:
 	return FileAccess.file_exists(save_path)
@@ -297,7 +353,7 @@ func save_game() -> void:
 	var cfg := ConfigFile.new()
 	for key in ["world_seed", "level", "xp", "gold", "potions", "max_hp", "hp", "atk", "defense", "sword_tier",
 			"tool_tier", "armor_tier", "items", "crafted",
-			"kills", "opened_chests", "broken", "discovered", "explored", "boss_defeated", "quest_index", "quest_progress",
+			"kills", "opened_chests", "broken", "discovered", "explored", "boss_defeated", "rivals", "rival_seq", "quest_index", "quest_progress",
 			"player_pos", "play_time", "day_time", "muted"]:
 		cfg.set_value("save", key, get(key))
 	cfg.save(save_path)

@@ -2,6 +2,7 @@ extends CharacterBody2D
 ## Generic monster driven by MonsterDB data: wander, chase, attack, stagger, die and drop loot.
 
 const FX := preload("res://shaders/sprite_fx.gdshader")
+const FONT := preload("res://assets/ui/pixel_font.ttf")
 
 var id := ""
 var def := {}
@@ -31,6 +32,10 @@ var bar_t := 0.0
 var t := 0.0
 var engaged := false
 var summon_marks := [0.75, 0.5, 0.25]
+var rival := {}          # set for a returning rival (see Rivals.gd)
+var flee_rolled := false
+var flee_t := 0.0
+var flee_chance := -1.0  # tests force it; < 0 uses the Rivals defaults
 
 
 func setup(monster_id: String, level: int, pos: Vector2, p_main: Node) -> void:
@@ -50,6 +55,17 @@ func setup(monster_id: String, level: int, pos: Vector2, p_main: Node) -> void:
 	is_boss = def.get("boss", false)
 	think_t = randf_range(0.2, 2.0)
 	t = randf() * 10.0
+
+
+## Turn this monster into a returning rival: its own level, much tougher, bigger, named.
+func apply_rival(r: Dictionary) -> void:
+	rival = r
+	lvl = int(r["level"])
+	var mult := 1.0 + 0.22 * (lvl - 1)
+	max_hp = int(round(float(def["hp"]) * mult * 1.8))
+	hp = max_hp
+	atk = int(round(float(def["atk"]) * (1.0 + 0.15 * (lvl - 1)) * 1.25))
+	speed *= 1.1
 
 
 func _ready() -> void:
@@ -76,7 +92,11 @@ func _ready() -> void:
 	sprite.material = mat
 	sprite.modulate.a = float(def.get("alpha", 1.0))
 	add_child(sprite)
-	scale = Vector2.ONE * float(def.get("scale", 1.0))
+	scale = Vector2.ONE * float(def.get("scale", 1.0)) * (1.15 if not rival.is_empty() else 1.0)
+	if not rival.is_empty():
+		add_to_group("rivals")
+		# a faint crimson cast marks rivals in the crowd
+		mat.set_shader_parameter("tint", Color(1.12, 0.9, 0.9))
 	sprite.frame_changed.connect(_on_frame_changed)
 	sprite.animation_finished.connect(_on_anim_finished)
 	_play("idle")
@@ -91,6 +111,8 @@ func hurt_center() -> Vector2:
 
 
 func display_name() -> String:
+	if not rival.is_empty():
+		return "%s Nv.%d" % [Rivals.full_name(rival), lvl]
 	if def.get("miniboss", false):
 		return "%s (Mini-chefe) Nv.%d" % [def["name"], lvl]
 	return "%s Nv.%d" % [def["name"], lvl]
@@ -167,12 +189,14 @@ func _physics_process(delta: float) -> void:
 			lunge_v = lunge_v.move_toward(Vector2.ZERO, 500.0 * delta)
 		"hurt":
 			velocity = Vector2.ZERO
+		"flee":
+			_flee_step(delta, to_p)
 	velocity += knock
 	knock = knock.move_toward(Vector2.ZERO, 600.0 * delta)
 	move_and_slide()
 	if collision_mask == 0 and main:
 		global_position = global_position.clamp(Vector2(64, 64), main.world.world_rect().size - Vector2(64, 64))
-	if state in ["idle", "wander", "chase"]:
+	if state in ["idle", "wander", "chase", "flee"]:
 		if velocity.length() > 3.0:
 			facing = velocity.normalized()
 		if state == "chase" and velocity.length() <= 3.0:
@@ -210,6 +234,7 @@ func _on_frame_changed() -> void:
 func _do_hit() -> void:
 	if player == null or not player.alive():
 		return
+	player.last_hit_by = self
 	var d := player.global_position.distance_to(global_position)
 	if def["attack"] == "aoe":
 		var r := float(def["aoe"]) * scale.x
@@ -227,7 +252,8 @@ func _do_hit() -> void:
 func _on_anim_finished() -> void:
 	match state:
 		"attack", "hurt":
-			state = "chase"
+			if state != "flee":
+				state = "chase"
 		"dead":
 			var tw := create_tween()
 			tw.tween_interval(0.6 if not is_boss else 2.0)
@@ -253,12 +279,58 @@ func take_hit(dmg: int, dir: Vector2, crit: bool = false) -> void:
 	if hp <= 0:
 		_die()
 		return
+	if state == "flee":
+		return
+	if _try_flee():
+		return
 	if is_boss:
 		_check_summons()
 		main.hud.update_boss(self)
 	elif float(def.get("knock_resist", 0.0)) < 0.8 or randf() < 0.25:
 		state = "hurt"
 		_play("damaged")
+
+
+## Badly hurt monsters may run for it once; if they get away they come back as rivals.
+func _try_flee() -> bool:
+	if flee_rolled or is_boss or float(hp) / max_hp > Rivals.FLEE_HP:
+		return false
+	flee_rolled = true
+	if rival.is_empty() and Game.rivals.size() >= Rivals.MAX:
+		return false
+	if _region() in ["", "vila"]:
+		return false
+	var chance := flee_chance if flee_chance >= 0.0 else (Rivals.FLEE_CHANCE_RIVAL if not rival.is_empty() else Rivals.FLEE_CHANCE)
+	if randf() >= chance:
+		return false
+	state = "flee"
+	flee_t = 1.6
+	collision_mask = 0
+	main.float_text(hurt_center() + Vector2(0, -16), Rivals.taunt(rival, "flee"), Color(1.0, 0.6, 0.5))
+	return true
+
+
+func _flee_step(delta: float, to_p: Vector2) -> void:
+	flee_t -= delta
+	velocity = -to_p.normalized() * speed * 1.7
+	modulate.a = clampf(flee_t / 0.8, 0.0, 1.0)
+	if flee_t <= 0.0:
+		_escaped()
+
+
+func _escaped() -> void:
+	state = "dead"
+	remove_from_group("enemies")
+	var r := Game.rival_event(id, lvl, _region(), "flee", int(rival.get("uid", -1)))
+	if not r.is_empty():
+		main.rival_escaped(r)
+	queue_free()
+
+
+func _region() -> String:
+	if main == null or main.world == null:
+		return ""
+	return main.world.gen.region_at(main.world.pos_to_cell(global_position))
 
 
 func _check_summons() -> void:
@@ -292,15 +364,26 @@ func _die() -> void:
 			main.drop_material(global_position, d[0], 1)
 	if is_boss:
 		main.boss_defeated(self)
+	if not rival.is_empty():
+		main.rival_defeated(self)
 
 
 func _draw() -> void:
-	if bar_t <= 0.0 or state == "dead" or is_boss:
+	if state == "dead" or is_boss:
 		return
-	# mini-bosses get a wider bar with a gold frame so they read as a bigger threat
-	var mini: bool = def.get("miniboss", false)
-	var w := 28.0 if mini else 16.0
 	var y := {32: -20.0, 48: -30.0, 64: -42.0}.get(grid, -56.0) as float
+	if not rival.is_empty():
+		# rivals always show their name and life
+		var label: String = rival["name"]
+		var lw := FONT.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x
+		draw_string_outline(FONT, Vector2(-lw / 2.0, y - 4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, 3, Color(0.09, 0.11, 0.19))
+		draw_string(FONT, Vector2(-lw / 2.0, y - 4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(1.0, 0.55, 0.45))
+		bar_t = maxf(bar_t, 0.1)
+	if bar_t <= 0.0:
+		return
+	# mini-bosses and rivals get a wider bar with a gold frame so they read as a bigger threat
+	var mini: bool = def.get("miniboss", false) or not rival.is_empty()
+	var w := 28.0 if mini else 16.0
 	draw_rect(Rect2(-w / 2 - 1, y - 1, w + 2, 4), Color(0.85, 0.6, 0.27) if mini else Color(0.09, 0.11, 0.19))
 	draw_rect(Rect2(-w / 2, y, w, 2), Color(0.09, 0.11, 0.19))
 	draw_rect(Rect2(-w / 2, y, w * clamp(float(hp) / max_hp, 0.0, 1.0), 2), Color(0.74, 0.29, 0.32))

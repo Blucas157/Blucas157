@@ -22,6 +22,7 @@ var invuln := 0.0
 var knock := Vector2.ZERO
 var flash_t := 0.0
 var touch_move := Vector2.ZERO
+var last_hit_by: Node = null   # the monster that landed the last blow (rivals remember it)
 var sprite: AnimatedSprite2D
 var mat: ShaderMaterial
 

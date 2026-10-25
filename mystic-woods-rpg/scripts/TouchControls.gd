@@ -127,12 +127,13 @@ func _fire(name: String) -> void:
 
 func _process(delta: float) -> void:
 	pulse += delta
+	# redraw every frame: when a menu opens this clears the buttons instead of leaving a stale image
+	queue_redraw()
 	if not _active():
 		return
 	# holding the attack button keeps swinging, like holding the key
 	if pressed.has("attack") and main.player:
 		main.player.do_attack()
-	queue_redraw()
 
 
 # ---------------------------------------------------------------- drawing

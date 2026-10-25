@@ -169,9 +169,35 @@ func respawn() -> void:
 
 
 func _on_player_died() -> void:
+	var note := _rival_from_defeat()
 	await get_tree().create_timer(0.6).timeout
 	get_tree().paused = true
-	hud.show_game_over()
+	hud.show_game_over(note)
+
+
+## The monster that struck the last blow becomes (or grows as) a rival. Returns a line for the
+## game over screen, or "" when nothing happened.
+func _rival_from_defeat() -> String:
+	# the attacker may already be gone (despawned or freed), so check before using it
+	if not is_instance_valid(player.last_hit_by):
+		player.last_hit_by = null
+		return ""
+	var k: Node = player.last_hit_by
+	player.last_hit_by = null
+	if k.is_boss or not k.alive():
+		return ""
+	var region: String = world.gen.region_at(world.pos_to_cell(k.global_position))
+	var was_rival: bool = not k.rival.is_empty()
+	var r := Game.rival_event(k.id, k.lvl, region, "kill", int(k.rival.get("uid", -1)))
+	if r.is_empty():
+		return ""
+	k.rival = r
+	k.queue_redraw()
+	Game.save_game()
+	var who := Rivals.full_name(r)
+	if was_rival:
+		return "%s ficou ainda mais forte (Nv.%d)." % [who, r["level"]]
+	return "%s: \"%s\"\nEle agora é seu rival e vai te procurar." % [who, Rivals.taunt(r, "kill")]
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -255,6 +281,8 @@ func _spawner() -> void:
 			e.queue_free()
 			continue
 		count += 1
+	if _try_spawn_rival():
+		return
 	var night := night_amount() > 0.5
 	var cap := 14 + (5 if night else 0)
 	if count >= cap:
@@ -290,6 +318,59 @@ func _pick_monster(region: String, lvl: int) -> String:
 		if pick <= 0:
 			return e[0]
 	return options[0][0]
+
+
+# ---------------------------------------------------------------- rivals
+## A rival whose cooldown is over may come back while the hero walks its home region.
+func _try_spawn_rival() -> bool:
+	if not get_tree().get_nodes_in_group("rivals").is_empty() or current_region in ["", "vila"]:
+		return false
+	var r := Game.rival_due(current_region)
+	if r.is_empty() or rng.randf() > 0.25:
+		return false
+	var pc: Vector2i = world.pos_to_cell(player.global_position)
+	var cell: Vector2i = world.gen.find_spawn_cell(pc, 9.0, 14.0, rng)
+	if cell.x < 0:
+		return false
+	spawn_rival(r, world.cell_to_pos(cell))
+	return true
+
+
+func spawn_rival(r: Dictionary, pos: Vector2) -> Node:
+	var e := EnemyScript.new()
+	e.setup(r["monster"], int(r["level"]), pos, self)
+	e.apply_rival(r)
+	e.player = player
+	world.entities.add_child(e)
+	Game.rival_seen(int(r["uid"]))
+	hud.show_banner(Rivals.full_name(r))
+	hud.toast("%s: \"%s\"" % [r["name"], Rivals.taunt(r, "appear")], Color(1.0, 0.6, 0.5))
+	Sfx.play("boss")
+	return e
+
+
+func rival_escaped(r: Dictionary) -> void:
+	hud.toast("%s fugiu... e vai voltar!" % Rivals.full_name(r), Color(1.0, 0.6, 0.5))
+	Game.save_game()
+
+
+func rival_defeated(e: Node) -> void:
+	var r := Game.rival_defeated(int(e.rival["uid"]))
+	if r.is_empty():
+		return
+	var lvl := int(r["level"])
+	var xp := 30 * lvl
+	_rival_reward(e.global_position, 25 + 15 * lvl, xp)
+	float_text(e.hurt_center() + Vector2(0, -30), Rivals.taunt(r, "defeated"), Color(1.0, 0.6, 0.5))
+	hud.toast("Rival derrotado: %s!  (+%d XP)" % [Rivals.full_name(r), xp], Color(1.0, 0.85, 0.3))
+	Game.save_game()
+
+
+## Rival reward on top of the normal loot: a pile of gold, bonus XP and a gem.
+func _rival_reward(pos: Vector2, gold: int, xp: int) -> void:
+	drop_coins(pos, gold)
+	Game.add_xp(xp)
+	drop_material(pos, "rubi" if rng.randf() < 0.5 else "esmeralda", 1)
 
 
 func spawn_enemy(id: String, pos: Vector2, lvl: int) -> Node:

@@ -63,6 +63,15 @@ Dá para mover e atacar ao mesmo tempo (multitoque). O celular vibra de leve na 
 ### Baixar a versão mais nova
 Toda atualização vai para o GitHub. ZIP do projeto: https://github.com/Blucas157/Blucas157/archive/refs/heads/ccr-27b4daf4-fxt1tn.zip (o projeto do Godot é a pasta `mystic-woods-rpg`).
 
+## Sistema de Rivais
+Monstros lembram de você:
+- **Te derrotou?** O monstro que deu o golpe final vira um **rival**: ganha nome (ex.: *Grak*), título (*Matador do Herói*) e sobe de nível.
+- **Fugiu ferido?** Às vezes um monstro com pouca vida foge gritando "Isso não acabou!". Se escapar, volta como rival *o Marcado*.
+- **Ele volta:** depois de um tempo, o rival reaparece na região dele, maior, com o nome sobre a cabeça, um aviso na tela e uma provocação que lembra o que aconteceu.
+- **Fica pior a cada encontro:** cada nova vitória dele sobe o título (*Matador → Flagelo → Pesadelo do Herói*); cada nova fuga deixa outra cicatriz (*o Marcado → o Cicatrizado → o Indomável*).
+- **Derrote-o** para ganhar muito ouro, XP extra e uma gema (rubi ou esmeralda).
+- No máximo 3 rivais ao mesmo tempo; nenhum nasce na vila. A lista fica em **Pausa → Rivais** e é salva com o jogo.
+
 ## O mundo
 Mapa de 200×200 tiles (3.200×3.200 px) gerado a partir de uma semente salva com o jogo — cada jogo novo tem um mundo diferente. Tiles com borda automática (trilhas, rochas), lagos animados com lírios e ilhas, platôs, ruínas de pedra, cercas e centenas de árvores, arbustos, troncos, lápides etc.
 
@@ -130,5 +139,6 @@ tools/                  gerador dos sprites novos
 godot --headless --path . -s res://tests/verify_world.gd   # mundo desenhável e todo alcançável a pé
 godot --headless --path . -s res://tests/verify_game.gd    # movimento, combate, 11 monstros, baús, missões, chefe, morte, save
 godot --headless --path . -s res://tests/verify_touch.gd   # controles de toque: joystick, ataque, esquiva, poção, mochila, mapa
+godot --headless --path . -s res://tests/verify_rivals.gd  # sistema de rivais: nascimento, fuga, volta, recompensa, save
 ```
 Os dois passam no Godot 4.7.2 (3 sementes de mundo, 0 falhas).
