@@ -101,7 +101,7 @@ func start_game(new_game: bool) -> void:
 	_region_t = 0.0
 	Game.save_game()
 	if new_game:
-		hud.toast("Bem-vindo a Mystic Woods! Leia a placa da vila [E]", Color(1, 0.95, 0.7))
+		hud.toast("Bem-vindo a Mystic Woods! Leia a placa da vila " + ("(botão !)" if is_touch() else "[E]"), Color(1, 0.95, 0.7))
 
 
 func _build_world(seed_value: int) -> void:

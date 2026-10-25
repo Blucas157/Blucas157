@@ -177,10 +177,12 @@ func _draw_hud() -> void:
 	_text(Vector2(6, 56), q[0], 8, Color("ffe9a8"))
 	if q.size() > 1:
 		_text(Vector2(6, 66), q[1], 8, Color(0.85, 0.9, 1.0))
-	# --- potion counter (bottom-left)
-	var py := sz.y - 8
-	draw_root.draw_texture_rect_region(Sheets.tex(Sheets.MW + "objects/objects.png"), Rect2(4, py - 16, 16, 16), Rect2(144, 64, 16, 16))
-	_text(Vector2(21, py - 4), "x%d  [Q]" % Game.potions, 8)
+	# --- potion counter (bottom-left; on phones the potion button shows the count instead)
+	var touch_ui: bool = main.is_touch()
+	if not touch_ui:
+		var py := sz.y - 8
+		draw_root.draw_texture_rect_region(Sheets.tex(Sheets.MW + "objects/objects.png"), Rect2(4, py - 16, 16, 16), Rect2(144, 64, 16, 16))
+		_text(Vector2(21, py - 4), "x%d  [Q]" % Game.potions, 8)
 	# --- minimap (top-right)
 	if fog_texture and not map_open:
 		var mr := Rect2(sz.x - 80, 4, 76, 76)
@@ -201,7 +203,9 @@ func _draw_hud() -> void:
 		_bar(br, float(boss.hp) / boss.max_hp, Color("9e2e46"))
 	# --- interaction hint
 	if hint != "":
-		_text(Vector2(0, sz.y - 40), hint, 8, Color("ffe9a8"), HORIZONTAL_ALIGNMENT_CENTER, sz.x)
+		# phones show the action next to the glowing "!" button instead of a key name
+		var shown := hint.replace("[E] ", "") if touch_ui else hint
+		_text(Vector2(0, sz.y - 40), shown, 8, Color("ffe9a8"), HORIZONTAL_ALIGNMENT_CENTER, sz.x)
 	# --- region banner
 	if banner_t > 0.0:
 		var a: float = min(1.0, banner_t) * min(1.0, (3.0 - banner_t) * 3.0)
@@ -211,8 +215,8 @@ func _draw_hud() -> void:
 		draw_root.draw_rect(Rect2(bx, 74, bw2, 26), Color(0.09, 0.11, 0.19, 0.55 * a))
 		draw_root.draw_string_outline(FONT, Vector2(bx, 93), banner, HORIZONTAL_ALIGNMENT_CENTER, bw2, 16, 4, Color(0.09, 0.11, 0.19, a))
 		draw_root.draw_string(FONT, Vector2(bx, 93), banner, HORIZONTAL_ALIGNMENT_CENTER, bw2, 16, c)
-	# --- loot feed (bottom right)
-	var ly := sz.y - 20.0
+	# --- loot feed (bottom right; above the thumb buttons on phones)
+	var ly := sz.y - (140.0 if touch_ui else 20.0)
 	for i in range(loot_feed.size() - 1, -1, -1):
 		var l: Dictionary = loot_feed[i]
 		var a2: float = min(1.0, l["t"] * 2.0)
@@ -243,7 +247,7 @@ func _draw_hud() -> void:
 		var pp: Vector2 = mr2.position + main.player.global_position / 16.0 * (side / WorldGen.W)
 		draw_root.draw_rect(Rect2(pp - Vector2(2, 2), Vector2(5, 5)), Color.WHITE)
 		draw_root.draw_rect(Rect2(pp - Vector2(2, 2), Vector2(5, 5)), Color("171c31"), false, 1.0)
-		_text(Vector2(0, 14), "MAPA DO MUNDO  -  [M] fechar", 8, Color("ffe9a8"), HORIZONTAL_ALIGNMENT_CENTER, sz.x)
+		_text(Vector2(0, 14), "MAPA DO MUNDO" if touch_ui else "MAPA DO MUNDO  -  [M] fechar", 8, Color("ffe9a8"), HORIZONTAL_ALIGNMENT_CENTER, sz.x)
 
 
 func _map_markers(dest: Rect2, src: Rect2, _s: float) -> void:

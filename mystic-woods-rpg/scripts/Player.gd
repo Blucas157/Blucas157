@@ -6,6 +6,7 @@ signal died
 const SPEED := 92.0
 const DASH_SPEED := 250.0
 const DASH_TIME := 0.16
+const DASH_COOLDOWN := 0.55
 const FX := preload("res://shaders/sprite_fx.gdshader")
 
 var main: Node
@@ -136,10 +137,11 @@ func do_dash() -> void:
 	facing = dash_dir
 	state = "dash"
 	dash_t = DASH_TIME
-	dash_cd = 0.55
+	dash_cd = DASH_COOLDOWN
 	invuln = max(invuln, DASH_TIME + 0.05)
 	_play_dir("move")
 	Sfx.play("dash")
+	_buzz(25)
 
 
 func do_potion() -> void:
@@ -195,6 +197,7 @@ func _apply_attack() -> void:
 			hit_any = true
 	if hit_any and main:
 		main.shake(1.5, 0.08)
+		_buzz(15)
 
 
 func _on_anim_finished() -> void:
@@ -213,11 +216,18 @@ func take_damage(amount: int, from: Vector2) -> void:
 	flash_t = 0.12
 	knock = (global_position - from).normalized() * 170.0
 	Sfx.play("hurt")
+	_buzz(60)
 	if main:
 		main.float_text(global_position + Vector2(0, -28), str(dmg), Color(1.0, 0.35, 0.35))
 		main.shake(3.0, 0.15)
 	if Game.hp <= 0:
 		_die()
+
+
+## Short phone vibration as feedback (touch devices only; needs the VIBRATE permission on export).
+func _buzz(ms: int) -> void:
+	if main and main.is_touch():
+		Input.vibrate_handheld(ms)
 
 
 func _die() -> void:

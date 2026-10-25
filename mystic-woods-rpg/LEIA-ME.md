@@ -46,7 +46,22 @@ RPG de ação de mundo aberto em pixel art, feito no **Godot 4.7.2** com o pack 
 | Pausa | Esc ou P | Start |
 | Mochila | I ou B | RB |
 
-No celular/tablet aparecem joystick e botões na tela (ATK, ESQ, E, Q, M, II).
+### No celular (Android)
+Os controles de toque aparecem sozinhos em aparelhos com tela de toque:
+
+| Onde | Botão | O que faz |
+|---|---|---|
+| Metade esquerda | Joystick | Toque em qualquer ponto e arraste; empurrar pouco anda devagar, empurrar tudo corre |
+| Direita, embaixo | Espada (grande) | Ataca; segurando, continua atacando |
+| Ao lado da espada | Setas » | Esquiva (invulnerável); o anel amarelo mostra a recarga |
+| Acima da esquiva | ! | Interagir: brilha quando há baú, placa, NPC ou planta por perto |
+| Acima da espada | Poção | Bebe uma poção; o número mostra quantas restam |
+| Topo | Bolsa / Mapa / Pausa | Mochila, mapa do mundo e menu de pausa |
+
+Dá para mover e atacar ao mesmo tempo (multitoque). O celular vibra de leve na esquiva, ao acertar um golpe e ao levar dano (no export para Android, marque a permissão **VIBRATE**).
+
+### Baixar a versão mais nova
+Toda atualização vai para o GitHub. ZIP do projeto: https://github.com/Blucas157/Blucas157/archive/refs/heads/ccr-27b4daf4-fxt1tn.zip (o projeto do Godot é a pasta `mystic-woods-rpg`).
 
 ## O mundo
 Mapa de 200×200 tiles (3.200×3.200 px) gerado a partir de uma semente salva com o jogo — cada jogo novo tem um mundo diferente. Tiles com borda automática (trilhas, rochas), lagos animados com lírios e ilhas, platôs, ruínas de pedra, cercas e centenas de árvores, arbustos, troncos, lápides etc.
@@ -114,5 +129,6 @@ tools/                  gerador dos sprites novos
 ```
 godot --headless --path . -s res://tests/verify_world.gd   # mundo desenhável e todo alcançável a pé
 godot --headless --path . -s res://tests/verify_game.gd    # movimento, combate, 11 monstros, baús, missões, chefe, morte, save
+godot --headless --path . -s res://tests/verify_touch.gd   # controles de toque: joystick, ataque, esquiva, poção, mochila, mapa
 ```
 Os dois passam no Godot 4.7.2 (3 sementes de mundo, 0 falhas).
