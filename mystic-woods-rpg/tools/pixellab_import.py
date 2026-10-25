@@ -167,8 +167,33 @@ def _spider_fix(im, anim, direction):
     return im
 
 
+def _drop_specks(im, anim, direction, max_size=6):
+    """Remove small detached pixel clusters (stray specks some generated frames leave around)."""
+    px = im.load()
+    w, h = im.size
+    seen = set()
+    for y in range(h):
+        for x in range(w):
+            if px[x, y][3] == 0 or (x, y) in seen:
+                continue
+            stack, comp = [(x, y)], []
+            seen.add((x, y))
+            while stack:
+                cx, cy = stack.pop()
+                comp.append((cx, cy))
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)):
+                    nx, ny = cx + dx, cy + dy
+                    if 0 <= nx < w and 0 <= ny < h and (nx, ny) not in seen and px[nx, ny][3]:
+                        seen.add((nx, ny))
+                        stack.append((nx, ny))
+            if len(comp) <= max_size:
+                for q in comp:
+                    px[q] = (0, 0, 0, 0)
+    return im
+
+
 # per-monster clean-ups applied to every frame after palette handling
-FIXES = {"spider": _spider_fix, "golem": _golem_fix, "bat": _bat_fix, "ghost": _ghost_fix}
+FIXES = {"goblin": _drop_specks, "spider": _spider_fix, "golem": _golem_fix, "bat": _bat_fix, "ghost": _ghost_fix}
 # frames picked out of a generated clip (e.g. a hurt clip that ends with the monster lying down
 # would read as a death, so only the flinch is kept and it returns to its feet)
 FRAME_PICK = {"golem": {"damaged": [0, 1, 2, 0], "move:north": [0, 1, 2, 1]},
