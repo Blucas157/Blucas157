@@ -24,6 +24,14 @@ from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pixel import P  # noqa: E402
+import numpy as np  # noqa: E402
+import pixel_cleanup  # noqa: E402
+
+
+def denoise(im):
+    """Stray-pixel cleanup (tools/pixel_cleanup.py) on a finished sheet or cell."""
+    out, _ = pixel_cleanup.clean(np.array(im.convert("RGBA")), 28, 20.0, 3)
+    return Image.fromarray(out.astype(np.uint8), "RGBA")
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GROUND = {32: 24, 48: 40, 64: 56, 80: 72}
@@ -288,6 +296,7 @@ def build(name, export_dir, grid, recolor_grass=False, flying=False, snap=True):
         counts[a] = len(rows[k * 3][1])
     counts["death"] = len(rows[-1][1])
     out = os.path.join(ROOT, "assets", "monsters", name + ".png")
+    sheet = denoise(sheet)
     sheet.save(out)
     meta_path = os.path.join(ROOT, "assets", "monsters", "monsters.json")
     meta = json.load(open(meta_path)) if os.path.exists(meta_path) else {}
@@ -309,6 +318,7 @@ def prop(src, out, size=32, snap=False, shadow_rx=None):
     rx = shadow_rx or max(4.0, im.width / 3.0)
     shadow(cell, fx, size - 1, rx)
     cell.alpha_composite(im, (int(round(fx - im.width / 2.0)), size - 2 - im.height))
+    cell = denoise(cell)
     cell.save(out)
 
 

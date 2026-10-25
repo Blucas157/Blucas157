@@ -30,6 +30,9 @@ RPG de ação de mundo aberto em pixel art, feito no **Godot 4.7.2** com o pack 
 4. `python3 tools/pixellab_import.py <nome> <pasta_exportada> 48` encaixa tudo no layout do pack, ajusta a paleta, alinha os pés, põe a sombra e atualiza `scripts/MonsterFrames.gd`.
 5. Ícones e veios: `create_1_direction_object` com recortes do pack como `style_images` (64 variações por chamada).
 
+### Limpeza de pixels soltos (tools/pixel_cleanup.py)
+A arte gerada por IA deixa um pontilhado fino de pixels soltos. `python3 tools/pixel_cleanup.py <sprite.png> [saida.png] --dist 20 --passes 3` reduz a folha inteira para até 28 cores (mesma paleta em todos os quadros) e absorve ilhas de 1–2 px na cor vizinha parecida, sem mexer no contorno, nos brilhos, nos detalhes coloridos (olhos, gemas, frutos) nem nas sombras semitransparentes. Aplicada em todos os monstros e NPCs (antes/depois em `docs/limpeza_pixels_*.png`). Use também em toda arte nova.
+
 ## Abrir o jogo
 1. A licença do Mystic Woods não permite redistribuir os arquivos, então eles **não** ficam no repositório. Extraia o ZIP do pack e copie a pasta `sprites` para `assets/mystic_woods/`, ficando `assets/mystic_woods/sprites/characters/player.png` etc.
 2. Abra o Godot 4.7.2, importe `project.godot`, espere a importação dos PNGs e aperte **F5**.
