@@ -16,6 +16,7 @@ var attack_hit_done := false
 var attack_cd := 0.0
 var dash_t := 0.0
 var dash_cd := 0.0
+var skill_cd := 0.0
 var dash_dir := Vector2.ZERO
 var dust_t := 0.0
 var invuln := 0.0
@@ -63,6 +64,7 @@ func input_vector() -> Vector2:
 
 func _physics_process(delta: float) -> void:
 	attack_cd -= delta
+	skill_cd -= delta
 	dash_cd -= delta
 	invuln -= delta
 	flash_t = max(0.0, flash_t - delta)
@@ -108,6 +110,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		do_attack()
 	elif event.is_action_pressed("dash"):
 		do_dash()
+	elif event.is_action_pressed("skill"):
+		do_skill()
 	elif event.is_action_pressed("potion"):
 		do_potion()
 	elif event.is_action_pressed("interact"):
@@ -128,6 +132,38 @@ func do_attack() -> void:
 	_play_dir("attack")
 	sprite.frame = 0
 	Sfx.play("swing")
+
+
+## Casts the fireball (the only skill so far) toward the nearest monster in front, else straight ahead.
+func do_skill() -> void:
+	if state != "move" or skill_cd > 0.0 or main == null:
+		return
+	if not Game.has_skill("fireball"):
+		main.hud.toast("Você ainda não conhece nenhuma magia", Color(0.8, 0.85, 1.0))
+		return
+	var sk: Dictionary = Game.SKILLS["fireball"]
+	if not Game.spend_mana(int(sk["cost"])):
+		main.hud.toast("Mana insuficiente", Color(0.55, 0.7, 1.0))
+		return
+	var input := input_vector()
+	if input.length() > 0.1:
+		facing = input.normalized()
+	var origin := global_position + Vector2(0, -8)
+	var dir := facing.normalized()
+	var best := 170.0
+	for e in get_tree().get_nodes_in_group("enemies"):
+		var to: Vector2 = e.hurt_center() - origin
+		if e.alive() and to.length() < best and to.normalized().dot(dir) > 0.6:
+			best = to.length()
+			dir = to.normalized()
+	state = "attack"
+	attack_hit_done = true   # no sword hit on a cast
+	attack_cd = 0.32
+	skill_cd = float(sk["cooldown"])
+	_play_dir("attack")
+	sprite.frame = 0
+	main.cast_fireball(origin + dir * 8.0, dir, Game.skill_damage("fireball"), false, self)
+	Sfx.play("swing", 0.8)
 
 
 func do_dash() -> void:

@@ -70,7 +70,7 @@ const RESOURCE_SPAWNS := {
 const DROPS := {
 	"slime": [["gosma", 0.6]], "slime_fire": [["gosma", 0.7], ["carvao", 0.3]], "slime_poison": [["gosma", 0.7]],
 	"mushroom": [["esporos", 0.6], ["cogumelo_azul", 0.1]], "bat": [["asa_morcego", 0.5]],
-	"ghost": [["ectoplasma", 0.6]], "skeleton": [["osso", 0.7]], "skeleton_dark": [["osso", 0.8], ["prata", 0.2]],
+	"ghost": [["ectoplasma", 0.6]], "skeleton": [["osso", 0.7]], "skeleton_pyro": [["osso", 0.7], ["rubi", 0.08]], "skeleton_dark": [["osso", 0.8], ["prata", 0.2]],
 	"goblin": [["dente_goblin", 0.5], ["couro", 0.3]], "goblin_chief": [["dente_goblin", 1.0], ["couro", 0.6], ["ouro", 0.3]],
 	"golem": [["nucleo_golem", 0.4], ["ferro", 0.5], ["rubi", 0.03]], "treant": [["cerne_ent", 1.0], ["esmeralda", 1.0]],
 	"orc": [["presa_orc", 0.5], ["couro", 0.4]], "wolf": [["pele_lobo", 0.55], ["pena", 0.0]],

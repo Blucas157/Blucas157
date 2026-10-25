@@ -7,6 +7,7 @@ const SHEETS := {
 	"hit": [30, 33, 4, 16.0, Vector2(15, 17)],
 	"puff": [26, 27, 5, 12.0, Vector2(12, 12)],
 	"heal": [36, 44, 12, 12.0, Vector2(18, 35)],    # ring on the ground, pivot = feet
+	"fireburst": [44, 45, 7, 14.0, Vector2(22, 22)],
 }
 
 var kind := "text"

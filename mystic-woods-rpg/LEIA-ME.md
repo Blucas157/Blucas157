@@ -78,6 +78,13 @@ O preset "Android" (`export_presets.cfg`) gera um APK que se instala direto no c
 ## Painel de status e mana
 O painel do canto (arte `assets/ui/hud_status.png`, feita com `create_ui_asset`) mostra o retrato do herói com o nível, a vida, a **mana** (azul) e a experiência (dourada), além de ataque, defesa e ouro. A mana começa em 20, sobe 4 a cada nível, regenera 0,6 por segundo e é salva; as futuras habilidades mágicas gastam com `Game.spend_mana(custo)`.
 
+## Magia: Bola de Fogo
+- **Esqueleto Piromante** (Ruínas, a partir do nível 2): esqueleto avermelhado com uma chama na mão. Mantém distância e atira bolas de fogo que explodem no herói.
+- Ao ser derrotado, enquanto o herói não conhece a magia, ele deixa cair o **orbe de fogo**. Pegue o orbe para aprender a **Bola de Fogo**.
+- Lançar: botão de fogo na tela (aparece depois de aprender, mostra o custo), tecla **F** (ou L/C) ou o botão LB do controle. Custa **8 de mana**, mira sozinha no monstro mais próximo à frente e explode atingindo tudo ao redor. Dano: 1,4× o ataque + 2 por nível.
+- Efeitos feitos no `vfx_workbench`: `assets/vfx/fireball.png` (projétil), `fireburst.png` (explosão), `flame.png` (chama da mão).
+- Novas magias: entram em `Game.SKILLS` e são ensinadas por monstros com `"teaches"` no `MonsterDB`.
+
 ## Sistema de Rivais
 Monstros lembram de você:
 - **Te derrotou?** O monstro que deu o golpe final vira um **rival**: ganha nome (ex.: *Grak*), título (*Matador do Herói*) e sobe de nível.

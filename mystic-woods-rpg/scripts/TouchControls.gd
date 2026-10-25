@@ -12,6 +12,7 @@ const R_BIG := Rect2(183, 33, 55, 55)
 const R_MED := Rect2(21, 146, 39, 39)
 const R_MID := Rect2(129, 149, 33, 33)
 const R_SMALL := Rect2(178, 153, 25, 25)
+const FIREBALL := preload("res://assets/vfx/fireball.png")
 const STICK_R := 34.0       # how far the knob travels
 const DEAD_ZONE := 0.18     # fraction of STICK_R ignored around the centre
 const HIT_PAD := 8.0        # buttons accept touches a little outside their circle
@@ -43,7 +44,7 @@ func stick_home() -> Vector2:
 ## name -> [centre, radius]; laid out for the right thumb, menu buttons along the top
 func _buttons() -> Dictionary:
 	var s := screen()
-	return {
+	var b := {
 		"attack": [Vector2(s.x - 50, s.y - 52), 27.0],
 		"dash": [Vector2(s.x - 110, s.y - 30), 19.0],
 		"interact": [Vector2(s.x - 104, s.y - 88), 16.0],
@@ -52,6 +53,10 @@ func _buttons() -> Dictionary:
 		"map": [Vector2(s.x - 130, 17), 12.0],
 		"pause": [Vector2(s.x - 102, 17), 12.0],
 	}
+	# the magic button shows up once the hero has learned a skill
+	if Game.has_skill("fireball"):
+		b["skill"] = [Vector2(s.x - 100, s.y - 136), 16.0]
+	return b
 
 
 ## Menus (pause, backpack, shops) take the screen; the big map keeps only its own button.
@@ -124,6 +129,8 @@ func _fire(name: String) -> void:
 			p.do_interact()
 		"potion":
 			p.do_potion()
+		"skill":
+			p.do_skill()
 		"bag":
 			main.open_inventory()
 		"map":
@@ -183,6 +190,8 @@ func _draw_button(name: String, c: Vector2, r: float) -> void:
 			usable = p.dash_cd <= 0.0 and p.state == "move"
 		"potion":
 			usable = Game.potions > 0
+		"skill":
+			usable = Game.mp >= int(Game.SKILLS["fireball"]["cost"]) and p.skill_cd <= 0.0
 		"interact":
 			glow = main.hud.hint != ""
 	if glow:
@@ -200,7 +209,7 @@ func _draw_button(name: String, c: Vector2, r: float) -> void:
 			region = R_BIG
 		"dash":
 			region = R_MED
-		"interact", "potion":
+		"interact", "potion", "skill":
 			region = R_MID
 	_sprite(region, c, tint)
 	var ia := 1.0 if usable else 0.45
@@ -218,6 +227,9 @@ func _draw_button(name: String, c: Vector2, r: float) -> void:
 		"potion":
 			draw_texture_rect_region(Sheets.tex(ItemDB.ICONS), Rect2(c - Vector2(8, 9), Vector2(16, 16)), ItemDB.icon_index_rect(35), Color(1, 1, 1, ia))
 			_badge(c + Vector2(r - 3, r - 4), str(Game.potions))
+		"skill":
+			draw_texture_rect_region(FIREBALL, Rect2(c - Vector2(11, 11), Vector2(22, 22)), Rect2(24 * (int(pulse * 12.0) % 8), 0, 24, 24), Color(1, 1, 1, ia))
+			_badge(c + Vector2(r - 3, r - 4), str(int(Game.SKILLS["fireball"]["cost"])))
 		"bag":
 			draw_texture_rect_region(Sheets.tex(ItemDB.ICONS), Rect2(c - Vector2(7, 7), Vector2(14, 14)), ItemDB.icon_index_rect(38))
 		"map":

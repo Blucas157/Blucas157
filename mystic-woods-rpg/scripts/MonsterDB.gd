@@ -48,6 +48,11 @@ const DATA := {
 		"base": "skeleton", "name": "Esqueleto Sombrio", "tint": Color(0.62, 0.6, 0.85), "hp": 45, "atk": 12, "xp": 24,
 		"gold": [4, 9], "speed": 48.0,
 	},
+	"skeleton_pyro": {
+		"base": "skeleton", "name": "Esqueleto Piromante", "tint": Color(1.0, 0.66, 0.5), "hp": 34, "atk": 7, "xp": 22,
+		"gold": [4, 10], "speed": 36.0, "reach": 105.0, "aggro": 140.0, "cooldown": 2.4, "attack": "ranged",
+		"keep_away": 56.0, "flame": true, "teaches": "fireball",
+	},
 	"goblin": {
 		"name": "Goblin", "path": NEW + "goblin.png", "grid": 32, "feet": 24,
 		"hp": 22, "atk": 7, "speed": 54.0, "xp": 11, "gold": [3, 7], "reach": 20.0, "aggro": 120.0,
@@ -104,7 +109,7 @@ const DATA := {
 const SPAWNS := {
 	"prado": [["slime", 6, 1], ["mushroom", 3, 1], ["bat", 1, 2], ["slime_poison", 1, 3], ["frog", 1, 2]],
 	"floresta": [["goblin", 4, 1], ["wolf", 3, 1], ["orc", 2, 4], ["mushroom", 2, 1], ["bat", 1, 1], ["goblin_chief", 1, 6]],
-	"ruinas": [["skeleton", 5, 1], ["spider", 3, 1], ["ghost", 2, 1], ["bat", 1, 1], ["skeleton_dark", 2, 7]],
+	"ruinas": [["skeleton", 5, 1], ["spider", 3, 1], ["ghost", 2, 1], ["bat", 1, 1], ["skeleton_dark", 2, 7], ["skeleton_pyro", 2, 2]],
 	"pedreira": [["golem", 1, 1], ["crystal_elemental", 1, 3], ["spider", 2, 1], ["bat", 2, 1], ["slime_fire", 2, 5]],
 	"pantano": [["frog", 5, 1], ["slime_poison", 3, 1], ["mushroom", 2, 1], ["ghost", 1, 1], ["slime_fire", 1, 6]],
 	"coracao": [["orc", 3, 1], ["goblin", 2, 1], ["wolf", 2, 1], ["goblin_chief", 1, 1]],

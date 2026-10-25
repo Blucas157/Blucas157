@@ -36,6 +36,7 @@ var rival := {}          # set for a returning rival (see Rivals.gd)
 var flee_rolled := false
 var flee_t := 0.0
 var flee_chance := -1.0  # tests force it; < 0 uses the Rivals defaults
+var flame: AnimatedSprite2D   # fire casters hold a small flame (vfx_workbench loop)
 
 
 func setup(monster_id: String, level: int, pos: Vector2, p_main: Node) -> void:
@@ -97,6 +98,14 @@ func _ready() -> void:
 		add_to_group("rivals")
 		# a faint crimson cast marks rivals in the crowd
 		mat.set_shader_parameter("tint", Color(1.12, 0.9, 0.9))
+	if def.get("flame", false):
+		flame = AnimatedSprite2D.new()
+		flame.sprite_frames = Sheets.strip("res://assets/vfx/flame.png", 16, 23, 8, 10.0, true)
+		flame.centered = false
+		flame.offset = Vector2(-8, -16)
+		flame.position = Vector2(9, -13)
+		flame.play("default")
+		add_child(flame)
 	sprite.frame_changed.connect(_on_frame_changed)
 	sprite.animation_finished.connect(_on_anim_finished)
 	_play("idle")
@@ -175,6 +184,17 @@ func _physics_process(delta: float) -> void:
 					engaged = false
 					hp = max_hp
 					summon_marks = [0.75, 0.5, 0.25]
+			elif def["attack"] == "ranged":
+				# casters keep their distance and throw from afar
+				var keep := float(def.get("keep_away", 50.0))
+				if dist <= float(def["reach"]) and attack_cd <= 0.0:
+					_start_attack(to_p)
+				elif dist < keep:
+					velocity = -to_p.normalized() * speed * 0.8
+				elif dist > float(def["reach"]) * 0.85:
+					velocity = to_p.normalized() * speed
+				else:
+					velocity = to_p.normalized().orthogonal() * speed * 0.4 * (1.0 if fmod(t, 6.0) < 3.0 else -1.0)
 			elif dist <= float(def["reach"]) + 4.0 and attack_cd <= 0.0:
 				_start_attack(to_p)
 			else:
@@ -202,6 +222,8 @@ func _physics_process(delta: float) -> void:
 		if state == "chase" and velocity.length() <= 3.0:
 			facing = to_p.normalized()
 		_play("move" if velocity.length() > 3.0 or (def["behavior"] == "fly") else "idle")
+	if flame:
+		flame.position.x = -9.0 if sprite.flip_h else 9.0
 
 
 func _gait() -> float:
@@ -236,6 +258,11 @@ func _do_hit() -> void:
 		return
 	player.last_hit_by = self
 	var d := player.global_position.distance_to(global_position)
+	if def["attack"] == "ranged":
+		var from := hurt_center() + facing * 8.0
+		main.cast_fireball(from, player.global_position + Vector2(0, -8) - from, atk, true, self)
+		Sfx.play("swing", 0.6)
+		return
 	if def["attack"] == "aoe":
 		var r := float(def["aoe"]) * scale.x
 		main.shockwave(global_position, r, Color(0.9, 0.85, 0.7) if id != "mushroom" else Color(0.85, 0.75, 0.3))
@@ -364,6 +391,11 @@ func _die() -> void:
 	for d in ItemDB.DROPS.get(id, []):
 		if randf() < float(d[1]):
 			main.drop_material(global_position, d[0], 1)
+	if def.has("teaches") and not Game.has_skill(def["teaches"]):
+		main.drop_skill(global_position, def["teaches"])
+	if flame:
+		flame.queue_free()
+		flame = null
 	if is_boss:
 		main.boss_defeated(self)
 	if not rival.is_empty():

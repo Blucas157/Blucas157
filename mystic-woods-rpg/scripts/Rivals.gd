@@ -43,7 +43,7 @@ static func family(monster_id: String) -> String:
 			return "goblin"
 		"slime_fire", "slime_poison":
 			return "slime"
-		"skeleton_dark":
+		"skeleton_dark", "skeleton_pyro":
 			return "skeleton"
 		"crystal_elemental":
 			return "crystal"

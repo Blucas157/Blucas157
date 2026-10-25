@@ -13,7 +13,12 @@ var sprite: Node2D
 
 
 func _ready() -> void:
-	if kind == "coin":
+	if kind == "skill":
+		var orb := AnimatedSprite2D.new()
+		orb.sprite_frames = Sheets.strip("res://assets/vfx/fireball.png", 24, 24, 8, 12.0, true)
+		orb.play("default")
+		sprite = orb
+	elif kind == "coin":
 		var a := AnimatedSprite2D.new()
 		a.sprite_frames = Sheets.strip("res://assets/ui/coin.png", 10, 10, 4, 10.0, true)
 		a.play("default")
@@ -48,13 +53,15 @@ func _process(delta: float) -> void:
 	if player and age > 0.45 and player.alive():
 		var to := player.global_position + Vector2(0, -6) - global_position
 		var d := to.length()
-		var magnet := 46.0 if kind in ["coin", "item"] else 22.0
+		var magnet := 46.0 if kind in ["coin", "item", "skill"] else 22.0
 		if d < 8.0:
 			_collect()
 			return
 		if d < magnet:
 			position += to.normalized() * (60.0 + (magnet - d) * 5.0) * delta
-	if age > 45.0:
+	if kind == "skill":
+		pass   # a skill orb never disappears
+	elif age > 45.0:
 		queue_free()
 	elif age > 40.0:
 		visible = int(age * 8.0) % 2 == 0
@@ -72,6 +79,15 @@ func _collect() -> void:
 		"heart":
 			Game.heal(8)
 			Sfx.play("potion", 1.3)
+		"skill":
+			Game.learn_skill(item_id)
+			Sfx.play("potion", 0.7)
+			if player and player.main:
+				var sk: Dictionary = Game.SKILLS[item_id]
+				var how := "botão de fogo" if player.main.is_touch() else "tecla F"
+				player.main.hud.show_banner("Magia aprendida: %s!" % sk["name"])
+				player.main.hud.toast("%s (%s) - custa %d de mana" % [sk["name"], how, int(sk["cost"])], Color(1.0, 0.7, 0.35))
+				player.main.vfx("fireburst", player.global_position + Vector2(0, -8))
 		"item":
 			Game.add_item(item_id, value)
 			Sfx.play("coin", 0.75)

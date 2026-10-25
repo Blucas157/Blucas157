@@ -6,6 +6,7 @@ const PlayerScript := preload("res://scripts/Player.gd")
 const EnemyScript := preload("res://scripts/Enemy.gd")
 const PickupScript := preload("res://scripts/Pickup.gd")
 const FxScript := preload("res://scripts/Fx.gd")
+const ProjectileScript := preload("res://scripts/Projectile.gd")
 const HudScript := preload("res://scripts/Hud.gd")
 const TouchScript := preload("res://scripts/TouchControls.gd")
 
@@ -541,6 +542,30 @@ func drop_coins(pos: Vector2, amount: int) -> void:
 	for i in n:
 		var v: int = amount / n + (1 if i < amount % n else 0)
 		drop_item(pos, "coin", v)
+
+
+## A fireball from the hero (hostile = false) or from a monster (hostile = true).
+func cast_fireball(pos: Vector2, dir: Vector2, dmg: int, hostile: bool, source: Node) -> Node2D:
+	var f := ProjectileScript.new()
+	f.main = self
+	f.source = source
+	f.position = pos
+	f.vel = dir.normalized() * (150.0 if not hostile else 95.0)
+	f.dmg = dmg
+	f.hostile = hostile
+	fx_layer.add_child(f)
+	return f
+
+
+## The glowing orb that teaches a magic skill when picked up.
+func drop_skill(pos: Vector2, skill: String) -> void:
+	var p := PickupScript.new()
+	p.kind = "skill"
+	p.item_id = skill
+	p.player = player
+	p.position = pos
+	p.vel = Vector2.from_angle(rng.randf() * TAU) * 20.0
+	world.entities.call_deferred("add_child", p)
 
 
 func drop_material(pos: Vector2, id: String, amount: int) -> void:

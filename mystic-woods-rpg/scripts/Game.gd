@@ -10,6 +10,10 @@ signal items_changed
 const SAVE_PATH := "user://mystic_woods_save.cfg"
 const MAX_POTIONS := 9
 const MP_REGEN := 0.6   # mana points per second
+## Magic skills: learned from orbs that special monsters drop.
+const SKILLS := {
+	"fireball": {"name": "Bola de Fogo", "cost": 8, "cooldown": 0.7, "from": "skeleton_pyro"},
+}
 
 const QUESTS := [
 	{"title": "Primeiros passos", "desc": "Derrote 5 Slimes no Prado", "type": "kill", "target": ["slime"], "count": 5, "gold": 20, "xp": 15},
@@ -50,6 +54,7 @@ var sword_tier := 0
 var tool_tier := 0
 var armor_tier := 0
 var items := {}
+var skills: Array = []
 var crafted := {}
 var kills := {}
 var opened_chests := {}
@@ -101,6 +106,7 @@ func new_game(seed_value: int = -1) -> void:
 	tool_tier = 0
 	armor_tier = 0
 	items = {}
+	skills = []
 	crafted = {}
 	kills = {}
 	opened_chests = {}
@@ -164,6 +170,24 @@ func damage_player(raw: int) -> int:
 func heal(amount: int) -> void:
 	hp = min(max_hp, hp + amount)
 	stats_changed.emit()
+
+
+func has_skill(id: String) -> bool:
+	return id in skills
+
+
+func learn_skill(id: String) -> void:
+	if not has_skill(id):
+		skills.append(id)
+		stats_changed.emit()
+
+
+## Hero's fireball damage: grows with the sword and the level.
+func skill_damage(id: String) -> int:
+	match id:
+		"fireball":
+			return int(attack_power() * 1.4) + level * 2
+	return attack_power()
 
 
 ## Spends mana for a skill; false (and nothing spent) when there is not enough.
@@ -381,7 +405,7 @@ func has_save() -> bool:
 func save_game() -> void:
 	var cfg := ConfigFile.new()
 	for key in ["world_seed", "level", "xp", "gold", "potions", "max_hp", "hp", "max_mp", "mp", "atk", "defense", "sword_tier",
-			"tool_tier", "armor_tier", "items", "crafted",
+			"tool_tier", "armor_tier", "items", "skills", "crafted",
 			"kills", "opened_chests", "broken", "discovered", "explored", "boss_defeated", "rivals", "rival_seq", "quest_index", "quest_progress",
 			"player_pos", "play_time", "day_time", "muted"]:
 		cfg.set_value("save", key, get(key))
@@ -395,6 +419,8 @@ func load_game() -> bool:
 	for key in cfg.get_section_keys("save"):
 		set(key, cfg.get_value("save", key))
 	hp = clampi(hp, 1, max_hp)
+	if not cfg.has_section_key("save", "skills"):
+		skills = []
 	if not cfg.has_section_key("save", "max_mp"):
 		max_mp = 20 + 4 * (level - 1)   # saves from before mana existed
 		mp = max_mp
@@ -427,11 +453,12 @@ func _setup_input() -> void:
 		"pause": [KEY_ESCAPE, KEY_P],
 		"map": [KEY_M, KEY_TAB],
 		"inventory": [KEY_I, KEY_B],
+		"skill": [KEY_F, KEY_L, KEY_C],
 	}
 	var pads := {
 		"attack": JOY_BUTTON_A, "dash": JOY_BUTTON_B, "potion": JOY_BUTTON_X,
 		"interact": JOY_BUTTON_Y, "pause": JOY_BUTTON_START, "map": JOY_BUTTON_BACK,
-		"inventory": JOY_BUTTON_RIGHT_SHOULDER,
+		"inventory": JOY_BUTTON_RIGHT_SHOULDER, "skill": JOY_BUTTON_LEFT_SHOULDER,
 		"move_left": JOY_BUTTON_DPAD_LEFT, "move_right": JOY_BUTTON_DPAD_RIGHT,
 		"move_up": JOY_BUTTON_DPAD_UP, "move_down": JOY_BUTTON_DPAD_DOWN,
 	}
