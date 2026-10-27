@@ -110,14 +110,57 @@ func run() -> void:
 	await shot("magic_04_burst")
 	check(target.hp < hp_t, "the fireball burns the monster (%d -> %d)" % [hp_t, target.hp])
 
-	# 4) no mana, no fireball
+	# 4) targeting: the nearest monster is the soft target; the target button locks and cycles;
+	#    a tap on a monster locks it; the fireball bends toward a locked target behind the hero
+	clear_enemies()
+	await process_frame
+	var near: Node = main.spawn_enemy("orc", p.global_position + Vector2(-50, 0), 1)
+	var far: Node = main.spawn_enemy("orc", p.global_position + Vector2(0, 90), 1)
+	for m in [near, far]:
+		m.flee_rolled = true
+		m.def = m.def.duplicate()
+		m.def["aggro"] = 0.0   # stand still for the test
+	await create_timer(0.1).timeout
+	check(p.target == near and not p.target_locked, "nearest monster is the soft target")
+	p.cycle_target()
+	check(p.target == near and p.target_locked, "target button locks the nearest")
+	p.cycle_target()
+	check(p.target == far and p.target_locked, "target button cycles to the next one")
+	p.cycle_target()
+	check(not p.target_locked, "past the last one the lock is released")
+	await shot("magic_05_soft_target")
+	# tap on the far orc on screen (right side of the screen, away from the joystick)
+	main.camera.global_position = p.global_position
+	main.camera.reset_smoothing()
+	await process_frame
+	var scr: Vector2 = main.get_viewport().get_canvas_transform() * far.hurt_center()
+	var ev := InputEventScreenTouch.new()
+	ev.index = 3
+	ev.position = scr
+	ev.pressed = true
+	main.touch._input(ev)
+	ev.pressed = false
+	main.touch._input(ev)
+	check(p.target == far and p.target_locked, "tapping a monster locks it (screen %s)" % scr)
+	await create_timer(0.1).timeout
+	await shot("magic_06_locked")
+	game.mp = game.max_mp
+	p.facing = Vector2.UP   # looking away from the target
+	var far_hp: int = far.hp
+	var near_hp: int = near.hp
+	await create_timer(0.8).timeout
+	p.do_skill()
+	await create_timer(1.2).timeout
+	check(far.hp < far_hp and near.hp == near_hp, "the fireball flies to the locked target, not the nearest")
+
+	# 5) no mana, no fireball
 	await create_timer(0.8).timeout
 	game.mp = 2
 	var balls: int = main.fx_layer.get_child_count()
 	p.do_skill()
 	check(game.mp == 2 and main.fx_layer.get_child_count() == balls, "no mana: nothing is cast")
 
-	# 5) the skill is saved
+	# 6) the skill is saved
 	game.save_game()
 	game.skills = []
 	game.load_game()

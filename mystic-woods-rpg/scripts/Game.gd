@@ -454,11 +454,13 @@ func _setup_input() -> void:
 		"map": [KEY_M, KEY_TAB],
 		"inventory": [KEY_I, KEY_B],
 		"skill": [KEY_F, KEY_L, KEY_C],
+		"target": [KEY_T, KEY_R],
 	}
 	var pads := {
 		"attack": JOY_BUTTON_A, "dash": JOY_BUTTON_B, "potion": JOY_BUTTON_X,
 		"interact": JOY_BUTTON_Y, "pause": JOY_BUTTON_START, "map": JOY_BUTTON_BACK,
 		"inventory": JOY_BUTTON_RIGHT_SHOULDER, "skill": JOY_BUTTON_LEFT_SHOULDER,
+		"target": JOY_BUTTON_RIGHT_STICK,
 		"move_left": JOY_BUTTON_DPAD_LEFT, "move_right": JOY_BUTTON_DPAD_RIGHT,
 		"move_up": JOY_BUTTON_DPAD_UP, "move_down": JOY_BUTTON_DPAD_DOWN,
 	}

@@ -7,6 +7,7 @@ const EnemyScript := preload("res://scripts/Enemy.gd")
 const PickupScript := preload("res://scripts/Pickup.gd")
 const FxScript := preload("res://scripts/Fx.gd")
 const ProjectileScript := preload("res://scripts/Projectile.gd")
+const ReticleScript := preload("res://scripts/Reticle.gd")
 const HudScript := preload("res://scripts/Hud.gd")
 const TouchScript := preload("res://scripts/TouchControls.gd")
 
@@ -122,6 +123,9 @@ func _build_world(seed_value: int) -> void:
 	player.position = world.cell_to_pos(WorldGen.CENTER + Vector2i(0, 2))
 	world.entities.add_child(player)
 	player.died.connect(_on_player_died)
+	var reticle := ReticleScript.new()
+	reticle.player = player
+	fx_layer.add_child(reticle)
 	var r: Rect2 = world.world_rect()
 	camera.limit_left = int(r.position.x)
 	camera.limit_top = int(r.position.y)

@@ -17,6 +17,11 @@ var attack_cd := 0.0
 var dash_t := 0.0
 var dash_cd := 0.0
 var skill_cd := 0.0
+## Spell target: the nearest monster in range (soft), or the one the hero locked (tap / target button).
+var target = null   # untyped on purpose: a monster can be freed while it is the target
+var target_locked := false
+const TARGET_RANGE := 150.0    # soft target: nearest monster within this
+const LOCK_RANGE := 230.0      # a locked target is kept until it dies or gets this far
 var dash_dir := Vector2.ZERO
 var dust_t := 0.0
 var invuln := 0.0
@@ -65,6 +70,7 @@ func input_vector() -> Vector2:
 func _physics_process(delta: float) -> void:
 	attack_cd -= delta
 	skill_cd -= delta
+	_update_target()
 	dash_cd -= delta
 	invuln -= delta
 	flash_t = max(0.0, flash_t - delta)
@@ -112,6 +118,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		do_dash()
 	elif event.is_action_pressed("skill"):
 		do_skill()
+	elif event.is_action_pressed("target"):
+		cycle_target()
 	elif event.is_action_pressed("potion"):
 		do_potion()
 	elif event.is_action_pressed("interact"):
@@ -150,20 +158,74 @@ func do_skill() -> void:
 		facing = input.normalized()
 	var origin := global_position + Vector2(0, -8)
 	var dir := facing.normalized()
-	var best := 170.0
-	for e in get_tree().get_nodes_in_group("enemies"):
-		var to: Vector2 = e.hurt_center() - origin
-		if e.alive() and to.length() < best and to.normalized().dot(dir) > 0.6:
-			best = to.length()
-			dir = to.normalized()
+	if _target_ok(target):
+		dir = (target.hurt_center() - origin).normalized()
+		facing = dir
 	state = "attack"
 	attack_hit_done = true   # no sword hit on a cast
 	attack_cd = 0.32
 	skill_cd = float(sk["cooldown"])
 	_play_dir("attack")
 	sprite.frame = 0
-	main.cast_fireball(origin + dir * 8.0, dir, Game.skill_damage("fireball"), false, self)
+	var ball: Node = main.cast_fireball(origin + dir * 8.0, dir, Game.skill_damage("fireball"), false, self)
+	if _target_ok(target):
+		ball.homing = target
 	Sfx.play("swing", 0.8)
+
+
+func _target_ok(e) -> bool:
+	return is_instance_valid(e) and e.is_in_group("enemies") and e.alive()
+
+
+func _update_target() -> void:
+	if target_locked:
+		if _target_ok(target) and target.global_position.distance_to(global_position) <= LOCK_RANGE:
+			return
+		target_locked = false
+	target = _nearest_enemy(TARGET_RANGE)
+
+
+func _nearest_enemy(within: float) -> Node:
+	var best: Node = null
+	var bd := within
+	for e in get_tree().get_nodes_in_group("enemies"):
+		var d: float = e.global_position.distance_to(global_position)
+		if e.alive() and d < bd:
+			bd = d
+			best = e
+	return best
+
+
+## Locks the spell target on this monster (tapped on screen).
+func lock_on(e) -> void:
+	if _target_ok(e):
+		target = e
+		target_locked = true
+
+
+## Target button / key: locks the nearest monster, then cycles through the others by distance;
+## past the last one it unlocks.
+func cycle_target() -> void:
+	var list: Array = []
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if e.alive() and e.global_position.distance_to(global_position) <= LOCK_RANGE:
+			list.append(e)
+	list.sort_custom(func(a, b): return a.global_position.distance_to(global_position) < b.global_position.distance_to(global_position))
+	if list.is_empty():
+		target_locked = false
+		target = null
+		if main:
+			main.hud.toast("Nenhum alvo por perto", Color(0.8, 0.85, 1.0))
+		return
+	if not target_locked or not _target_ok(target):
+		lock_on(list[0])
+		return
+	var i: int = list.find(target)
+	if i == list.size() - 1:
+		target_locked = false
+		target = _nearest_enemy(TARGET_RANGE)
+	else:
+		lock_on(list[i + 1])
 
 
 func do_dash() -> void:

@@ -12,6 +12,8 @@ var vel := Vector2.ZERO
 var dmg := 10
 var hostile := false
 var travelled := 0.0
+var homing = null   # a locked/aimed monster: the fireball bends toward it
+const TURN := 5.0          # radians per second
 
 
 func _ready() -> void:
@@ -23,6 +25,10 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if is_instance_valid(homing) and homing.alive():
+		var want: float = (homing.hurt_center() - global_position).angle()
+		var ang := vel.angle()
+		vel = Vector2.from_angle(ang + clampf(wrapf(want - ang, -PI, PI), -TURN * delta, TURN * delta)) * vel.length()
 	var step := vel * delta
 	position += step
 	travelled += step.length()

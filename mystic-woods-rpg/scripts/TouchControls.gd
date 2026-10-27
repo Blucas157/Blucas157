@@ -56,6 +56,7 @@ func _buttons() -> Dictionary:
 	# the magic button shows up once the hero has learned a skill
 	if Game.has_skill("fireball"):
 		b["skill"] = [Vector2(s.x - 100, s.y - 136), 16.0]
+		b["target"] = [Vector2(s.x - 150, s.y - 118), 12.0]
 	return b
 
 
@@ -84,6 +85,12 @@ func _input(event: InputEvent) -> void:
 					get_viewport().set_input_as_handled()
 					queue_redraw()
 					return
+			# a tap on a monster locks the spell target on it (on the left half the first finger is
+			# the joystick's, so there a tap locks only while the stick is already held)
+			var stick_zone := p.x < screen().x * 0.5 and p.y > 68.0 and stick_finger == -1
+			if not map_only and not stick_zone and Game.has_skill("fireball") and _tap_lock(p):
+				get_viewport().set_input_as_handled()
+				return
 			# anywhere on the left half (below the stats panel) grabs the joystick there
 			if not map_only and p.x < screen().x * 0.5 and p.y > 68.0 and stick_finger == -1:
 				stick_finger = event.index
@@ -110,6 +117,22 @@ func _input(event: InputEvent) -> void:
 		queue_redraw()
 
 
+## Screen point -> world; locks the monster under the finger (generous radius for thumbs).
+func _tap_lock(screen_pos: Vector2) -> bool:
+	var world_pos := get_viewport().get_canvas_transform().affine_inverse() * screen_pos
+	var best: Node = null
+	var bd := 18.0
+	for e in get_tree().get_nodes_in_group("enemies"):
+		var d: float = e.hurt_center().distance_to(world_pos)
+		if e.alive() and d < bd:
+			bd = d
+			best = e
+	if best == null:
+		return false
+	main.player.lock_on(best)
+	return true
+
+
 func _release_all() -> void:
 	stick_finger = -1
 	pressed.clear()
@@ -131,6 +154,8 @@ func _fire(name: String) -> void:
 			p.do_potion()
 		"skill":
 			p.do_skill()
+		"target":
+			p.cycle_target()
 		"bag":
 			main.open_inventory()
 		"map":
@@ -227,6 +252,8 @@ func _draw_button(name: String, c: Vector2, r: float) -> void:
 		"potion":
 			draw_texture_rect_region(Sheets.tex(ItemDB.ICONS), Rect2(c - Vector2(8, 9), Vector2(16, 16)), ItemDB.icon_index_rect(35), Color(1, 1, 1, ia))
 			_badge(c + Vector2(r - 3, r - 4), str(Game.potions))
+		"target":
+			_draw_crosshair(c, Color(1.0, 0.4, 0.32) if p.target_locked else Color(1, 1, 1, 0.85))
 		"skill":
 			draw_texture_rect_region(FIREBALL, Rect2(c - Vector2(11, 11), Vector2(22, 22)), Rect2(24 * (int(pulse * 12.0) % 8), 0, 24, 24), Color(1, 1, 1, ia))
 			_badge(c + Vector2(r - 3, r - 4), str(int(Game.SKILLS["fireball"]["cost"])))
@@ -237,6 +264,12 @@ func _draw_button(name: String, c: Vector2, r: float) -> void:
 		"pause":
 			draw_rect(Rect2(c + Vector2(-4, -4), Vector2(3, 8)), Color.WHITE)
 			draw_rect(Rect2(c + Vector2(1, -4), Vector2(3, 8)), Color.WHITE)
+
+
+func _draw_crosshair(c: Vector2, col: Color) -> void:
+	draw_arc(c, 5.0, 0, TAU, 16, col, 1.0)
+	for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+		draw_line(c + d * 3.0, c + d * 8.0, col, 1.0)
 
 
 func _draw_dodge(c: Vector2, a: float) -> void:

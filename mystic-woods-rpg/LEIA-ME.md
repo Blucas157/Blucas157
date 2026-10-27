@@ -82,6 +82,7 @@ O painel do canto (arte `assets/ui/hud_status.png`, feita com `create_ui_asset`)
 - **Esqueleto Piromante** (Ruínas, a partir do nível 2): esqueleto avermelhado com uma chama na mão. Mantém distância e atira bolas de fogo que explodem no herói.
 - Ao ser derrotado, enquanto o herói não conhece a magia, ele deixa cair o **orbe de fogo**. Pegue o orbe para aprender a **Bola de Fogo**.
 - Lançar: botão de fogo na tela (aparece depois de aprender, mostra o custo), tecla **F** (ou L/C) ou o botão LB do controle. Custa **8 de mana**, mira sozinha no monstro mais próximo à frente e explode atingindo tudo ao redor. Dano: 1,4× o ataque + 2 por nível.
+- **Mira:** o monstro mais próximo ganha uma mira branca e a magia vai nele. Para **travar** a mira (vermelha, com ponto dourado), toque no monstro na tela ou use o botão de mira (alvo) ao lado da magia, ou a tecla **T** (ou R). Cada toque no botão passa para o próximo monstro; depois do último, destrava. Com a mira travada, a bola de fogo faz curva e persegue o alvo, mesmo atrás do herói. A trava some quando o alvo morre ou fica longe.
 - Efeitos feitos no `vfx_workbench`: `assets/vfx/fireball.png` (projétil), `fireburst.png` (explosão), `flame.png` (chama da mão).
 - Novas magias: entram em `Game.SKILLS` e são ensinadas por monstros com `"teaches"` no `MonsterDB`.
 
