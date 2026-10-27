@@ -23,6 +23,32 @@ Este documento descreve o sistema de facções do jogo (`scripts/Factions.gd`, `
 | **DanMachi** (Xenos) | light novel / anime | Monstros com **memória e vontade própria**, que lembram vidas e encontros passados. |
 | **Kingdom** | mangá / anime | **Conquista de território** e batalhas decididas pela força de cada lado. |
 
+### Referências novas (pesquisa de out/2026)
+
+| Obra | Tipo | O que inspira no jogo |
+|---|---|---|
+| **Hell Mode: The Hardcore Gamer Dominates in Another World with Garbage Balancing** (Yarikomizuki no Gamer wa Hai Settei no Isekai de Musou suru) | light novel de Hamuo → anime (jan–mar/2026, 12 ep.) | O gamer que **escolhe a dificuldade "Inferno"** e renasce dentro do jogo como Allen, um servo, na classe **Invocador**. Para o jogo: um **"Modo Inferno"** ao começar, com monstros mais fortes, facções que aprendem e evoluem mais rápido e, em troca, **mais XP e drops**; e a futura classe/magia de **invocação**. |
+| **Overgeared** (Tempal: Item no Chikara) | web novel/manhwa coreano → anime da J.C.Staff (outono/2026) | Grid, jogador mediano no VRMMO *Satisfy*, acha o tomo do **Sucessor de Pagma**, o ferreiro lendário: o poder vem de **forjar, avaliar, reparar e aprimorar itens**, não só de subir de nível. Para o jogo: **missão lendária na forja** que dá uma "classe" de ferreiro, **itens únicos com nome**, chance de forja épica/lendária, e monstros que **atacam por causa do seu equipamento** (facções de olho nos seus itens). |
+| **I Became the Tyrant of a Defense Game** (디펜스 게임의 폭군이 되었다) | manhwa (Naver Webtoon) | O jogador que zerou o "Protect the Empire" no **modo mais difícil** é puxado para dentro dele. Para o jogo: **defender a vila contra ondas**, com as **invasões noturnas** das facções crescendo em ondas e uma **"Lua de Sangue"** de tempos em tempos. |
+| **Kingdom: Two Crowns** | jogo | Tipos de onda: noturna, **Lua de Sangue**, defesa, contra-ataque e final. É o modelo direto para escalonar as invasões. |
+| **Re:Monster** (temporada 2 anunciada) | isekai / anime | O goblin que **fica mais forte comendo outros** e sobe ao topo da comunidade. Para o jogo: monstros que **evoluem ao matar** (a facção vencedora de uma batalha fica com o poder do perdedor). |
+| **Reincarnated as a Dragon Hatchling** | anime (jan–mar/2026) | Renascer como ovo numa floresta cheia de feras e **evoluir até o dragão mais forte**. Para o jogo: um **chefe que evolui ao longo do mundo** (um filhote que cresce enquanto o herói não o derrota). |
+| **Chrysalis** | web novel / manhwa (colmeia de monstros) | Uma **colmeia/colônia** que cresce e se especializa (operárias, soldados, rainha). Para o jogo: o **Ninho das Aranhas** com rainha, larvas e soldados. Destruir a rainha derruba a facção. |
+| **Low-Rank Soldier Becoming a Monarch** | manhwa | **Expansão de território militar**: avançar região por região. |
+| **Solo Glitch Player** | manhwa | O jogador que sabe o futuro de um VRMMO e **reforma o território antes de uma guerra e uma fome**. Para o jogo: **eventos de mundo anunciados** (a guerra entre facções está chegando: prepare a vila). |
+| **Tyrant of a Defense Game** / **Dungeon Reset** / **The Greatest Estate Developer** | manhwa | **Construção e recursos**: no futuro, o herói **fortifica a vila** (muralhas, torres, guardas) com os materiais que tira das facções. |
+| **Renegade Immortal**, **Perfect World**, **Swallowed Star**, **Throne of Seal** | donghwa (2025–2026) | Escala de **cultivo e reinos de poder**, **seitas** como facções e **bestas demoníacas** com hierarquia. Para o jogo: os níveis das facções (Selvagens → Lendários) e futuras **bestas-rei** por região. |
+
+#### Mecânicas que estas referências sugerem (próximos passos)
+1. **Modo Inferno** (Hell Mode): escolhido no "Novo jogo". Facções começam evoluídas, aprendem 2× mais rápido e invadem mais, com +50% XP e drops.
+2. **Sucessor de Pagma** (Overgeared): missão do Ferreiro que libera a forja de **itens lendários com nome** e chance de forja épica.
+3. **Lua de Sangue e ondas na vila** (Tyrant / Kingdom: Two Crowns): a cada X dias, as facções com rancor atacam a vila em ondas, e o herói prepara defesas.
+4. **Rainha do Ninho** (Chrysalis): a facção das aranhas ganha uma rainha num ninho. Enquanto ela vive, o ninho repõe as aranhas.
+5. **Dragão que cresce** (Dragon Hatchling): um chefe errante que evolui a cada dia sem ser derrotado.
+6. **Invocação** (Hell Mode, classe Invocador): magia de invocar aliados, que também usa a mana.
+
+Fontes da pesquisa: [Hell Mode (Wikipedia)](https://en.wikipedia.org/wiki/Hell_Mode), [Hell Mode (MyAnimeList)](https://myanimelist.net/anime/60460), [HIDIVE e Hell Mode (Anime Corner)](https://animecorner.me/exclusive-hidive-acquires-hell-mode-isekai-anime-for-winter-2026-simulcast-lineup/), [Overgeared (Anime Corner)](https://animecorner.me/db/anime/overgeared), [Overgeared ep. 1 (Final Weapon)](https://finalweapon.net/2026/09/21/overgeared-episode-1-review-crunchyroll-anime/), [Overgeared (Wuxiaworld)](https://www.wuxiaworld.com/novel/overgeared/og-chapter-99), [Tyrant of the Tower Defense Game](https://myanimepulse.com/manga/153518/tyrant-of-the-tower-defense-game), [Kingdom: Two Crowns, ondas](https://kingdomthegame.fandom.com/wiki/Waves), [Kingdom-building manhwa (Game Rant)](https://gamerant.com/best-kingdom-building-isekai-manhwa/), [Kingdom-building manhwa 2026 (SenpaiScore)](https://senpaiscore.com/best-kingdom-building-manhwa/), [Isekai do verão de 2026 (Anime Corner)](https://animecorner.me/the-season-of-isekai-anime-15-titles-from-another-world-releasing-in-summer-2026/), [Isekai do verão de 2026 (Mein-MMO)](https://mein-mmo.de/en/the-isekai-summer-2026-15-new-anime-set-in-strange-worlds,1577381/), [Reincarnated as a Dragon Hatchling](https://wrathofhobo.duckdns.org/tv/285291), [Donghua (GummySearch)](https://gummysearch.com/tools/best-products/donghua/).
+
 ## Como funciona no jogo
 
 ### Facções
