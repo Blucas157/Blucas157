@@ -96,9 +96,15 @@ func burst() -> void:
 	if hostile:
 		var p: Node = main.player
 		if p and p.alive() and (p.global_position + Vector2(0, -8)).distance_to(global_position) <= SPLASH:
+			var hurt := dmg
 			if is_instance_valid(source):
 				p.last_hit_by = source
-			p.take_damage(dmg, global_position)
+				# Reflexo Copiado (Copista): the spell that hits the hero is copied, and hurts less
+				if Archetypes.bonus("auto_copy") > 0.0 and source.get("id") != null:
+					Game.copied = Archetypes.COPY_FROM.get(source.id, "fireball")
+					hurt = int(ceil(dmg * (1.0 - Archetypes.bonus("auto_copy") / 100.0)))
+					main.float_text(p.global_position + Vector2(0, -40), "Copiado!", Color(0.6, 0.95, 1.0))
+			p.take_damage(hurt, global_position)
 		for e in get_tree().get_nodes_in_group("enemies"):
 			if e.alive() and Factions.at_war(faction, e.faction) and e.hurt_center().distance_to(global_position) <= SPLASH + e.radius:
 				e.take_hit(dmg, (e.global_position - global_position).normalized(), false, "faction:" + faction)

@@ -25,11 +25,14 @@ const DATA := {
 		"desc": "Maldições, espíritos famintos e roubo de vida."},
 	"espiritual": {"name": "Espiritual", "color": Color("509b66"), "title": "Xamã", "adj": "Espiritual",
 		"desc": "Raízes, tempestades e a força da natureza."},
-	# inspired by "Conquering Dungeons With Copy Paste!" (Ctrl+C / Ctrl+V): the mage who learns every spell
-	"mago": {"name": "Mago", "color": Color("65b1b8"), "title": "Mago Copista", "adj": "Copista",
-		"desc": "Ctrl+C, Ctrl+V: copia a magia dos monstros e aprende magias de todos os arquétipos."},
+	# the scholar who can learn every spell there is
+	"mago": {"name": "Mago", "color": Color("425b9e"), "title": "Mago", "adj": "Erudito",
+		"desc": "O estudioso das magias: mísseis arcanos, teleporte e magias aprendidas de todos os arquétipos."},
+	# inspired by "Conquering Dungeons With Copy Paste!" (Ctrl+C / Ctrl+V)
+	"copista": {"name": "Copista", "color": Color("65b1b8"), "title": "Copista", "adj": "Copista",
+		"desc": "Ctrl+C, Ctrl+V: copia as magias dos monstros e lança como se fossem suas."},
 }
-const ORDER := ["guerra", "arqueria", "magia", "sagrado", "escudo", "bruxaria", "espiritual", "mago"]
+const ORDER := ["guerra", "arqueria", "magia", "sagrado", "escudo", "bruxaria", "espiritual", "mago", "copista"]
 
 ## Two archetypes -> class name (key: the two ids in ORDER order joined by "+")
 const PAIRS := {
@@ -41,9 +44,12 @@ const PAIRS := {
 	"magia+espiritual": "Elementalista", "sagrado+escudo": "Templário", "sagrado+bruxaria": "Inquisidor",
 	"sagrado+espiritual": "Druida", "escudo+bruxaria": "Cavaleiro Sombrio", "escudo+espiritual": "Guardião Ancestral",
 	"bruxaria+espiritual": "Xamã Sombrio",
-	"guerra+mago": "Lâmina Copista", "arqueria+mago": "Arqueiro Copista", "magia+mago": "Arquimago",
-	"sagrado+mago": "Oráculo", "escudo+mago": "Guardião Arcano", "bruxaria+mago": "Ladrão de Almas",
+	"guerra+mago": "Espadachim Arcano", "arqueria+mago": "Arqueiro Rúnico", "magia+mago": "Arquimago",
+	"sagrado+mago": "Oráculo", "escudo+mago": "Guardião Rúnico", "bruxaria+mago": "Lich",
 	"espiritual+mago": "Sábio dos Espíritos",
+	"guerra+copista": "Lâmina Copista", "arqueria+copista": "Arqueiro Copista", "magia+copista": "Feiticeiro Copista",
+	"sagrado+copista": "Clérigo Copista", "escudo+copista": "Escudo Espelho", "bruxaria+copista": "Ladrão de Almas",
+	"espiritual+copista": "Eco dos Espíritos", "mago+copista": "Mago Copista",
 }
 
 ## Ctrl+C: what each monster's magic becomes when the Mago copies it.
@@ -135,19 +141,30 @@ const NODES := {
 		"desc": "Raios atingem até 3 inimigos próximos (120% do dano mágico)."},
 	"p_comunhao": {"arch": "espiritual", "tier": 4, "kind": "passive", "stat": "night_power", "per": 20, "ranks": 1, "name": "Comunhão",
 		"desc": "À noite: +20% de dano e mana regenera 50% mais rápido."},
-	# --- Mago (Ctrl+C / Ctrl+V)
-	"c_copiar": {"arch": "mago", "tier": 1, "kind": "active", "skill": "copiar", "ranks": 1, "name": "Copiar (Ctrl+C)",
-		"desc": "Copia a magia do monstro na mira (ou a última que você usou). A Bola de Fogo do Piromante, a teia da aranha, a pele de pedra do golem..."},
-	"c_colar": {"arch": "mago", "tier": 1, "kind": "active", "skill": "colar", "ranks": 1, "name": "Colar (Ctrl+V)",
-		"desc": "Lança a magia copiada, mesmo sem conhecê-la. Custa a mana dela."},
-	"c_grimorio": {"arch": "mago", "tier": 2, "kind": "passive", "stat": "foreign", "per": 1, "ranks": 3, "name": "Grimório",
+	# --- Mago: learns every spell
+	"o_missil": {"arch": "mago", "tier": 1, "kind": "active", "skill": "missil_arcano", "ranks": 1, "name": "Míssil Arcano",
+		"desc": "Projétil arcano barato e rápido que persegue o alvo (70% do dano mágico)."},
+	"o_grimorio": {"arch": "mago", "tier": 2, "kind": "passive", "stat": "foreign", "per": 1, "ranks": 3, "name": "Grimório",
 		"desc": "Por nível: aprende 1 habilidade inicial de qualquer arquétipo, além dos seus 3."},
-	"c_memoria": {"arch": "mago", "tier": 2, "kind": "passive", "stat": "paste_power", "per": 1, "ranks": 3, "name": "Memória Arcana",
-		"desc": "Por nível: o que você cola custa 15% menos mana e causa 10% mais dano."},
-	"c_massa": {"arch": "mago", "tier": 3, "kind": "active", "skill": "colar_massa", "ranks": 1, "name": "Colar em Massa",
-		"desc": "Cola a magia copiada três vezes em leque (o dobro da mana)."},
-	"c_biblioteca": {"arch": "mago", "tier": 4, "kind": "passive", "stat": "foreign_all", "per": 1, "ranks": 1, "name": "Biblioteca Infinita",
+	"o_sabedoria": {"arch": "mago", "tier": 2, "kind": "passive", "stat": "spell_dmg", "per": 8, "ranks": 3, "name": "Sabedoria",
+		"desc": "+8% de dano de todas as magias por nível."},
+	"o_teleporte": {"arch": "mago", "tier": 3, "kind": "active", "skill": "teleporte", "ranks": 1, "name": "Teleporte",
+		"desc": "Some e reaparece alguns passos à frente, intocável por um instante."},
+	"o_biblioteca": {"arch": "mago", "tier": 4, "kind": "passive", "stat": "foreign_all", "per": 1, "ranks": 1, "name": "Biblioteca Infinita",
 		"desc": "Aprende QUALQUER habilidade ativa de todos os arquétipos, sem limite."},
+	# --- Copista (Ctrl+C / Ctrl+V)
+	"c_copiar": {"arch": "copista", "tier": 1, "kind": "active", "skill": "copiar", "ranks": 1, "name": "Copiar (Ctrl+C)",
+		"desc": "Copia a magia do monstro na mira (ou a última que você usou). A Bola de Fogo do Piromante, a teia da aranha, a pele de pedra do golem..."},
+	"c_colar": {"arch": "copista", "tier": 1, "kind": "active", "skill": "colar", "ranks": 1, "name": "Colar (Ctrl+V)",
+		"desc": "Lança a magia copiada, mesmo sem conhecê-la. Custa a mana dela."},
+	"c_memoria": {"arch": "copista", "tier": 2, "kind": "passive", "stat": "paste_power", "per": 1, "ranks": 3, "name": "Memória Arcana",
+		"desc": "Por nível: o que você cola custa 15% menos mana e causa 10% mais dano."},
+	"c_reflexo": {"arch": "copista", "tier": 2, "kind": "passive", "stat": "auto_copy", "per": 10, "ranks": 3, "name": "Reflexo Copiado",
+		"desc": "Magia que te atinge é copiada sozinha, e você leva 10% menos dano dela por nível."},
+	"c_massa": {"arch": "copista", "tier": 3, "kind": "active", "skill": "colar_massa", "ranks": 1, "name": "Colar em Massa",
+		"desc": "Cola a magia copiada três vezes em leque (o dobro da mana)."},
+	"c_tudo": {"arch": "copista", "tier": 4, "kind": "passive", "stat": "copy_all", "per": 1, "ranks": 1, "name": "Copiar Tudo (Ctrl+A)",
+		"desc": "Copiar também copia a força do monstro: +30% de dano por 8 segundos."},
 }
 
 ## Active skills: mana cost and cooldown (seconds).
@@ -166,12 +183,14 @@ const SKILLS := {
 	"espiritos": {"name": "Espíritos Famintos", "cost": 12, "cd": 10.0, "arch": "bruxaria"},
 	"raizes": {"name": "Raízes", "cost": 8, "cd": 7.0, "arch": "espiritual"},
 	"tempestade": {"name": "Tempestade", "cost": 14, "cd": 5.0, "arch": "espiritual"},
-	"copiar": {"name": "Copiar (Ctrl+C)", "cost": 3, "cd": 1.5, "arch": "mago"},
-	"colar": {"name": "Colar (Ctrl+V)", "cost": 0, "cd": 0.8, "arch": "mago"},
-	"colar_massa": {"name": "Colar em Massa", "cost": 0, "cd": 4.0, "arch": "mago"},
+	"missil_arcano": {"name": "Míssil Arcano", "cost": 3, "cd": 0.45, "arch": "mago"},
+	"teleporte": {"name": "Teleporte", "cost": 6, "cd": 3.0, "arch": "mago"},
+	"copiar": {"name": "Copiar (Ctrl+C)", "cost": 3, "cd": 1.5, "arch": "copista"},
+	"colar": {"name": "Colar (Ctrl+V)", "cost": 0, "cd": 0.8, "arch": "copista"},
+	"colar_massa": {"name": "Colar em Massa", "cost": 0, "cd": 4.0, "arch": "copista"},
 }
 ## skills that act on the hero only (Colar em Massa casts these once)
-const SELF_SKILLS := ["grito_guerra", "luz_curativa", "muralha", "investida", "espiritos", "copiar", "colar", "colar_massa"]
+const SELF_SKILLS := ["grito_guerra", "luz_curativa", "muralha", "investida", "espiritos", "teleporte", "copiar", "colar", "colar_massa"]
 
 
 const ICONS := "res://assets/ui/skills.png"   # built by tools/build_skill_icons.py (24x24, 8 per row)

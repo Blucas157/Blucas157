@@ -242,15 +242,14 @@ func run() -> void:
 	await shot("arch_03_screen")
 	main.set_paused(false)
 
-	# 4b) the Mago (Ctrl+C / Ctrl+V): copy the Pyromancer's fireball, paste it, learn foreign spells
+	# 4b) Copista (Ctrl+C / Ctrl+V): copy the Pyromancer's fireball and paste it
 	clear_enemies()
 	game.level = 30
-	game.arch_ranks = {}
-	game.archetypes = []
+	A.reset()
 	game.skills = []
 	game.skill_slots = ["", "", ""]
-	check(A.learn("c_copiar") and A.learn("c_colar"), "Mago: Copiar and Colar learned")
-	check(game.class_title() == "Mago Copista", "class: " + game.class_title())
+	check(A.learn("c_copiar") and A.learn("c_colar"), "Copista: Copiar and Colar learned")
+	check(game.class_title() == "Copista", "class: " + game.class_title())
 	var pyro: Node = dummy(Vector2(80, 0), "skeleton_pyro")
 	await process_frame
 	p.lock_on(pyro)
@@ -271,35 +270,82 @@ func run() -> void:
 	p.cast("copiar")
 	check(game.copied == "raizes", "Ctrl+C on a spider copies its web (Raízes)")
 	clear_enemies()
-	# the Grimório opens spells from archetypes beyond the three
-	A.learn("g_giro")
-	A.learn("s_luz")
-	check(game.archetypes.size() == 3, "three archetypes (Mago, Guerra, Sagrado)")
-	check(A.can_learn("a_flecha").begins_with("Máx"), "a fourth archetype's spell is closed without the Grimório")
-	A.learn("c_grimorio")
-	check(A.can_learn("a_flecha") == "" and A.learn("a_flecha") and game.has_skill("flecha"), "Grimório: learns Flecha Certeira from Arqueria anyway")
-	check(game.archetypes.size() == 3 and not "arqueria" in game.archetypes, "the class keeps its three archetypes")
-	check(A.can_learn("p_tempestade") != "", "advanced foreign spells still need the Biblioteca")
 	A.learn("c_memoria")
 	A.learn("c_memoria")
-	A.learn("c_massa")
-	A.learn("c_biblioteca")
-	check(A.can_learn("p_tempestade") == "" and A.learn("p_tempestade"), "Biblioteca Infinita: any spell of any archetype")
-	# Colar em Massa: three copies in a fan
+	check(A.learn("c_massa"), "Colar em Massa opens after 4 points")
 	game.copied = "fireball"
 	ready_to_cast(p)
 	var before_mass: int = main.fx_layer.get_child_count()
 	check(p.cast("colar_massa") and main.fx_layer.get_child_count() - before_mass == 3, "Colar em Massa: three fireballs")
+	await create_timer(0.6).timeout
+	A.learn("c_reflexo")
+	game.copied = ""
+	var shooter: Node = dummy(Vector2(70, 0), "skeleton_pyro")
+	await process_frame
+	p.invuln = 0.0
+	main.cast_fireball(p.global_position + Vector2(20, -8), Vector2.LEFT, 10, true, shooter)
 	await create_timer(0.5).timeout
+	check(game.copied == "fireball", "Reflexo Copiado: the fireball that hit the hero was copied")
+	clear_enemies()
+	A.learn("c_reflexo")
+	check(A.learn("c_tudo"), "capstone Copiar Tudo (Ctrl+A)")
+	var golem: Node = dummy(Vector2(50, 0), "golem")
+	await process_frame
+	p.lock_on(golem)
+	ready_to_cast(p)
+	p.buff_atk_t = 0.0
+	p.cast("copiar")
+	check(game.copied == "muralha" and p.buff_atk_t > 0.0, "Ctrl+A: copies the golem's stone skin and its strength")
+	p.buff_atk_t = 0.0
+	clear_enemies()
 	game.skill_slots = ["copiar", "colar", "colar_massa"]
 	main.set_paused(true)
-	main.hud.arch_tab = "mago"
+	main.hud.arch_tab = "copista"
 	main.hud.show_archetypes()
 	await create_timer(0.3).timeout
-	await shot("arch_04_mago")
+	await shot("arch_04_copista")
 	main.set_paused(false)
 	await create_timer(0.2).timeout
-	await shot("arch_05_mago_buttons")
+	await shot("arch_05_copista_buttons")
+
+	# 4c) Mago: learns every spell (Grimório, Biblioteca), Míssil Arcano and Teleporte
+	A.reset()
+	game.skills = []
+	game.skill_slots = ["", "", ""]
+	check(A.learn("o_missil") and game.class_title() == "Mago", "Mago: Míssil Arcano (class %s)" % game.class_title())
+	var mt: Node = dummy(Vector2(90, 20))
+	await process_frame
+	p.lock_on(mt)
+	ready_to_cast(p)
+	p.facing = Vector2.UP
+	p.cast("missil_arcano")
+	await create_timer(0.9).timeout
+	check(mt.hp < 9999, "the arcane missile homes in on the target")
+	clear_enemies()
+	A.learn("g_giro")
+	A.learn("s_luz")
+	check(game.archetypes.size() == 3, "three archetypes (Mago, Guerra, Sagrado)")
+	check(A.can_learn("a_flecha").begins_with("Máx"), "a fourth archetype's spell is closed without the Grimório")
+	A.learn("o_grimorio")
+	check(A.can_learn("a_flecha") == "" and A.learn("a_flecha") and game.has_skill("flecha"), "Grimório: learns Flecha Certeira from Arqueria anyway")
+	check(game.archetypes.size() == 3 and not "arqueria" in game.archetypes, "the class keeps its three archetypes")
+	check(A.can_learn("p_tempestade") != "", "advanced foreign spells still need the Biblioteca")
+	A.learn("o_sabedoria")
+	A.learn("o_sabedoria")
+	check(A.learn("o_teleporte"), "Teleporte opens")
+	p.global_position = spot
+	ready_to_cast(p)
+	p.target = null
+	p.target_locked = false
+	p.facing = Vector2.RIGHT
+	var tx0: float = p.global_position.x
+	p.cast("teleporte")
+	check(p.global_position.x > tx0 + 30.0, "Teleporte blinks ahead (%.0f px)" % (p.global_position.x - tx0))
+	p.global_position = spot
+	A.learn("o_grimorio")
+	check(A.can_learn("c_copiar") == "", "the Grimório can even learn the Copista's Ctrl+C")
+	check(A.learn("o_biblioteca"), "capstone Biblioteca Infinita")
+	check(A.can_learn("p_tempestade") == "" and A.learn("p_tempestade"), "Biblioteca Infinita: any spell of any archetype")
 	game.level = 12
 
 	# 5) reset gives the points back, keeps the orb skill; saved

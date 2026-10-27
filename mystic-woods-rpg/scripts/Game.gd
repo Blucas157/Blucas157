@@ -526,6 +526,26 @@ func load_game() -> bool:
 		archetypes = []
 		arch_ranks = {}
 		arch_bonus_points = 0
+	# nodes that no longer exist (e.g. the old Mago/Copista mix) give their points back
+	var stale := false
+	for id in arch_ranks.keys():
+		if not Archetypes.NODES.has(id):
+			arch_ranks.erase(id)
+			stale = true
+	if stale or archetypes.any(func(a): return not a in Archetypes.ORDER or Archetypes.spent_in(a) == 0):
+		archetypes = []
+		for id in arch_ranks:
+			var a: String = Archetypes.NODES[id]["arch"]
+			if not a in archetypes and archetypes.size() < Archetypes.MAX_ARCHETYPES:
+				archetypes.append(a)
+		var known: Array = orb_skills.duplicate()
+		for id in arch_ranks:
+			if Archetypes.NODES[id]["kind"] == "active":
+				known.append(Archetypes.NODES[id]["skill"])
+		skills = known
+		for i in skill_slots.size():
+			if not skill_slots[i] in skills:
+				skill_slots[i] = ""
 	if not cfg.has_section_key("save", "difficulty"):
 		difficulty = "normal"
 		pagma_stage = 0

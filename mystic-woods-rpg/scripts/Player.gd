@@ -270,6 +270,10 @@ func _copy_spell() -> void:
 	main.float_text(global_position + Vector2(0, -30), "Ctrl+C: %s" % Archetypes.SKILLS[sk]["name"], Color(0.6, 0.95, 1.0))
 	main.hud.toast("Copiado de %s: %s. Use Colar (Ctrl+V)!" % [what, Archetypes.SKILLS[sk]["name"]], Color(0.6, 0.95, 1.0))
 	Sfx.play("select", 1.5)
+	if Archetypes.bonus("copy_all") > 0.0 and src != null:
+		# Ctrl+A: the monster's strength comes along with its magic
+		buff_atk_t = 8.0
+		main.float_text(global_position + Vector2(0, -40), "Ctrl+A: força copiada!", Color(0.6, 0.95, 1.0))
 
 
 ## What each skill does (shared by casting it and by pasting a copy of it).
@@ -370,6 +374,28 @@ func _effect(sk: String, origin: Vector2, dir: Vector2) -> void:
 				_hit(e, spell_damage(1.2), Vector2.DOWN, "magic")
 			main.shake(3.0, 0.15)
 			Sfx.play("slam", 1.6)
+		"missil_arcano":
+			var m: Node = main.cast_fireball(origin + dir * 8.0, dir, spell_damage(0.7), false, self)
+			m.vel *= 1.4
+			m.modulate = Color(0.6, 0.8, 1.5)
+			m.scale = Vector2(0.75, 0.75)
+			if _target_ok(target):
+				m.homing = target
+			Sfx.play("swing", 1.5)
+		"teleporte":
+			# blink ahead as far as the ground allows
+			var from := global_position
+			var to := from
+			for k in range(1, 10):
+				var step_to := from + dir * 9.0 * k
+				if not main.world.gen.walkable(main.world.pos_to_cell(step_to)):
+					break
+				to = step_to
+			main.vfx("puff", from + Vector2(0, -10), 0.0, Color(0.6, 0.75, 1.5), null, 1.2)
+			global_position = to
+			invuln = maxf(invuln, 0.4)
+			main.vfx("puff", to + Vector2(0, -10), 0.0, Color(0.6, 0.75, 1.5), null, 1.2)
+			Sfx.play("dash", 1.4)
 
 
 func _enemies_near(at: Vector2, r: float) -> Array:
