@@ -247,6 +247,8 @@ func _process(delta: float) -> void:
 	if Game.day_time < before:
 		Game.day_count += 1
 	_check_nightfall()
+	Game.night_flag = night_amount() > 0.5
+	Game.current_region = current_region
 	_world_t -= delta
 	if _world_t <= 0.0:
 		_world_t = WORLD_TICK
@@ -886,6 +888,19 @@ func cast_fireball(pos: Vector2, dir: Vector2, dmg: int, hostile: bool, source: 
 	f.vel = dir.normalized() * (150.0 if not hostile else 95.0)
 	f.dmg = dmg
 	f.hostile = hostile
+	fx_layer.add_child(f)
+	return f
+
+
+## Arqueria: an arrow from the hero (no burst; pierce set by the caller).
+func cast_arrow(pos: Vector2, dir: Vector2, dmg: int, source: Node) -> Node2D:
+	var f := ProjectileScript.new()
+	f.main = self
+	f.source = source
+	f.kind = "arrow"
+	f.position = pos
+	f.vel = dir.normalized() * 280.0
+	f.dmg = dmg
 	fx_layer.add_child(f)
 	return f
 

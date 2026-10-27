@@ -53,7 +53,7 @@ func run() -> void:
 	main.camera.global_position = spot
 	main.camera.reset_smoothing()
 	check(not game.has_skill("fireball"), "the hero starts without magic")
-	check(not main.touch._buttons().has("skill"), "no magic button before learning")
+	check(not main.touch._buttons().has("skill0"), "no magic button before learning")
 	p.do_skill()
 	check(p.state == "move", "cannot cast an unknown skill")
 
@@ -91,7 +91,7 @@ func run() -> void:
 		p.global_position = orb.global_position
 		await create_timer(1.0).timeout
 	check(game.has_skill("fireball"), "picking up the orb teaches Bola de Fogo")
-	check(main.touch._buttons().has("skill"), "the magic button appears")
+	check(main.touch._buttons().has("skill0"), "the magic button appears")
 	clear_enemies()
 	await create_timer(1.0).timeout
 

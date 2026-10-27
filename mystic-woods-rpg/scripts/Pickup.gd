@@ -90,6 +90,9 @@ func _collect() -> void:
 				player.main.become_pagma()
 		"skill":
 			Game.learn_skill(item_id)
+			if not item_id in Game.orb_skills:
+				Game.orb_skills.append(item_id)
+			Archetypes.equip_free_slot(item_id)
 			Sfx.play("potion", 0.7)
 			if player and player.main:
 				var sk: Dictionary = Game.SKILLS[item_id]

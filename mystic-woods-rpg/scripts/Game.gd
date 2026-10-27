@@ -10,10 +10,8 @@ signal items_changed
 const SAVE_PATH := "user://mystic_woods_save.cfg"
 const MAX_POTIONS := 9
 const MP_REGEN := 0.6   # mana points per second
-## Magic skills: learned from orbs that special monsters drop.
-const SKILLS := {
-	"fireball": {"name": "Bola de Fogo", "cost": 8, "cooldown": 0.7, "from": "skeleton_pyro"},
-}
+## Active skills (mana cost, cooldown): see Archetypes.SKILLS. Kept here for the orb pickups.
+const SKILLS := Archetypes.SKILLS
 
 const QUESTS := [
 	{"title": "Primeiros passos", "desc": "Derrote 5 Slimes no Prado", "type": "kill", "target": ["slime"], "count": 5, "gold": 20, "xp": 15},
@@ -55,6 +53,13 @@ var tool_tier := 0
 var armor_tier := 0
 var items := {}
 var skills: Array = []
+var orb_skills: Array = []          # skills taught by orbs (kept when the archetypes are reset)
+var skill_slots: Array = ["", "", ""]   # active skill buttons
+var archetypes: Array = []          # chosen archetypes (Archetypes.gd), up to three
+var arch_ranks := {}                # node id -> rank
+var arch_bonus_points := 0
+var _hp_regen := 0.0
+var _nature_t := 0.0
 var difficulty := "normal"   # "normal" or "inferno" (Hell Mode)
 var pagma_stage := 0         # Overgeared: 0 = nothing, 1 = quest for the tome, 2 = Pagma's Successor
 var legend := {}             # forged legendary gear: {"legend_sword": {...}, "legend_armor": {...}}
@@ -91,8 +96,27 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if not get_tree().paused:
 		play_time += delta
+		var night := night_now()
+		# Aura Sagrada / Harmonia (archetype passives): slow life regeneration
+		var hp_rate := Archetypes.bonus("hp_regen") / 4.0
+		if hp < max_hp and hp > 0 and hp_rate > 0.0:
+			_hp_regen += hp_rate * delta
+			if _hp_regen >= 1.0:
+				heal(int(_hp_regen))
+				_hp_regen -= int(_hp_regen)
+		var nat := Archetypes.bonus("nature_regen")
+		if nat > 0.0 and current_region != "vila":
+			_nature_t += delta
+			if _nature_t >= 5.0:
+				_nature_t = 0.0
+				if hp > 0:
+					heal(int(nat))
+				mp = mini(max_mp, mp + int(nat))
 		if mp < max_mp:
-			_mp_regen += MP_REGEN * delta
+			var mult := 1.0 + Archetypes.bonus("mp_regen") / 100.0
+			if night and Archetypes.bonus("night_power") > 0.0:
+				mult += 0.5
+			_mp_regen += MP_REGEN * mult * delta
 			if _mp_regen >= 1.0:
 				var gain := int(_mp_regen)
 				_mp_regen -= gain
@@ -118,6 +142,11 @@ func new_game(seed_value: int = -1) -> void:
 	armor_tier = 0
 	items = {}
 	skills = []
+	orb_skills = []
+	skill_slots = ["", "", ""]
+	archetypes = []
+	arch_ranks = {}
+	arch_bonus_points = 0
 	difficulty = "normal"
 	pagma_stage = 0
 	legend = {}
@@ -159,7 +188,8 @@ func is_pagma() -> bool:
 
 
 func attack_power() -> int:
-	return atk + sword_tier * 3 + int(legend.get("legend_sword", {}).get("stat", 0)) + (2 if is_pagma() else 0)
+	return atk + sword_tier * 3 + int(legend.get("legend_sword", {}).get("stat", 0)) + (2 if is_pagma() else 0) \
+		+ int(Archetypes.bonus("atk"))
 
 
 func add_xp(amount: int) -> void:
@@ -234,6 +264,18 @@ func spend_mana(amount: int) -> bool:
 	return true
 
 
+var _drain := 0.0
+
+
+func drain_heal(amount: float) -> void:
+	if hp <= 0:
+		return
+	_drain += amount
+	if _drain >= 1.0:
+		heal(int(_drain))
+		_drain -= int(_drain)
+
+
 func restore_mana(amount: int) -> void:
 	mp = min(max_mp, mp + amount)
 	stats_changed.emit()
@@ -243,7 +285,7 @@ func use_potion() -> bool:
 	if potions <= 0 or hp >= max_hp:
 		return false
 	potions -= 1
-	heal(int(max_hp * 0.5) + 10)
+	heal(int((max_hp * 0.5 + 10) * (1.0 + Archetypes.bonus("potion_heal") / 100.0)))
 	return true
 
 
@@ -303,7 +345,21 @@ func sell(id: String, n: int = 1) -> int:
 
 
 func defense_total() -> int:
-	return defense + int(ItemDB.ARMOR_DEF.get(armor_tier, 0)) + int(legend.get("legend_armor", {}).get("stat", 0))
+	return defense + int(ItemDB.ARMOR_DEF.get(armor_tier, 0)) + int(legend.get("legend_armor", {}).get("stat", 0)) + int(Archetypes.bonus("def"))
+
+
+## Set by Main every frame (night amount > 0.5) and the hero's region, for passives that need them.
+var night_flag := false
+var current_region := ""
+
+
+func night_now() -> bool:
+	return night_flag
+
+
+## Class from the archetypes (Ravendawn style): "Paladino", "Necromante Caçador"...
+func class_title() -> String:
+	return Archetypes.class_name_of(archetypes)
 
 
 # ---------------------------------------------------------------- quests
@@ -441,7 +497,7 @@ func has_save() -> bool:
 func save_game() -> void:
 	var cfg := ConfigFile.new()
 	for key in ["world_seed", "level", "xp", "gold", "potions", "max_hp", "hp", "max_mp", "mp", "atk", "defense", "sword_tier",
-			"tool_tier", "armor_tier", "items", "skills", "difficulty", "pagma_stage", "legend", "pagma_pity", "factions", "chronicle", "day_count", "camp_seq", "crafted",
+			"tool_tier", "armor_tier", "items", "skills", "orb_skills", "skill_slots", "archetypes", "arch_ranks", "arch_bonus_points", "difficulty", "pagma_stage", "legend", "pagma_pity", "factions", "chronicle", "day_count", "camp_seq", "crafted",
 			"kills", "opened_chests", "broken", "discovered", "explored", "boss_defeated", "rivals", "rival_seq", "quest_index", "quest_progress",
 			"player_pos", "play_time", "day_time", "muted", "world_version", "immortal_at"]:
 		cfg.set_value("save", key, get(key))
@@ -457,6 +513,15 @@ func load_game() -> bool:
 	hp = clampi(hp, 1, max_hp)
 	if not cfg.has_section_key("save", "skills"):
 		skills = []
+	if not cfg.has_section_key("save", "skill_slots"):
+		# before archetypes: the fireball came from the orb and takes the first button
+		orb_skills = skills.duplicate()
+		skill_slots = ["", "", ""]
+		for i in mini(3, skills.size()):
+			skill_slots[i] = skills[i]
+		archetypes = []
+		arch_ranks = {}
+		arch_bonus_points = 0
 	if not cfg.has_section_key("save", "difficulty"):
 		difficulty = "normal"
 		pagma_stage = 0
@@ -507,7 +572,9 @@ func _setup_input() -> void:
 		"pause": [KEY_ESCAPE, KEY_P],
 		"map": [KEY_M, KEY_TAB],
 		"inventory": [KEY_I, KEY_B],
-		"skill": [KEY_F, KEY_L, KEY_C],
+		"skill": [KEY_F, KEY_1, KEY_L],
+		"skill2": [KEY_G, KEY_2],
+		"skill3": [KEY_V, KEY_3, KEY_C],
 		"target": [KEY_T, KEY_R],
 	}
 	var pads := {

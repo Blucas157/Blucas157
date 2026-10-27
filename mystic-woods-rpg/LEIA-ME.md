@@ -120,6 +120,25 @@ O painel do canto (arte `assets/ui/hud_status.png`, feita com `create_ui_asset`)
   - **Forjar um Lendário desperta a cobiça das facções**: o rancor de todas aumenta.
 - Teste: `tests/verify_inferno_pagma.gd`.
 
+## Arquétipos (inspirado no Ravendawn)
+- **7 árvores** de habilidade em forma de pirâmide: **Guerra, Arqueria, Magia, Sagrado, Escudo, Bruxaria, Espiritual**.
+- Cada árvore tem 5 nós: uma habilidade ativa inicial, duas passivas (3 níveis cada), uma ativa avançada (abre com 4 pontos na árvore) e um capstone (abre com 6).
+- **1 ponto por nível.** Escolha até **3 arquétipos**: a combinação dá o nome da classe.
+  - Guerra + Sagrado = **Paladino**; Magia + Bruxaria = **Necromante**; Guerra + Arqueria + Sagrado = **Patrulheiro Sagrado**.
+  - São 21 pares e 35 trios.
+- **14 habilidades ativas**:
+  - Guerra: Golpe Giratório, Grito de Guerra.
+  - Arqueria: Flecha Certeira (atravessa inimigos), Chuva de Flechas.
+  - Magia: Bola de Fogo, Explosão Arcana.
+  - Sagrado: Luz Curativa, Julgamento (dano dobrado em mortos-vivos).
+  - Escudo: Muralha de Escudo, Investida.
+  - Bruxaria: Maldição (lentidão e +25% de dano recebido), Espíritos Famintos.
+  - Espiritual: Raízes (prende), Tempestade (raios).
+- **Passivas**: força, crítico, recarga da esquiva, mana, regeneração, vida, defesa, contra-ataque, roubo de vida, execução, velocidade, poder noturno e outras.
+- **3 botões de habilidade** em arco ao redor da espada, com custo de mana e anel de recarga. No PC: F/1, G/2, V/3. Escolha o botão de cada habilidade na tela de Arquétipos.
+- Tela: **Pausa → Arquétipos**, com abas dos 7 arquétipos, a pirâmide, os detalhes e o botão Aprender. O botão **Refazer** devolve os pontos por 50 de ouro por nível. A Bola de Fogo do orbe nunca se perde.
+- Ícones: `assets/ui/skills.png`, gerados por `tools/build_skill_icons.py`. Teste: `tests/verify_archetypes.gd`.
+
 ## Sistema de Rivais
 Monstros lembram de você:
 - **Te derrotou?** O monstro que deu o golpe final vira um **rival**: ganha nome (ex.: *Grak*), título (*Matador do Herói*) e sobe de nível.

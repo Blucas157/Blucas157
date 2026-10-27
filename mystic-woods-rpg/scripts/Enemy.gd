@@ -48,6 +48,8 @@ var regroup_t := 0.0
 var regroup_used := false
 var slot := 0                 # its side when surrounding a target (cerco)
 var hero_lock := 0.0          # after the hero hits it, it ignores everything else for a while
+var curse_t := 0.0            # Maldição (Bruxaria): slower and takes more damage
+var root_t := 0.0             # Raízes (Espiritual): cannot move
 static var _top_cache := {}   # monster id -> highest opaque pixel of its idle frame (local y)
 
 
@@ -166,6 +168,16 @@ func _sprite_top() -> float:
 	return (sprite.offset.y - float(_top_cache[key]))
 
 
+## Distance from a point to the monster's body (a column from its feet to its chest), so low
+## shots and orbiting spirits hit tall monsters too.
+func body_distance(p: Vector2) -> float:
+	var a := global_position + Vector2(0, -2)
+	var b := hurt_center()
+	var ab := b - a
+	var t := 0.0 if ab.length_squared() < 0.01 else clampf((p - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
+	return p.distance_to(a + ab * t)
+
+
 func hurt_center() -> Vector2:
 	return global_position + Vector2(0, -float(def["feet"]) * 0.35 * scale.y)
 
@@ -201,6 +213,9 @@ func _physics_process(delta: float) -> void:
 		return
 	foe_t -= delta
 	hero_lock -= delta
+	curse_t -= delta
+	root_t -= delta
+	sprite.self_modulate = Color(0.75, 0.5, 1.15) if curse_t > 0.0 else (Color(0.6, 1.1, 0.6) if root_t > 0.0 else Color.WHITE)
 	if foe_t <= 0.0:
 		foe_t = 0.4
 		_pick_foe()
@@ -286,6 +301,10 @@ func _physics_process(delta: float) -> void:
 			velocity = Vector2.ZERO
 		"flee":
 			_flee_step(delta, to_p)
+	if root_t > 0.0:
+		velocity = Vector2.ZERO
+	elif curse_t > 0.0:
+		velocity *= 0.6
 	velocity += knock
 	knock = knock.move_toward(Vector2.ZERO, 600.0 * delta)
 	move_and_slide()
@@ -459,6 +478,16 @@ func take_hit(dmg: int, dir: Vector2, crit: bool = false, kind: String = "melee"
 		dmg = int(ceil(dmg * 0.75))
 	if blocked:
 		main.float_text(hurt_center() + Vector2(0, -20), "Bloqueou!", Color(0.75, 0.85, 1.0))
+	if curse_t > 0.0:
+		dmg = int(ceil(dmg * 1.25))
+	if not kind.begins_with("faction"):
+		# Ceifador (Bruxaria): the hero finishes off the badly hurt
+		if Archetypes.bonus("execute") > 0.0 and not is_boss and hp - dmg > 0 and float(hp - dmg) / max_hp < Archetypes.bonus("execute") / 100.0:
+			dmg = hp
+			main.float_text(hurt_center() + Vector2(0, -24), "Executado!", Color(0.8, 0.5, 1.0))
+		# Dreno (Bruxaria): part of the damage heals the hero
+		if Archetypes.bonus("drain") > 0.0:
+			Game.drain_heal(dmg * Archetypes.bonus("drain") / 100.0)
 	if Factions.has_adapt(faction, "chamado") and not kind.begins_with("faction"):
 		_call_for_help()
 	if Factions.has_adapt(faction, "recuo") and not regroup_used and float(hp - dmg) / max_hp < 0.35 and hp - dmg > 0:
@@ -589,6 +618,11 @@ func _die() -> void:
 		Factions.hero_won_on(faction, _region())
 		if Factions.learn(faction, last_kind) != "":
 			main.faction_learned(faction)
+	# Sede de Sangue (Guerra) and Pacto (Bruxaria)
+	if Archetypes.bonus("lifesteal_kill") > 0.0 and Game.hp > 0:
+		Game.heal(int(Archetypes.bonus("lifesteal_kill")))
+	if Archetypes.bonus("mp_on_kill") > 0.0:
+		Game.restore_mana(int(Archetypes.bonus("mp_on_kill")))
 	var g: Array = def["gold"]
 	var bonus := 1.5 if Game.inferno() else 1.0   # Hell Mode: harder, but richer
 	var gold := int(randi_range(int(g[0]), int(g[1])) * (1.0 + 0.15 * (lvl - 1)) * bonus)

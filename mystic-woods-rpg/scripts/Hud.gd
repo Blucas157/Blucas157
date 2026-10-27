@@ -530,6 +530,7 @@ func show_pause() -> void:
 	for b in [_button(grid, "Mochila", func(): show_inventory()),
 			_button(grid, "Rivais (%d)" % Game.rivals.size(), func(): show_rivals()),
 			_button(grid, "Crônicas", func(): show_chronicle()),
+			_button(grid, "Arquétipos" + (" (%d)" % Archetypes.points_free() if Archetypes.points_free() > 0 else ""), func(): show_archetypes()),
 			_button(grid, "Salvar jogo", func(): Game.save_game(); toast("Jogo salvo", Color(0.6, 1, 0.6)); main.set_paused(false)),
 			_button(grid, "Som: " + ("desligado" if Game.muted else "ligado"), func(): Game.muted = not Game.muted; show_pause())]:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -724,6 +725,163 @@ func show_chronicle() -> void:
 		list.add_child(_small("   Nada ainda... o mundo está só começando a se mexer.", Color(0.75, 0.75, 0.8)))
 	for i in range(Game.chronicle.size() - 1, maxi(-1, Game.chronicle.size() - 13), -1):
 		list.add_child(_small("   " + Game.chronicle[i], Color(0.8, 0.82, 0.9)))
+
+
+# ---------------------------------------------------------------- archetypes (Ravendawn style)
+var arch_tab := "guerra"
+var arch_node := ""
+
+
+func _skill_tex(index: int) -> AtlasTexture:
+	var a := AtlasTexture.new()
+	a.atlas = Sheets.tex(Archetypes.ICONS)
+	a.region = Archetypes.icon_rect(index)
+	return a
+
+
+func show_archetypes() -> void:
+	var box := _panel_box("Arquétipos")
+	if not arch_tab in Archetypes.ORDER:
+		arch_tab = "guerra"
+	var head := _small("Classe: %s   -   Pontos livres: %d   -   Arquétipos: %d/3" % [Game.class_title(), Archetypes.points_free(), Game.archetypes.size()],
+		Color("ffe9a8"))
+	box.add_child(head)
+	# tabs: the seven archetypes (gold ring = chosen)
+	var tabs := HBoxContainer.new()
+	tabs.alignment = BoxContainer.ALIGNMENT_CENTER
+	tabs.add_theme_constant_override("separation", 4)
+	box.add_child(tabs)
+	for arch in Archetypes.ORDER:
+		var b := Button.new()
+		b.icon = _skill_tex(Archetypes.emblem_icon(arch))
+		b.flat = arch != arch_tab
+		b.tooltip_text = Archetypes.DATA[arch]["name"]
+		b.modulate = Color.WHITE if (arch in Game.archetypes or Game.archetypes.size() < 3) else Color(0.55, 0.55, 0.6)
+		b.pressed.connect(func(): arch_tab = arch; arch_node = ""; Sfx.play("select"); show_archetypes())
+		tabs.add_child(b)
+	var body := HBoxContainer.new()
+	body.add_theme_constant_override("separation", 8)
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	box.add_child(body)
+	# left: the pyramid of this archetype
+	var pyr := VBoxContainer.new()
+	pyr.add_theme_constant_override("separation", 1)
+	pyr.custom_minimum_size = Vector2(120, 0)
+	body.add_child(pyr)
+	var d: Dictionary = Archetypes.DATA[arch_tab]
+	var title := _small("%s  (%d pts)" % [d["name"], Archetypes.spent_in(arch_tab)], d["color"])
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pyr.add_child(title)
+	var nodes := Archetypes.nodes_of(arch_tab)
+	if arch_node == "" or not arch_node in nodes:
+		arch_node = nodes[0]
+	for tier in [1, 2, 3, 4]:
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 6)
+		pyr.add_child(row)
+		for id in nodes:
+			var n: Dictionary = Archetypes.NODES[id]
+			if int(n["tier"]) != tier:
+				continue
+			var nb := Button.new()
+			nb.icon = _skill_tex(Archetypes.node_icon(id))
+			nb.flat = id != arch_node
+			var r := Archetypes.rank(id)
+			var open := Archetypes.spent_in(arch_tab) >= int(Archetypes.TIER_NEED[tier - 1])
+			nb.text = "%d/%d" % [r, int(n["ranks"])]
+			nb.add_theme_font_size_override("font_size", 8)
+			nb.add_theme_color_override("font_color", Color("e9ce7c") if r > 0 else Color(0.75, 0.75, 0.8))
+			nb.add_theme_constant_override("h_separation", 2)
+			for st in ["normal", "hover", "pressed", "focus"]:
+				var pad := StyleBoxEmpty.new() if nb.flat else (theme_ui.get_stylebox(st, "Button").duplicate() as StyleBox)
+				if pad is StyleBoxTexture:
+					pad.content_margin_left = 3
+					pad.content_margin_right = 4
+					pad.content_margin_top = 1
+					pad.content_margin_bottom = 1
+				nb.add_theme_stylebox_override(st, pad)
+			nb.modulate = Color.WHITE if (r > 0 or open) else Color(0.45, 0.45, 0.5)
+			nb.pressed.connect(func(): arch_node = id; Sfx.play("select"); show_archetypes())
+			row.add_child(nb)
+	# right: details of the selected node
+	var info := VBoxContainer.new()
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info.add_theme_constant_override("separation", 3)
+	body.add_child(info)
+	var n2: Dictionary = Archetypes.NODES[arch_node]
+	info.add_child(_small(d["desc"], Color(0.8, 0.84, 0.95)))
+	info.add_child(_small("%s  (%s, nível %d de %d)" % [n2["name"], "ativa" if n2["kind"] == "active" else "passiva",
+		Archetypes.rank(arch_node), int(n2["ranks"])], d["color"]))
+	var desc := Label.new()
+	desc.text = n2["desc"]
+	if n2["kind"] == "active":
+		var sk: Dictionary = Archetypes.SKILLS[n2["skill"]]
+		desc.text += "\nMana: %d   -   Recarga: %ss" % [int(sk["cost"]), str(sk["cd"])]
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc.add_theme_font_size_override("font_size", 8)
+	desc.add_theme_constant_override("outline_size", 3)
+	info.add_child(desc)
+	var why := Archetypes.can_learn(arch_node)
+	var learn := Button.new()
+	learn.text = "Aprender (1 ponto)" if why == "" else why
+	learn.disabled = why != ""
+	learn.add_theme_font_size_override("font_size", 8)
+	learn.pressed.connect(func():
+		if Archetypes.learn(arch_node):
+			Sfx.play("level")
+			toast("%s aprendido!  Classe: %s" % [n2["name"], Game.class_title()], d["color"])
+			Game.save_game()
+			show_archetypes())
+	info.add_child(learn)
+	if n2["kind"] == "active" and Game.has_skill(n2["skill"]):
+		var slots := HBoxContainer.new()
+		slots.add_theme_constant_override("separation", 3)
+		info.add_child(slots)
+		slots.add_child(_small("Botão:", Color(0.85, 0.9, 1.0)))
+		for i in Archetypes.SLOTS:
+			var sb := Button.new()
+			sb.text = str(i + 1)
+			sb.add_theme_font_size_override("font_size", 8)
+			sb.disabled = Game.skill_slots[i] == n2["skill"]
+			sb.pressed.connect(func():
+				var sk2: String = n2["skill"]
+				for j in Archetypes.SLOTS:
+					if Game.skill_slots[j] == sk2:
+						Game.skill_slots[j] = ""
+				Game.skill_slots[i] = sk2
+				Sfx.play("select")
+				Game.save_game()
+				show_archetypes())
+			slots.add_child(sb)
+	# equipped skills and the reset
+	var foot := HBoxContainer.new()
+	foot.add_theme_constant_override("separation", 4)
+	box.add_child(foot)
+	foot.add_child(_small("Botões:", Color(0.85, 0.9, 1.0)))
+	for i in Archetypes.SLOTS:
+		var sk3: String = Game.skill_slots[i]
+		var t := TextureRect.new()
+		t.texture = _skill_tex(Archetypes.skill_icon(sk3)) if sk3 != "" else null
+		t.custom_minimum_size = Vector2(24, 24)
+		t.tooltip_text = Archetypes.SKILLS[sk3]["name"] if sk3 != "" else "vazio"
+		foot.add_child(_small("%d" % (i + 1), Color(0.8, 0.84, 0.95)))
+		foot.add_child(t)
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	foot.add_child(spacer)
+	var reset := Button.new()
+	reset.text = "Refazer (%d ouro)" % Archetypes.reset_cost()
+	reset.add_theme_font_size_override("font_size", 8)
+	reset.disabled = Archetypes.points_spent() == 0 or Game.gold < Archetypes.reset_cost()
+	reset.pressed.connect(func():
+		Game.gold -= Archetypes.reset_cost()
+		Archetypes.reset()
+		Sfx.play("coin")
+		toast("Pontos de arquétipo devolvidos.", Color(0.8, 0.85, 1.0))
+		Game.save_game()
+		show_archetypes())
+	foot.add_child(reset)
 
 
 func show_shop(kind: String) -> void:

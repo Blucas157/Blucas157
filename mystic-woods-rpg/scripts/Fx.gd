@@ -27,6 +27,9 @@ func _ready() -> void:
 		"ring":
 			max_life = 0.35
 			z_index = -1
+		"bolt":
+			max_life = 0.22
+			z_index = 25
 		"dust":
 			max_life = 0.32
 			var a := AnimatedSprite2D.new()
@@ -72,6 +75,22 @@ func _draw() -> void:
 			c.a = a
 			draw_string_outline(font, Vector2(-w / 2.0, 0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 3, Color(0.09, 0.11, 0.19, a))
 			draw_string(font, Vector2(-w / 2.0, 0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, c)
+		"bolt":
+			# lightning from the sky: a jagged white-blue line that fades
+			var a := 1.0 - k
+			var pts := PackedVector2Array()
+			var y := -90.0
+			var x := 0.0
+			var rr := RandomNumberGenerator.new()
+			rr.seed = int(get_instance_id())
+			while y < 0.0:
+				pts.append(Vector2(x, y))
+				y += 10.0
+				x = clampf(x + rr.randf_range(-6.0, 6.0), -10.0, 10.0)
+			pts.append(Vector2.ZERO)
+			draw_polyline(pts, Color(0.09, 0.11, 0.19, a), 4.0)
+			draw_polyline(pts, Color(color.r, color.g, color.b, a), 2.0)
+			draw_polyline(pts, Color(1, 1, 1, a), 1.0)
 		"ring":
 			var c2 := color
 			c2.a = 0.8 * (1.0 - k)
