@@ -3,7 +3,12 @@ extends CanvasLayer
 
 const FONT := preload("res://assets/ui/pixel_font.ttf")
 const ICONS := preload("res://assets/ui/icons.png")
-const STATUS := preload("res://assets/ui/hud_status.png")   # PixelLab create_ui_asset: wooden frames
+const STATUS := preload("res://assets/ui/hud_status.png")
+const MENU_KIT := preload("res://assets/ui/menu_kit.png")   # PixelLab create_ui_asset: wooden menu kit
+const KIT_WINDOW := Rect2(8, 8, 143, 134)
+const KIT_PLAQUE := Rect2(158, 10, 90, 26)
+const KIT_INSET := Rect2(158, 48, 90, 60)
+const KIT_BUTTON := Rect2(10, 155, 93, 34)   # PixelLab create_ui_asset: wooden frames
 ## regions in hud_status.png: [region, inner rect relative to the region]
 const ST_PANEL := Rect2(8, 8, 161, 65)
 const ST_PORTRAIT := Rect2(188, 18, 47, 49)
@@ -54,19 +59,35 @@ func _ready() -> void:
 	Game.message.connect(toast)
 
 
+## Wooden 9-slice from menu_kit.png (PixelLab create_ui_asset). m = border kept 1:1, pad = content margin.
+func _kit(region: Rect2, m: float, pad: Vector4 = Vector4(-1, -1, -1, -1), tint := Color.WHITE) -> StyleBoxTexture:
+	var sb := StyleBoxTexture.new()
+	sb.texture = MENU_KIT
+	sb.region_rect = region
+	sb.set_texture_margin_all(m)
+	sb.modulate_color = tint
+	if pad.x >= 0.0:
+		sb.content_margin_left = pad.x
+		sb.content_margin_top = pad.y
+		sb.content_margin_right = pad.z
+		sb.content_margin_bottom = pad.w
+	return sb
+
+
 func _style_buttons() -> void:
-	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = {"normal": Color("33418a"), "hover": Color("425b9e"), "pressed": Color("1d235d"),
-			"focus": Color("425b9e"), "disabled": Color("414b66")}[state]
-		sb.border_color = Color("1d235d") if state != "focus" else Color("d99945")
-		sb.set_border_width_all(2)
-		sb.set_corner_radius_all(2)
-		sb.content_margin_left = 8
-		sb.content_margin_right = 8
-		sb.content_margin_top = 3
-		sb.content_margin_bottom = 3
-		theme_ui.set_stylebox(state, "Button", sb)
+	var pad := Vector4(10, 4, 10, 5)
+	theme_ui.set_stylebox("normal", "Button", _kit(KIT_BUTTON, 8, pad))
+	theme_ui.set_stylebox("hover", "Button", _kit(KIT_BUTTON, 8, pad, Color(1.18, 1.12, 1.0)))
+	theme_ui.set_stylebox("pressed", "Button", _kit(KIT_BUTTON, 8, Vector4(10, 5, 10, 4), Color(0.72, 0.72, 0.8)))
+	theme_ui.set_stylebox("disabled", "Button", _kit(KIT_BUTTON, 8, pad, Color(0.6, 0.6, 0.65, 0.8)))
+	# keyboard/pad focus: a gold frame over the button
+	var focus := StyleBoxFlat.new()
+	focus.draw_center = false
+	focus.border_color = Color("e9ce7c")
+	focus.set_border_width_all(1)
+	focus.set_corner_radius_all(3)
+	focus.set_expand_margin_all(1)
+	theme_ui.set_stylebox("focus", "Button", focus)
 	theme_ui.set_color("font_color", "Button", Color.WHITE)
 	theme_ui.set_color("font_focus_color", "Button", Color("ffe9a8"))
 	theme_ui.set_color("font_hover_color", "Button", Color("ffe9a8"))
@@ -335,33 +356,60 @@ func clear_menu() -> void:
 		c.queue_free()
 
 
-func _menu_box(title: String, subtitle: String = "", h: float = 200.0) -> VBoxContainer:
+## Wooden window centred on screen with the title on a plaque across its top edge.
+## Returns the box the caller fills (subtitle label already in it).
+func _window(title: String, w: float, h: float, shade_alpha := 0.55) -> VBoxContainer:
 	clear_menu()
+	var sz := screen_size()
 	var shade := ColorRect.new()
-	shade.color = Color(0.03, 0.04, 0.08, 0.55)
+	shade.color = Color(0.03, 0.04, 0.08, shade_alpha)
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	menu_root.add_child(shade)
+	h = minf(h, sz.y - 18.0)
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", _kit(KIT_WINDOW, 18, Vector4(16, 20, 16, 14)))
+	panel.position = ((sz - Vector2(w, h)) / 2.0 + Vector2(0, 6)).round()
+	panel.size = Vector2(w, h)
+	menu_root.add_child(panel)
 	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 5)
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", 6)
-	box.set_anchors_preset(Control.PRESET_CENTER)
-	box.custom_minimum_size = Vector2(220, h)
-	box.position = Vector2(-110, -h / 2.0)
-	menu_root.add_child(box)
+	panel.add_child(box)
+	# title plaque straddling the top of the frame
 	var t := Label.new()
 	t.text = title
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	t.add_theme_font_size_override("font_size", 32)
+	t.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	t.add_theme_font_size_override("font_size", 16)
 	t.add_theme_color_override("font_color", Color("ffe9a8"))
-	t.add_theme_constant_override("outline_size", 6)
-	box.add_child(t)
+	t.add_theme_constant_override("outline_size", 4)
+	var pw := maxf(96.0, FONT.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x + 34.0)
+	var plaque := PanelContainer.new()
+	plaque.add_theme_stylebox_override("panel", _kit(KIT_PLAQUE, 10, Vector4(10, 2, 10, 3)))
+	plaque.position = Vector2(roundf(panel.position.x + (w - pw) / 2.0), panel.position.y - 12.0)
+	plaque.size = Vector2(pw, 26)
+	plaque.add_child(t)
+	menu_root.add_child(plaque)
+	return box
+
+
+## Recessed dark panel (stats, descriptions) inside a window.
+func _inset(parent: Container) -> PanelContainer:
+	var p := PanelContainer.new()
+	p.add_theme_stylebox_override("panel", _kit(KIT_INSET, 8, Vector4(8, 5, 8, 5)))
+	parent.add_child(p)
+	return p
+
+
+func _menu_box(title: String, subtitle: String = "", h: float = 200.0) -> VBoxContainer:
+	var box := _window(title, 300.0, h)
 	if subtitle != "":
 		var s := Label.new()
 		s.text = subtitle
 		s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		s.add_theme_font_size_override("font_size", 8)
 		s.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		box.add_child(s)
+		_inset(box).add_child(s)
 	return box
 
 
@@ -375,8 +423,11 @@ func _button(box: Container, text: String, cb: Callable) -> Button:
 
 
 func show_title() -> void:
-	var box := _menu_box("Mystic Woods", "Um RPG de mundo aberto\n\nWASD/Setas mover  -  J/Espaço atacar  -  K/Shift esquivar\nE interagir  -  Q poção  -  M mapa  -  Esc pausa", 220)
-	(menu_root.get_child(0) as ColorRect).color = Color(0.03, 0.04, 0.08, 0.35)
+	var hints := "WASD/Setas mover  -  J/Espaço atacar  -  K/Shift esquivar\nE interagir  -  Q poção  -  F magia  -  M mapa  -  Esc pausa"
+	if main and main.is_touch():
+		hints = "Joystick: mover  -  Espada: atacar  -  Setas: esquivar\n!: interagir  -  Toque no monstro: mirar a magia"
+	var box := _menu_box("Mystic Woods", "Um RPG de mundo aberto\n\n" + hints, 220)
+	(menu_root.get_child(0) as ColorRect).color = Color(0.03, 0.04, 0.08, 0.3)
 	var first: Button
 	if Game.has_save():
 		first = _button(box, "Continuar", func(): main.start_game(false))
@@ -388,17 +439,70 @@ func show_title() -> void:
 
 
 func show_pause() -> void:
-	var stats := "Nível %d  -  XP %d/%d\nAtaque %d  -  Defesa %d  -  Ouro %d\nMonstros derrotados: %d  -  Baús: %d\nTempo de jogo: %d min" % [
-		Game.level, Game.xp, Game.xp_to_next(), Game.attack_power(), Game.defense_total(), Game.gold,
-		_total_kills(), Game.opened_chests.size(), int(Game.play_time / 60.0)]
-	var box := _menu_box("Pausa", stats, 220)
+	var box := _window("Pausa", 300.0, 236.0)
+	# --- stats: level + experience bar, then attack / defence / gold, then the counters
+	var stats := VBoxContainer.new()
+	stats.add_theme_constant_override("separation", 3)
+	_inset(box).add_child(stats)
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 6)
+	stats.add_child(top)
+	top.add_child(_small("Nível %d" % Game.level, Color("ffe9a8")))
+	var xp := ProgressBar.new()
+	xp.show_percentage = false
+	xp.max_value = Game.xp_to_next()
+	xp.value = Game.xp
+	xp.custom_minimum_size = Vector2(0, 6)
+	xp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	xp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color("171c31")
+	bg.set_border_width_all(1)
+	bg.border_color = Color("0b0e1a")
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = Color("e9ce7c")
+	xp.add_theme_stylebox_override("background", bg)
+	xp.add_theme_stylebox_override("fill", fill)
+	top.add_child(xp)
+	top.add_child(_small("XP %d/%d" % [Game.xp, Game.xp_to_next()], Color(0.85, 0.9, 1.0)))
+	var mid := HBoxContainer.new()
+	mid.alignment = BoxContainer.ALIGNMENT_CENTER
+	mid.add_theme_constant_override("separation", 4)
+	stats.add_child(mid)
+	for it in [[0, str(Game.attack_power()), Color.WHITE], [1, str(Game.defense_total()), Color.WHITE],
+			[3, str(Game.gold), Color("ffd479")]]:
+		mid.add_child(_ui_icon(int(it[0])))
+		var l := _small(it[1], it[2])
+		l.custom_minimum_size = Vector2(34, 0)
+		mid.add_child(l)
+	var low := _small("Monstros: %d   -   Baús: %d   -   Tempo: %d min" % [_total_kills(), Game.opened_chests.size(), int(Game.play_time / 60.0)],
+		Color(0.8, 0.84, 0.95))
+	low.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stats.add_child(low)
+	# --- buttons: continue on top, four in a grid, quit below (all fit on a phone screen)
 	var cont := _button(box, "Continuar", func(): main.set_paused(false))
-	_button(box, "Mochila", func(): show_inventory())
-	_button(box, "Rivais (%d)" % Game.rivals.size(), func(): show_rivals())
-	_button(box, "Salvar jogo", func(): Game.save_game(); toast("Jogo salvo", Color(0.6, 1, 0.6)); main.set_paused(false))
-	_button(box, "Som: " + ("desligado" if Game.muted else "ligado"), func(): Game.muted = not Game.muted; show_pause())
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 5)
+	grid.add_theme_constant_override("v_separation", 5)
+	box.add_child(grid)
+	for b in [_button(grid, "Mochila", func(): show_inventory()),
+			_button(grid, "Rivais (%d)" % Game.rivals.size(), func(): show_rivals()),
+			_button(grid, "Salvar jogo", func(): Game.save_game(); toast("Jogo salvo", Color(0.6, 1, 0.6)); main.set_paused(false)),
+			_button(grid, "Som: " + ("desligado" if Game.muted else "ligado"), func(): Game.muted = not Game.muted; show_pause())]:
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_button(box, "Sair para o título", func(): main.quit_to_title())
 	cont.call_deferred("grab_focus")
+
+
+func _ui_icon(i: int) -> TextureRect:
+	var tr := TextureRect.new()
+	var a := AtlasTexture.new()
+	a.atlas = ICONS
+	a.region = Rect2(i * 16, 0, 16, 16)
+	tr.texture = a
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+	return tr
 
 
 func _total_kills() -> int:
@@ -431,16 +535,10 @@ func _panel_box(title: String) -> VBoxContainer:
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	menu_root.add_child(shade)
 	var panel := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.09, 0.11, 0.19, 0.95)
-	sb.border_color = Color("c8b3a2")
-	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(3)
-	sb.set_content_margin_all(6)
-	panel.add_theme_stylebox_override("panel", sb)
-	var w := minf(screen_size().x - 20.0, 400.0)
-	panel.position = Vector2((screen_size().x - w) / 2.0, 10)
-	panel.size = Vector2(w, screen_size().y - 20.0)
+	panel.add_theme_stylebox_override("panel", _kit(KIT_WINDOW, 18, Vector4(14, 12, 14, 12)))
+	var w := minf(screen_size().x - 16.0, 420.0)
+	panel.position = Vector2(roundf((screen_size().x - w) / 2.0), 6)
+	panel.size = Vector2(w, screen_size().y - 12.0)
 	menu_root.add_child(panel)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 4)
