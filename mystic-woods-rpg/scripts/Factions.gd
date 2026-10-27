@@ -42,6 +42,12 @@ const TIERS := ["Selvagens", "Organizados", "Táticos", "Veteranos", "Elite", "L
 const TIER_ADJ := ["", "", "Tático", "Veterano", "de Elite", "Lendário"]
 const TIER_XP := [0.0, 40.0, 100.0, 200.0, 350.0, 600.0]
 const MAX_CAMPS := 4
+## What a region is worth (ore veins, herbs, fruit trees): factions fight for the rich ones and
+## the land they hold feeds them. Filled from the world by set_wealth() (not saved).
+const RESOURCE_VALUE := {"veio_cobre": 1.0, "veio_carvao": 1.0, "veio_ferro": 2.0, "veio_prata": 2.0,
+	"veio_ouro": 3.0, "veio_cristal": 3.0, "veio_ametista": 3.0, "veio_rubi": 4.0}
+static var wealth := {}      # region -> value
+static var riches := {}      # region -> "ouro, cristal e ferro" (for the chronicle)
 
 ## Adaptations: "from" = the hero tactic they answer (counter needed), or "tier" = unlocked by evolving.
 const ADAPT := {
@@ -142,6 +148,30 @@ static func spawn_mult(monster_id: String, region: String) -> float:
 	return 0.35 + control(fid, region) / 40.0
 
 
+static func set_wealth(resources: Array, region_of: Callable) -> void:
+	wealth = {}
+	var kinds := {}
+	for r in resources:
+		var reg: String = region_of.call(r["cell"])
+		var v: float = RESOURCE_VALUE.get(r["type"], 0.4)
+		wealth[reg] = float(wealth.get(reg, 0.0)) + v
+		if RESOURCE_VALUE.has(r["type"]):
+			if not kinds.has(reg):
+				kinds[reg] = {}
+			var item: String = ItemDB.ITEMS[ItemDB.RESOURCES[r["type"]]["item"]]["name"].to_lower()
+			kinds[reg][item] = float(kinds[reg].get(item, 0.0)) + v
+	riches = {}
+	for reg in kinds:
+		var names: Array = kinds[reg].keys()
+		names.sort_custom(func(a, b): return kinds[reg][a] > kinds[reg][b])
+		names = names.slice(0, 3)
+		riches[reg] = names[0] if names.size() == 1 else ", ".join(names.slice(0, names.size() - 1)) + " e " + names[-1]
+
+
+static func riches_of(region: String) -> String:
+	return riches.get(region, "ervas e frutos")
+
+
 static func chronicle(text: String) -> void:
 	Game.chronicle.append("Dia %d: %s" % [Game.day_count + 1, text])
 	while Game.chronicle.size() > 40:
@@ -210,7 +240,11 @@ static func tick(rng: RandomNumberGenerator, night: bool, pick_cell: Callable) -
 		var land := 0.0
 		for r in s["regions"]:
 			land += float(s["regions"][r])
-		s["power"] = minf(float(s["power"]) + 0.6 + 0.5 * camp_lv + land / 120.0, 60.0 + land + 30.0 * camp_lv)
+		# the riches of the land they hold (veins, herbs) feed them
+		var income := 0.0
+		for r in s["regions"]:
+			income += float(s["regions"][r]) / 100.0 * float(wealth.get(r, 10.0)) * 0.03
+		s["power"] = minf(float(s["power"]) + 0.6 + 0.5 * camp_lv + land / 120.0 + income, 60.0 + land + 30.0 * camp_lv + income * 10.0)
 		if gain_xp(fid, 0.4 + 0.2 * camp_lv):
 			events.append({"text": "%s evoluíram: %s!" % [DATA[fid]["name"], TIERS[int(s["tier"])]], "color": Color(1.0, 0.75, 0.4), "kind": "tier", "fid": fid})
 		# camps grow
@@ -268,7 +302,7 @@ static func tick(rng: RandomNumberGenerator, night: bool, pick_cell: Callable) -
 			_add_control(holder, target, -30.0)
 		else:
 			_add_control(holder, target, 10.0)
-		var text := "Batalha em %s: %s venceu %s!" % [WorldGen.REGION_NAMES[target], DATA[w]["name"], DATA[l]["name"]]
+		var text := "Batalha pelas riquezas de %s (%s): %s venceu %s!" % [WorldGen.REGION_NAMES[target], riches_of(target), DATA[w]["name"], DATA[l]["name"]]
 		chronicle(text)
 		events.append({"text": text, "color": Color(1.0, 0.55, 0.45), "kind": "war", "fid": w, "loser": l, "region": target})
 	return events
@@ -299,13 +333,43 @@ static func _add_control(fid: String, region: String, amount: float) -> void:
 static func _pick_target(fid: String, rng: RandomNumberGenerator) -> String:
 	var s := st(fid)
 	var options: Array = []
+	var total := 0.0
 	for r in s["regions"]:
 		for n in ADJ.get(r, []):
 			if float(s["regions"].get(n, 0.0)) < 80.0 and not n in options:
 				options.append(n)
+				total += float(wealth.get(n, 10.0)) + 5.0
 	if options.is_empty():
 		return ""
-	return options[rng.randi() % options.size()]
+	# rich land (gold, crystal, rubies) draws them first
+	var pick := rng.randf() * total
+	for n in options:
+		pick -= float(wealth.get(n, 10.0)) + 5.0
+		if pick <= 0.0:
+			return n
+	return options[-1]
+
+
+## The hero beat one of them on their land: their hold there weakens a little.
+static func hero_won_on(fid: String, region: String) -> void:
+	if control(fid, region) > 0.0:
+		_add_control(fid, region, -0.6)
+
+
+## A monster of `winner` killed one of `loser` on this land: the land shifts.
+static func skirmish_won(winner: String, loser: String, region: String) -> void:
+	_add_control(winner, region, 1.0)
+	if control(loser, region) > 0.0:
+		_add_control(loser, region, -1.0)
+
+
+## The hero takes riches (ore, herbs) from land a faction holds. Returns that faction or "".
+static func plundered(region: String) -> String:
+	var fid := ruler(region)
+	if fid == "" or control(fid, region) < 30.0 or not active(fid):
+		return ""
+	st(fid)["grudge"] = float(st(fid)["grudge"]) + 0.5
+	return fid
 
 
 ## The hero burned down one of their camps.

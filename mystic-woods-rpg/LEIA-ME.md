@@ -91,7 +91,8 @@ O painel do canto (arte `assets/ui/hud_status.png`, feita com `create_ui_asset`)
   - **aprendem com o herói**: espada, bola de fogo e esquiva viram escudos, formação dispersa e fintas;
   - **evoluem** de Selvagens a Lendários, com mais vida, ataque, elites e táticas (grito de guerra, cerco, recuo);
   - **erguem acampamentos** com estandarte, que soltam guardas e podem ser destruídos;
-  - **tomam regiões** e **guerreiam entre si**: monstros de facções em guerra se atacam na tela;
+  - **o herói é o inimigo número 1**: com você por perto, param a briga entre si e todos vêm atrás de você;
+  - só **guerreiam entre si pelo território e suas riquezas** (veios de ouro, cristal, ervas...), quando você está longe. Também guardam os veios da terra que dominam e ficam furiosos quando você minera ou colhe nela;
   - com **rancor**, invadem os portões da vila à noite.
 - Tudo aparece em **Pausa → Crônicas**. Design e referências (Tensura, Goblin Slayer, Solo Leveling, Shangri-La Frontier, Soul Land...): `docs/IA_VIVA.md`.
 - **Noite:** monstros enxergam mais longe, correm, atacam e batem mais forte, e aparecem em maior número. Aviso ao anoitecer.

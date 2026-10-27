@@ -122,6 +122,32 @@ func run() -> void:
 	clear_enemies()
 	p.global_position = spot
 
+	# 4b) the hero comes first: with him in sight, the feud stops and both turn on him
+	var gb: Node = main.spawn_enemy("goblin", spot + Vector2(50, 0), 3)
+	var ob: Node = main.spawn_enemy("orc", spot + Vector2(80, 0), 3)
+	gb.flee_rolled = true
+	ob.flee_rolled = true
+	await create_timer(0.8).timeout
+	check(gb.foe == p and ob.foe == p, "with the hero near, goblin and orc both go for the hero")
+	clear_enemies()
+
+	# 4c) land has riches; holding it feeds the faction; the hero taking them angers it
+	check(F.wealth.get("pedreira", 0.0) > F.wealth.get("prado", 0.0), "the quarry is richer than the meadow (%.0f vs %.0f)" % [F.wealth.get("pedreira", 0.0), F.wealth.get("prado", 0.0)])
+	check(F.riches_of("pedreira") != "", "riches are named: " + F.riches_of("pedreira"))
+	for fid in game.factions:
+		game.factions[fid]["regions"].erase("prado")
+	game.factions["goblins"]["regions"]["prado"] = 90.0
+	var gr: float = game.factions["goblins"]["grudge"]
+	var herb: Node = load("res://scripts/ResourceNode.gd").new()
+	herb.setup("moita_erva")
+	herb.position = spot + Vector2(20, 0)
+	main.world.entities.add_child(herb)
+	await process_frame
+	herb.hit(main)
+	check(float(game.factions["goblins"]["grudge"]) > gr, "picking herbs on goblin land angers the goblins")
+	herb.free()
+	clear_enemies()
+
 	# 5) the world turns: expansion, camps, wars
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7

@@ -92,6 +92,7 @@ func start_game(new_game: bool) -> void:
 	if not Game.boss_defeated:
 		boss = spawn_enemy("treant", world.cell_to_pos(world.gen.boss_cell), BOSS_LEVEL)
 	hud.setup_fog(world.minimap_image, Game.explored)
+	Factions.set_wealth(world.gen.resources, func(c): return world.gen.region_at(c))
 	_spawn_camps()
 	_was_night = night_amount() > 0.5
 	camera.global_position = player.global_position
@@ -317,6 +318,8 @@ func _spawner() -> void:
 	var lvl: int = world.gen.level_at(cell)
 	if _try_skirmish(region, cell, lvl):
 		return
+	if _try_vein_guard(region, lvl):
+		return
 	var id := _pick_monster(region, lvl)
 	if night and rng.randf() < 0.3:
 		id = "ghost"
@@ -418,6 +421,34 @@ func camp_destroyed(node: Node) -> void:
 	Game.save_game()
 
 
+## The hero mined a vein or picked plants: on a faction's land they take it badly.
+var _plunder_warned := {}
+
+
+func resource_harvested(node: Node) -> void:
+	var region: String = world.gen.region_at(world.pos_to_cell(node.global_position))
+	var fid := Factions.plundered(region)
+	if fid == "":
+		return
+	if not _plunder_warned.has(fid + region):
+		_plunder_warned[fid + region] = true
+		hud.toast("Estas riquezas são de %s... eles vão querer de volta!" % Factions.DATA[fid]["name"], Color(1.0, 0.6, 0.45))
+	# whoever of them is around comes for the thief
+	var near := 0
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if e.faction == fid and e.global_position.distance_to(node.global_position) < 240.0:
+			e.state = "chase"
+			e.foe = player
+			e.hero_lock = 4.0
+			near += 1
+	if near == 0 and rng.randf() < 0.35:
+		var members: Array = Factions.DATA[fid]["members"]
+		var a := rng.randf() * TAU
+		var e2 := spawn_enemy(members[rng.randi() % members.size()], node.global_position + Vector2(cos(a), sin(a)) * 120.0,
+			world.gen.level_at(world.pos_to_cell(node.global_position)))
+		e2.state = "chase"
+
+
 func faction_learned(fid: String) -> void:
 	var s := Factions.st(fid)
 	var a: String = s["adapt"][-1]
@@ -431,6 +462,25 @@ func _check_nightfall() -> void:
 		hud.show_banner("A noite caiu...")
 		hud.toast("Os monstros estão mais agressivos e em maior número!", Color(0.75, 0.7, 1.0))
 	_was_night = night
+
+
+## On land a faction rules, some of its monsters stand guard over the ore veins near the hero.
+func _try_vein_guard(region: String, lvl: int) -> bool:
+	var fid := Factions.ruler(region)
+	if fid == "" or Factions.control(fid, region) < 40.0 or not Factions.active(fid) or rng.randf() > 0.3:
+		return false
+	var veins: Array = []
+	for r in get_tree().get_nodes_in_group("resources"):
+		var d: float = r.global_position.distance_to(player.global_position)
+		if r.is_ore() and d > 150.0 and d < 330.0:
+			veins.append(r)
+	if veins.is_empty():
+		return false
+	var v: Node = veins[rng.randi() % veins.size()]
+	var members: Array = Factions.DATA[fid]["members"]
+	var e := spawn_enemy(members[rng.randi() % members.size()], v.global_position + Vector2(rng.randf_range(-16, 16), 14), lvl)
+	e.home = v.global_position
+	return true
 
 
 ## Two factions at war that both hold the region: sometimes their war parties meet near the hero.
@@ -450,7 +500,8 @@ func _try_skirmish(region: String, cell: Vector2i, lvl: int) -> bool:
 					for k in rng.randi_range(2, 3):
 						var id: String = members[rng.randi() % members.size()]
 						spawn_enemy(id, base + Vector2(float(side[1]) + rng.randf_range(-10, 10), rng.randf_range(-24, 24)), lvl)
-				hud.toast("%s e %s estão lutando por perto!" % [Factions.DATA[a]["name"], Factions.DATA[b]["name"]], Color(1.0, 0.65, 0.5))
+				hud.toast("%s e %s disputam %s pelas riquezas (%s)!" % [Factions.DATA[a]["name"], Factions.DATA[b]["name"],
+					WorldGen.REGION_NAMES[region], Factions.riches_of(region)], Color(1.0, 0.65, 0.5))
 				return true
 	return false
 

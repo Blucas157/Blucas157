@@ -47,6 +47,7 @@ var last_kind := "melee"      # how it was last hurt: melee / magic / faction:<i
 var regroup_t := 0.0
 var regroup_used := false
 var slot := 0                 # its side when surrounding a target (cerco)
+var hero_lock := 0.0          # after the hero hits it, it ignores everything else for a while
 static var _top_cache := {}   # monster id -> highest opaque pixel of its idle frame (local y)
 
 
@@ -190,6 +191,7 @@ func _physics_process(delta: float) -> void:
 	if state == "dead" or player == null:
 		return
 	foe_t -= delta
+	hero_lock -= delta
 	if foe_t <= 0.0:
 		foe_t = 0.4
 		_pick_foe()
@@ -290,15 +292,17 @@ func _physics_process(delta: float) -> void:
 		flame.position.x = -9.0 if sprite.flip_h else 9.0
 
 
-## Nearest thing worth fighting: the hero, or a monster of a faction at war with this one.
+## Who to fight. The hero always comes first: when he is in sight, factions at war drop their
+## feud and all turn on him. Only with the hero away do they fight each other, over the land.
 func _pick_foe() -> void:
 	foe = player
-	if faction == "":
+	if faction == "" or hero_lock > 0.0:
+		return
+	var night: float = main.night_amount() if main else 0.0
+	var reach := float(def["aggro"]) * 1.2
+	if player and player.alive() and player.global_position.distance_to(global_position) < reach * (1.0 + 0.6 * night):
 		return
 	var best := INF
-	if player and player.alive():
-		best = player.global_position.distance_to(global_position)
-	var reach := float(def["aggro"]) * 1.2
 	for e in get_tree().get_nodes_in_group("enemies"):
 		if e == self or not e.alive() or not Factions.at_war(faction, e.faction):
 			continue
@@ -430,6 +434,12 @@ func take_hit(dmg: int, dir: Vector2, crit: bool = false, kind: String = "melee"
 	if state == "dead":
 		return
 	last_kind = kind
+	if not kind.begins_with("faction"):
+		# hit by the hero: he is the enemy now, whatever else is around
+		foe = player
+		hero_lock = 4.0
+		if state in ["idle", "wander"]:
+			state = "chase"
 	var blocked := false
 	if kind == "melee" and Factions.has_adapt(faction, "escudos"):
 		dmg = int(ceil(dmg * 0.8))
@@ -546,6 +556,7 @@ func _die() -> void:
 		# killed in a faction war: the winners grow, the hero gets no reward for it
 		var winner := last_kind.substr(8)
 		Factions.gain_xp(winner, 2.0)
+		Factions.skirmish_won(winner, faction, _region())
 		var ws := Factions.st(winner)
 		if not ws.is_empty():
 			ws["kills"] = int(ws["kills"]) + 1
@@ -566,6 +577,7 @@ func _die() -> void:
 		fs["losses"] = int(fs["losses"]) + 1
 		fs["grudge"] = float(fs["grudge"]) + 1.0
 		Factions.gain_xp(faction, 1.0)
+		Factions.hero_won_on(faction, _region())
 		if Factions.learn(faction, last_kind) != "":
 			main.faction_learned(faction)
 	var g: Array = def["gold"]

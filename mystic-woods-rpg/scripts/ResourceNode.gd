@@ -94,6 +94,8 @@ func _harvest(main: Node) -> void:
 	if is_ore() and Game.tool_tier >= 3 and randf() < 0.35:
 		n += 1
 	main.drop_material(global_position + Vector2(0, -4), def["item"], n)
+	if main.has_method("resource_harvested"):
+		main.resource_harvested(self)
 	depleted = true
 	regrow_t = float(def["regrow"]) * randf_range(0.8, 1.2)
 	_refresh()

@@ -55,6 +55,19 @@ XP vem do tempo, de acampamentos, de batalhas contra outras facções (vencer **
 
 O nome mostra o nível: "Goblin Tático", "Esqueleto Veterano".
 
+### O inimigo número 1 é o herói
+- Quando o herói entra no campo de visão, **facções em guerra param de brigar entre si e todas vão atrás dele** (trégua contra o inimigo comum).
+- Quem apanha do herói fica focado nele por alguns segundos e ignora o resto.
+- Elas só lutam entre si **com o herói longe**, e só por **território**.
+
+### Riquezas da terra
+- Cada região vale o que tem: **veios** (cobre, ferro, prata, ouro, cristal, ametista, rubi), ervas e frutos. A Pedreira e as regiões com ouro e cristal valem muito mais que o Prado.
+- A terra controlada **alimenta** a facção: quanto mais rica, mais força por passo do mundo.
+- As expansões e guerras **miram as regiões mais ricas**, e as crônicas dizem pelo que lutaram ("Batalha pelas riquezas da Pedreira Rochosa (prata, cristal e ferro)").
+- Na região que domina, a facção **guarda os veios**: alguns monstros nascem de guarda ao lado dos minérios perto do herói.
+- **Minerar ou colher na terra de uma facção** aumenta o rancor dela. Os membros por perto vêm atrás do "ladrão", e às vezes chegam reforços.
+- Vencer monstros numa região **enfraquece o domínio** da facção ali. Monstro matando monstro **desloca o território** para o vencedor.
+
 ### Acampamentos, territórios e guerras
 A cada 12 segundos o mundo dá um passo (também longe do herói):
 - A força cresce com territórios e acampamentos. Regiões bem controladas ganham um **acampamento** (fogueira e estandarte da facção), que sobe até o nível 3.
