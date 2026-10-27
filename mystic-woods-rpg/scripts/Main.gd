@@ -81,9 +81,12 @@ func go_to_title() -> void:
 	hud.show_title()
 
 
-func start_game(new_game: bool) -> void:
+func start_game(new_game: bool, difficulty := "normal") -> void:
 	if new_game:
 		Game.new_game()
+		Game.difficulty = difficulty
+		if Game.inferno():
+			Factions.apply_inferno()
 	elif not Game.load_game():
 		Game.new_game()
 	_build_world(Game.world_seed)
@@ -253,6 +256,7 @@ func _process(delta: float) -> void:
 	if _region_t <= 0.0:
 		_region_t = 0.25
 		_update_region()
+		_check_pagma()
 	_spawn_t -= delta
 	if _spawn_t <= 0.0:
 		_spawn_t = 0.7
@@ -305,7 +309,7 @@ func _spawner() -> void:
 	if _try_spawn_rival():
 		return
 	var night := night_amount() > 0.5
-	var cap := 14 + (5 if night else 0)
+	var cap := 14 + (5 if night else 0) + (4 if Game.inferno() else 0)
 	if count >= cap:
 		return
 	var pc: Vector2i = world.pos_to_cell(player.global_position)
@@ -530,6 +534,119 @@ func _try_raid() -> void:
 	Sfx.play("boss")
 
 
+# ---------------------------------------------------------------- Sucessor de Pagma (Overgeared)
+const PAGMA_LEVEL := 4
+var _pagma_guardian: Node = null
+
+
+## The legendary quest starts at the blacksmith once the hero has some experience.
+func _offer_pagma_quest() -> bool:
+	if Game.pagma_stage != 0 or Game.level < (PAGMA_LEVEL - 1 if Game.inferno() else PAGMA_LEVEL):
+		return false
+	Game.pagma_stage = 1
+	Factions.chronicle("O Ferreiro contou ao herói a lenda de Pagma, o ferreiro lendário.")
+	hud.show_banner("Missão lendária: O Legado de Pagma")
+	hud.toast("Ferreiro: \"Pagma forjava armas que os deuses temiam. Seu tomo está perdido nas Ruínas Antigas...\"", Color(1.0, 0.9, 0.6))
+	hud.toast("Um Guardião protege o Tomo de Pagma. Siga a estrela dourada no mapa.", Color(1.0, 0.85, 0.4))
+	Sfx.play("level")
+	Game.save_game()
+	return true
+
+
+## Where the tome lies: the ruin farthest from the village.
+func pagma_cell() -> Vector2i:
+	var best := Vector2i(WorldGen.POIS["ruinas"])
+	var bd := 0.0
+	for r in world.gen.ruins:
+		var c: Vector2i = r.position + r.size / 2
+		var d := Vector2(c - WorldGen.CENTER).length()
+		if d > bd:
+			bd = d
+			best = c
+	return best
+
+
+func _check_pagma() -> void:
+	if Game.pagma_stage != 1 or not player.alive():
+		return
+	if is_instance_valid(_pagma_guardian) and _pagma_guardian.alive():
+		return
+	var spot: Vector2 = world.cell_to_pos(pagma_cell())
+	if player.global_position.distance_to(spot) > 300.0:
+		return
+	for p in world.entities.get_children():
+		if p.get("kind") == "pagma":
+			return   # the tome is already lying there
+	var lvl := maxi(world.gen.level_at(pagma_cell()) + 3, Game.level + 2)
+	_pagma_guardian = spawn_enemy("guardiao_pagma", spot, lvl)
+	_pagma_guardian.flee_rolled = true
+	hud.show_banner("Guardião de Pagma")
+	hud.toast("\"Só o digno herdará a forja de Pagma!\"", Color(1.0, 0.85, 0.4))
+	Sfx.play("boss")
+
+
+func drop_pagma_tome(pos: Vector2) -> void:
+	var p := PickupScript.new()
+	p.kind = "pagma"
+	p.item_id = "tomo_pagma"
+	p.player = player
+	p.position = pos
+	world.entities.call_deferred("add_child", p)
+
+
+func become_pagma() -> void:
+	Game.pagma_stage = 2
+	Factions.chronicle("O herói se tornou o Sucessor de Pagma.")
+	hud.show_banner("Sucessor de Pagma!")
+	hud.toast("Classe lendária: +2 de ataque, forja lendária no Ferreiro e Vontade de Pagma (resiste à morte a cada 2 min).", Color(1.0, 0.85, 0.4))
+	vfx("fireburst", player.global_position + Vector2(0, -8), 0.0, Color(1.0, 0.9, 0.5))
+	Sfx.play("level")
+	Game.stats_changed.emit()
+	Game.save_game()
+
+
+## Grade odds for the next legendary forge; each forge without a Legendary raises its chance.
+func grade_odds() -> Array:
+	var o: Array = ItemDB.GRADE_ODDS.duplicate()
+	var bonus := 4.0 * Game.pagma_pity + (3.0 if Game.inferno() else 0.0)
+	o[3] = float(o[3]) + bonus
+	o[0] = maxf(5.0, float(o[0]) - bonus)
+	return o
+
+
+func _forge_legend(r: Dictionary) -> void:
+	var odds := grade_odds()
+	var total := 0.0
+	for v in odds:
+		total += float(v)
+	var pick := rng.randf() * total
+	var grade := 0
+	for i in odds.size():
+		pick -= float(odds[i])
+		if pick <= 0.0:
+			grade = i
+			break
+	Game.pagma_pity = 0 if grade == 3 else Game.pagma_pity + 1
+	var g: Array = ItemDB.GRADES[grade]
+	var titles: Array = ItemDB.LEGEND_TITLES[r["kind"]]
+	var item := {"name": "%s, %s" % [r["name"], titles[rng.randi() % titles.size()]], "grade": grade,
+		"stat": int(round(float(r["value"]) * float(g[1]))), "icon": r["icon"]}
+	var cur: Dictionary = Game.legend.get(r["kind"], {})
+	var what := "ataque" if r["kind"] == "legend_sword" else "defesa"
+	if cur.is_empty() or int(item["stat"]) >= int(cur["stat"]):
+		Game.legend[r["kind"]] = item
+		hud.show_banner("Forja %s!" % g[0])
+		hud.toast("%s [%s]: +%d de %s" % [item["name"], g[0], item["stat"], what], g[2])
+	else:
+		hud.toast("Saiu %s [%s] (+%d)... você manteve %s (+%d)." % [item["name"], g[0], item["stat"], cur["name"], cur["stat"]], Color(0.85, 0.85, 0.9))
+	if grade == 3:
+		Factions.chronicle("O Sucessor de Pagma forjou um item Lendário: %s." % item["name"])
+		# legendary gear draws envious eyes: every faction wants it
+		for fid in Game.factions:
+			Game.factions[fid]["grudge"] = float(Game.factions[fid]["grudge"]) + 8.0
+		vfx("fireburst", player.global_position + Vector2(0, -10), 0.0, Color(1.0, 0.95, 0.6))
+
+
 # ---------------------------------------------------------------- rivals
 ## A rival whose cooldown is over may come back while the hero walks its home region.
 func _try_spawn_rival() -> bool:
@@ -654,6 +771,8 @@ func interact(_p: Node) -> void:
 			hud.toast("Água fresca! Vida restaurada e jogo salvo.", Color(0.6, 1.0, 0.7))
 		"ferreiro", "alquimista", "mercador":
 			Sfx.play("select")
+			if t == "ferreiro" and _offer_pagma_quest():
+				return
 			get_tree().paused = true
 			hud.show_shop(t)
 
@@ -667,6 +786,8 @@ func open_inventory() -> void:
 
 func recipe_state(r: Dictionary) -> String:
 	## "" if it can be crafted, otherwise the reason
+	if r.get("pagma", false) and not Game.is_pagma():
+		return "Só o Sucessor de Pagma"
 	if r["kind"] in ["tool", "sword", "armor"] and Game.crafted.has(r["id"]):
 		return "Já forjado"
 	if r["kind"] == "tool" and Game.tool_tier >= int(r["value"]):
@@ -696,6 +817,8 @@ func craft(r: Dictionary) -> bool:
 			Game.sword_tier += int(ItemDB.SWORD_UPGRADES.get(int(r["value"]), 1))
 		"armor":
 			Game.armor_tier = int(r["value"])
+		"legend_sword", "legend_armor":
+			_forge_legend(r)
 		"potion":
 			Game.potions = min(Game.MAX_POTIONS, Game.potions + int(r["value"]))
 		"stat":
@@ -707,8 +830,9 @@ func craft(r: Dictionary) -> bool:
 					Game.heal(5)
 				"def":
 					Game.defense += 1
-	Sfx.play("level" if r["kind"] in ["tool", "sword", "armor"] else "potion")
-	hud.toast("%s pronto! %s" % [r["name"], r["desc"]], Color(0.6, 1.0, 0.6))
+	Sfx.play("level" if r["kind"] in ["tool", "sword", "armor", "legend_sword", "legend_armor"] else "potion")
+	if not r["kind"].begins_with("legend"):
+		hud.toast("%s pronto! %s" % [r["name"], r["desc"]], Color(0.6, 1.0, 0.6))
 	Game.register_craft(r["id"])
 	Game.stats_changed.emit()
 	Game.save_game()

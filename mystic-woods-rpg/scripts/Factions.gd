@@ -188,7 +188,12 @@ static func learn(fid: String, kind: String) -> String:
 	s["learn"][kind] = int(s["learn"][kind]) + 1
 	for a in ADAPT:
 		var d: Dictionary = ADAPT[a]
-		if d.get("from", "") == kind and not a in s["adapt"] and int(s["learn"][kind]) >= int(d["need"]) * (1 + s["adapt"].size() / 3):
+		if d.get("from", "") != kind or a in s["adapt"]:
+			continue
+		var need: int = int(d["need"]) * (1 + s["adapt"].size() / 3)
+		if Game.inferno():
+			need = maxi(2, need / 2)   # Hell Mode: they learn twice as fast
+		if int(s["learn"][kind]) >= need:
 			s["adapt"].append(a)
 			chronicle("%s aprendeu: %s." % [DATA[fid]["name"], d["name"]])
 			return a
@@ -244,7 +249,10 @@ static func tick(rng: RandomNumberGenerator, night: bool, pick_cell: Callable) -
 		var income := 0.0
 		for r in s["regions"]:
 			income += float(s["regions"][r]) / 100.0 * float(wealth.get(r, 10.0)) * 0.03
-		s["power"] = minf(float(s["power"]) + 0.6 + 0.5 * camp_lv + land / 120.0 + income, 60.0 + land + 30.0 * camp_lv + income * 10.0)
+		var growth := 0.6 + 0.5 * camp_lv + land / 120.0 + income
+		if Game.inferno():
+			growth *= 1.4
+		s["power"] = minf(float(s["power"]) + growth, 60.0 + land + 30.0 * camp_lv + income * 10.0)
 		if gain_xp(fid, 0.4 + 0.2 * camp_lv):
 			events.append({"text": "%s evoluíram: %s!" % [DATA[fid]["name"], TIERS[int(s["tier"])]], "color": Color(1.0, 0.75, 0.4), "kind": "tier", "fid": fid})
 		# camps grow
@@ -271,7 +279,7 @@ static func tick(rng: RandomNumberGenerator, night: bool, pick_cell: Callable) -
 					break
 		# expansion: send a war party into a neighbouring region (more often at night)
 		var need: float = 45.0 + 10.0 * s["regions"].size()
-		if float(s["power"]) < need or rng.randf() > (0.35 if night else 0.15) * amb:
+		if float(s["power"]) < need or rng.randf() > (0.35 if night else 0.15) * amb * (1.5 if Game.inferno() else 1.0):
 			continue
 		var target := _pick_target(fid, rng)
 		if target == "":
@@ -397,12 +405,21 @@ static func find_camp(camp_id: String) -> Array:
 ## Night raid on the village gates by the faction that hates the hero most (and is strong enough).
 static func raid_candidate(rng: RandomNumberGenerator) -> String:
 	var best := ""
-	var bg := 25.0
+	var bg := 15.0 if Game.inferno() else 25.0
 	for fid in Game.factions:
 		var s: Dictionary = Game.factions[fid]
 		if active(fid) and float(s["grudge"]) > bg and float(s["power"]) > 40.0:
 			bg = float(s["grudge"])
 			best = fid
-	if best != "" and rng.randf() < 0.5:
+	if best != "" and rng.randf() < (0.75 if Game.inferno() else 0.5):
 		return best
 	return ""
+
+
+## Hell Mode start: every faction is already organised and stronger.
+static func apply_inferno() -> void:
+	for fid in Game.factions:
+		gain_xp(fid, TIER_XP[1])
+		Game.factions[fid]["power"] = 60.0
+	Game.chronicle.clear()
+	chronicle("O mundo despertou em Modo Inferno: as facções já estão organizadas.")

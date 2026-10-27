@@ -36,6 +36,16 @@ const ITEMS := {
 	"cerne_ent": {"name": "Cerne do Ent", "icon": 29, "price": 80},
 	"pena": {"name": "Pena", "icon": 36, "price": 2},
 	"couro": {"name": "Retalho de Couro", "icon": 37, "price": 3},
+	"tomo_pagma": {"name": "Tomo de Pagma", "icon": 40, "price": 0},
+}
+
+## Pagma's forge (Overgeared): legendary gear that rolls a grade when forged.
+## [name, multiplier on the base stat, colour]
+const GRADES := [["Comum", 1.0, Color("c8b3a2")], ["Raro", 1.3, Color("65b1b8")], ["Épico", 1.7, Color("b07fd6")], ["Lendário", 2.3, Color("e9ce7c")]]
+const GRADE_ODDS := [45.0, 33.0, 17.0, 5.0]
+const LEGEND_TITLES := {
+	"legend_sword": ["Ira do Céu", "Lamento do Ferreiro", "Presa da Aurora", "Brasa Eterna", "Juramento de Pagma", "Fio do Destino"],
+	"legend_armor": ["Muralha Viva", "Coração de Bigorna", "Escama do Dragão", "Manto da Forja", "Vigília de Pagma", "Pele de Aço"],
 }
 
 ## Resource nodes in the world: frame in nodes.png (32x32), depleted frame, yield, hits, tool tier.
@@ -96,6 +106,8 @@ const RECIPES := {
 		{"id": "espada_cristal", "icon": 4, "name": "Espada de Cristal", "desc": "+6 de ataque", "cost": {"cristal": 5, "ametista": 2, "nucleo_golem": 1}, "gold": 250, "kind": "sword", "value": 3},
 		{"id": "armadura_couro", "icon": 37, "name": "Armadura de Couro", "desc": "+2 de defesa", "cost": {"couro": 4, "pele_lobo": 3, "seda_aranha": 2}, "gold": 60, "kind": "armor", "value": 1},
 		{"id": "armadura_ferro", "icon": 10, "name": "Armadura de Ferro", "desc": "Defesa +5 (substitui a de couro)", "cost": {"ferro": 8, "prata": 2, "pele_lobo": 2}, "gold": 160, "kind": "armor", "value": 2},
+		{"id": "lamina_pagma", "icon": 41, "name": "Lâmina de Pagma", "desc": "Espada lendária: +8 ataque × grau", "cost": {"cristal": 3, "ouro": 3, "rubi": 1}, "gold": 220, "kind": "legend_sword", "value": 8, "pagma": true},
+		{"id": "couraca_pagma", "icon": 42, "name": "Couraça de Pagma", "desc": "Armadura lendária: +6 defesa × grau", "cost": {"ferro": 6, "prata": 4, "esmeralda": 1}, "gold": 220, "kind": "legend_armor", "value": 6, "pagma": true},
 	],
 	"alquimista": [
 		{"id": "pocao", "icon": 35, "name": "Poção de Vida", "desc": "Cura metade da vida", "cost": {"erva": 2, "gosma": 1}, "gold": 5, "kind": "potion", "value": 1},

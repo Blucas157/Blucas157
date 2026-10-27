@@ -101,6 +101,25 @@ O painel do canto (arte `assets/ui/hud_status.png`, feita com `create_ui_asset`)
 - **Barras de vida** desenhadas acima de cada monstro: aranha e fantasma não escondem mais a barra.
 - Teste: `tests/verify_living_world.gd`.
 
+## Modo Inferno e Sucessor de Pagma
+- **Modo Inferno** (inspirado em *Hell Mode*): escolhido em **Novo jogo**.
+  - Monstros com +50% de vida, +35% de ataque e um pouco mais rápidos.
+  - As facções já começam organizadas, aprendem 2× mais rápido, crescem e invadem mais.
+  - Aparecem mais monstros.
+  - **Em troca:** +50% de XP, ouro e drops, e a lenda de Pagma já no nível 3.
+  - Uma chaminha ao lado do retrato marca o modo.
+- **Sucessor de Pagma** (inspirado em *Overgeared*):
+  - A partir do nível 4 (3 no Inferno), o **Ferreiro** conta a lenda de Pagma, o ferreiro lendário.
+  - Uma **estrela dourada no mapa** marca a ruína mais distante. Lá aparece o **Guardião de Pagma**, um mini-chefe esqueleto dourado.
+  - Derrotado, ele deixa cair o **Tomo de Pagma**. Ao pegar, o herói vira **Sucessor de Pagma**:
+    - +2 de ataque;
+    - **Vontade de Pagma**: uma vez a cada 2 minutos resiste a um golpe mortal com 1 de vida;
+    - **forja lendária** no Ferreiro: **Lâmina de Pagma** e **Couraça de Pagma**.
+  - Cada forja sorteia um **grau** (Comum ×1, Raro ×1,3, Épico ×1,7, Lendário ×2,3) e um **nome único**.
+  - Cada forja sem Lendário aumenta a chance da próxima, e o jogo sempre guarda o melhor item.
+  - **Forjar um Lendário desperta a cobiça das facções**: o rancor de todas aumenta.
+- Teste: `tests/verify_inferno_pagma.gd`.
+
 ## Sistema de Rivais
 Monstros lembram de você:
 - **Te derrotou?** O monstro que deu o golpe final vira um **rival**: ganha nome (ex.: *Grak*), título (*Matador do Herói*) e sobe de nível.

@@ -250,6 +250,12 @@ func _draw_hud() -> void:
 	_text(Vector2(6, 78), q[0], 8, Color("ffe9a8"))
 	if q.size() > 1:
 		_text(Vector2(6, 88), q[1], 8, Color(0.85, 0.9, 1.0))
+	if Game.pagma_stage == 1:
+		_text(Vector2(6, 100), "Lendária: Tomo de Pagma nas Ruínas (estrela no mapa)", 8, Color("e9ce7c"))
+	if Game.inferno():
+		var fl := Sheets.tex("res://assets/vfx/flame.png")
+		var f := int(Time.get_ticks_msec() / 100) % 8
+		draw_root.draw_texture_rect_region(fl, Rect2(Vector2(5, 46), Vector2(16, 23)), Rect2(f * 16, 0, 16, 23))
 	# --- potion counter (bottom-left; on phones the potion button shows the count instead)
 	var touch_ui: bool = main.is_touch()
 	if not touch_ui:
@@ -344,6 +350,13 @@ func _map_markers(dest: Rect2, src: Rect2, _s: float) -> void:
 		var p2: Vector2 = to_dest.call(Vector2(c2))
 		if dest.has_point(p2):
 			draw_root.draw_rect(Rect2(p2 - Vector2(1, 1), Vector2(2, 2)), Color("ffd479"))
+	if Game.pagma_stage == 1:
+		var pc: Vector2 = to_dest.call(Vector2(main.pagma_cell()))
+		if dest.has_point(pc):
+			var pulse := 0.6 + 0.4 * sin(Time.get_ticks_msec() / 200.0)
+			for d in [Vector2(0, -3), Vector2(0, 3), Vector2(-3, 0), Vector2(3, 0)]:
+				draw_root.draw_rect(Rect2(pc + d - Vector2(1, 1), Vector2(2, 2)), Color(1.0, 0.85, 0.35, pulse))
+			draw_root.draw_rect(Rect2(pc - Vector2(1, 1), Vector2(3, 3)), Color(1.0, 0.95, 0.6))
 	var vc := Vector2(WorldGen.CENTER)
 	var pv: Vector2 = to_dest.call(vc)
 	if dest.has_point(pv):
@@ -431,11 +444,34 @@ func show_title() -> void:
 	var first: Button
 	if Game.has_save():
 		first = _button(box, "Continuar", func(): main.start_game(false))
-	var nb := _button(box, "Novo jogo", func(): main.start_game(true))
+	var nb := _button(box, "Novo jogo", func(): show_new_game())
 	if first == null:
 		first = nb
 	_button(box, "Som: " + ("desligado" if Game.muted else "ligado"), func(): Game.muted = not Game.muted; show_title())
 	first.call_deferred("grab_focus")
+
+
+## Hell Mode (Hell Mode: The Hardcore Gamer...): pick the difficulty for a new world.
+func show_new_game() -> void:
+	var box := _window("Novo jogo", 320.0, 236.0, 0.3)
+	var info := _small("Escolha a dificuldade do mundo. Não dá para mudar depois.", Color(0.85, 0.9, 1.0))
+	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(info)
+	var normal := _button(box, "Normal", func(): main.start_game(true, "normal"))
+	var n_desc := _small("O mundo vivo no ritmo de sempre.", Color(0.8, 0.84, 0.95))
+	n_desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(n_desc)
+	var hell := _button(box, "Modo Inferno", func(): main.start_game(true, "inferno"))
+	hell.add_theme_color_override("font_color", Color(1.0, 0.55, 0.4))
+	var desc := Label.new()
+	desc.text = "Monstros com +50% de vida e +35% de ataque, facções já organizadas que aprendem 2x mais rápido, crescem e invadem mais.\nEm troca: +50% de XP, ouro e drops, e o tomo de Pagma mais cedo."
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	desc.add_theme_font_size_override("font_size", 8)
+	desc.add_theme_color_override("font_color", Color(1.0, 0.75, 0.6))
+	_inset(box).add_child(desc)
+	_button(box, "Voltar", func(): show_title())
+	normal.call_deferred("grab_focus")
 
 
 func show_pause() -> void:
@@ -475,8 +511,13 @@ func show_pause() -> void:
 		var l := _small(it[1], it[2])
 		l.custom_minimum_size = Vector2(34, 0)
 		mid.add_child(l)
-	var low := _small("Monstros: %d   -   Baús: %d   -   Tempo: %d min" % [_total_kills(), Game.opened_chests.size(), int(Game.play_time / 60.0)],
-		Color(0.8, 0.84, 0.95))
+	var tags: Array = []
+	if Game.inferno():
+		tags.append("Modo Inferno")
+	if Game.is_pagma():
+		tags.append("Sucessor de Pagma")
+	var low := _small("Monstros: %d   -   Baús: %d   -   Tempo: %d min%s" % [_total_kills(), Game.opened_chests.size(), int(Game.play_time / 60.0),
+		("   -   " + ", ".join(tags)) if not tags.is_empty() else ""], Color(1.0, 0.7, 0.55) if Game.inferno() else Color(0.8, 0.84, 0.95))
 	low.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	stats.add_child(low)
 	# --- buttons: continue on top, four in a grid, quit below (all fit on a phone screen)
@@ -603,6 +644,11 @@ func show_inventory() -> void:
 	box.add_child(_small("Espada: +%d ATK   %s   Armadura: +%d DEF   Poções: %d" % [
 		Game.sword_tier * 3, ItemDB.TOOL_NAMES[Game.tool_tier], int(ItemDB.ARMOR_DEF.get(Game.armor_tier, 0)), Game.potions],
 		Color(0.85, 0.9, 1.0)))
+	for k in ["legend_sword", "legend_armor"]:
+		var it: Dictionary = Game.legend.get(k, {})
+		if not it.is_empty():
+			var g: Array = ItemDB.GRADES[int(it["grade"])]
+			box.add_child(_small("%s [%s]  +%d %s" % [it["name"], g[0], it["stat"], "ATK" if k == "legend_sword" else "DEF"], g[2]))
 	var list := _scroll(box)
 	var grid := GridContainer.new()
 	grid.columns = 2
@@ -688,8 +734,23 @@ func show_shop(kind: String) -> void:
 	var box := _panel_box(title)
 	box.add_child(_small("Forjas e ferramentas com os minérios que você coletar." if kind == "ferreiro"
 		else "Poções e tônicos com plantas e partes de monstros.", Color(0.85, 0.9, 1.0)))
+	if kind == "ferreiro" and Game.is_pagma():
+		var o: Array = main.grade_odds()
+		var tot := 0.0
+		for v in o:
+			tot += float(v)
+		var odds: Array = []
+		for i in o.size():
+			odds.append("%s %d%%" % [ItemDB.GRADES[i][0], int(round(float(o[i]) / tot * 100.0))])
+		box.add_child(_small("Forja de Pagma: " + "  ".join(odds), Color("e9ce7c")))
 	var list := _scroll(box)
-	for r in ItemDB.RECIPES[kind]:
+	var recipes: Array = ItemDB.RECIPES[kind].duplicate()
+	if Game.pagma_stage > 0:
+		# Pagma's legendary forge first
+		recipes.sort_custom(func(x, y): return x.get("pagma", false) and not y.get("pagma", false))
+	for r in recipes:
+		if r.get("pagma", false) and Game.pagma_stage == 0:
+			continue   # hidden until the legend of Pagma is told
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 6)
 		list.add_child(row)
@@ -717,7 +778,7 @@ func show_shop(kind: String) -> void:
 		costs.add_child(_small("%d ouro" % r["gold"], Color("ffd479") if Game.gold >= int(r["gold"]) else Color(1, 0.6, 0.6)))
 		var why: String = main.recipe_state(r)
 		var b := Button.new()
-		b.text = "Criar" if why == "" else why
+		b.text = ("Forjar" if r.get("pagma", false) else "Criar") if why == "" else why
 		b.disabled = why != ""
 		b.add_theme_font_size_override("font_size", 8)
 		b.custom_minimum_size = Vector2(70, 0)

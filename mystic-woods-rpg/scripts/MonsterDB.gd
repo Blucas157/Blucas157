@@ -53,6 +53,10 @@ const DATA := {
 		"gold": [4, 10], "speed": 36.0, "reach": 105.0, "aggro": 140.0, "cooldown": 2.4, "attack": "ranged",
 		"keep_away": 56.0, "flame": true, "teaches": "fireball",
 	},
+	"guardiao_pagma": {
+		"base": "skeleton", "name": "Guardião de Pagma", "tint": Color(1.25, 1.05, 0.6), "hp": 150, "atk": 13, "xp": 120,
+		"gold": [60, 90], "speed": 46.0, "scale": 1.35, "miniboss": true, "faction": "mortos", "aggro": 150.0,
+	},
 	"goblin": {
 		"name": "Goblin", "path": NEW + "goblin.png", "grid": 32, "feet": 24,
 		"hp": 22, "atk": 7, "speed": 54.0, "xp": 11, "gold": [3, 7], "reach": 20.0, "aggro": 120.0,

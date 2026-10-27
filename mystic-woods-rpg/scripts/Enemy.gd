@@ -73,6 +73,15 @@ func setup(monster_id: String, level: int, pos: Vector2, p_main: Node) -> void:
 		hp = max_hp
 		atk = int(round(atk * float(m[1])))
 		speed *= float(m[2])
+	if Game.inferno() and not is_boss:
+		max_hp = int(round(max_hp * 1.5))
+		hp = max_hp
+		atk = int(round(atk * 1.35))
+		speed *= 1.08
+	elif Game.inferno():
+		max_hp = int(round(max_hp * 1.3))
+		hp = max_hp
+		atk = int(round(atk * 1.2))
 	slot = randi() % 4
 	think_t = randf_range(0.2, 2.0)
 	t = randf() * 10.0
@@ -567,7 +576,7 @@ func _die() -> void:
 			if randf() < float(d[1]) * 0.5:
 				main.drop_material(global_position, d[0], 1)
 		return
-	var xp := int(round(float(def["xp"]) * (1.0 + 0.2 * (lvl - 1))))
+	var xp := int(round(float(def["xp"]) * (1.0 + 0.2 * (lvl - 1)) * (1.5 if Game.inferno() else 1.0)))
 	main.float_text(hurt_center() + Vector2(0, -18), "+%d XP" % xp, Color(0.55, 0.85, 1.0))
 	Game.add_xp(xp)
 	Game.register_kill(id)
@@ -581,10 +590,13 @@ func _die() -> void:
 		if Factions.learn(faction, last_kind) != "":
 			main.faction_learned(faction)
 	var g: Array = def["gold"]
-	var gold := int(randi_range(int(g[0]), int(g[1])) * (1.0 + 0.15 * (lvl - 1)))
-	main.drop_loot(global_position, gold, 0.08 if not is_boss else 1.0, 0.15)
+	var bonus := 1.5 if Game.inferno() else 1.0   # Hell Mode: harder, but richer
+	var gold := int(randi_range(int(g[0]), int(g[1])) * (1.0 + 0.15 * (lvl - 1)) * bonus)
+	main.drop_loot(global_position, gold, (0.08 if not is_boss else 1.0) * bonus, 0.15 * bonus)
+	if id == "guardiao_pagma" and Game.pagma_stage == 1:
+		main.drop_pagma_tome(global_position)
 	for d in ItemDB.DROPS.get(id, []):
-		if randf() < float(d[1]):
+		if randf() < float(d[1]) * (1.3 if Game.inferno() else 1.0):
 			main.drop_material(global_position, d[0], 1)
 	if def.has("teaches") and not Game.has_skill(def["teaches"]):
 		main.drop_skill(global_position, def["teaches"])

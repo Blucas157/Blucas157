@@ -55,6 +55,12 @@ var tool_tier := 0
 var armor_tier := 0
 var items := {}
 var skills: Array = []
+var difficulty := "normal"   # "normal" or "inferno" (Hell Mode)
+var pagma_stage := 0         # Overgeared: 0 = nothing, 1 = quest for the tome, 2 = Pagma's Successor
+var legend := {}             # forged legendary gear: {"legend_sword": {...}, "legend_armor": {...}}
+var pagma_pity := 0          # forges since the last Legendary grade (raises the odds)
+var immortal_at := -999.0    # play_time of the last "Vontade de Pagma" (cheating death)
+const IMMORTAL_CD := 120.0
 var factions := {}        # living world state (Factions.gd)
 var chronicle: Array = [] # what happened in the world, newest last
 var day_count := 0
@@ -112,6 +118,11 @@ func new_game(seed_value: int = -1) -> void:
 	armor_tier = 0
 	items = {}
 	skills = []
+	difficulty = "normal"
+	pagma_stage = 0
+	legend = {}
+	pagma_pity = 0
+	immortal_at = -999.0
 	factions = Factions.init_state()
 	chronicle = []
 	day_count = 0
@@ -139,8 +150,16 @@ func xp_to_next() -> int:
 	return 20 + (level - 1) * 15 + (level - 1) * (level - 1) * 5
 
 
+func inferno() -> bool:
+	return difficulty == "inferno"
+
+
+func is_pagma() -> bool:
+	return pagma_stage >= 2
+
+
 func attack_power() -> int:
-	return atk + sword_tier * 3
+	return atk + sword_tier * 3 + int(legend.get("legend_sword", {}).get("stat", 0)) + (2 if is_pagma() else 0)
 
 
 func add_xp(amount: int) -> void:
@@ -171,6 +190,13 @@ func add_gold(amount: int) -> void:
 
 func damage_player(raw: int) -> int:
 	var dmg: int = max(1, raw - defense_total())
+	if is_pagma() and hp - dmg <= 0 and play_time - immortal_at >= IMMORTAL_CD:
+		# Vontade de Pagma (Overgeared): the Successor refuses to fall, once every two minutes
+		immortal_at = play_time
+		hp = 1
+		message.emit("Vontade de Pagma! Você resistiu à morte.", Color(1.0, 0.85, 0.35))
+		stats_changed.emit()
+		return dmg
 	hp = max(0, hp - dmg)
 	stats_changed.emit()
 	return dmg
@@ -277,7 +303,7 @@ func sell(id: String, n: int = 1) -> int:
 
 
 func defense_total() -> int:
-	return defense + int(ItemDB.ARMOR_DEF.get(armor_tier, 0))
+	return defense + int(ItemDB.ARMOR_DEF.get(armor_tier, 0)) + int(legend.get("legend_armor", {}).get("stat", 0))
 
 
 # ---------------------------------------------------------------- quests
@@ -415,9 +441,9 @@ func has_save() -> bool:
 func save_game() -> void:
 	var cfg := ConfigFile.new()
 	for key in ["world_seed", "level", "xp", "gold", "potions", "max_hp", "hp", "max_mp", "mp", "atk", "defense", "sword_tier",
-			"tool_tier", "armor_tier", "items", "skills", "factions", "chronicle", "day_count", "camp_seq", "crafted",
+			"tool_tier", "armor_tier", "items", "skills", "difficulty", "pagma_stage", "legend", "pagma_pity", "factions", "chronicle", "day_count", "camp_seq", "crafted",
 			"kills", "opened_chests", "broken", "discovered", "explored", "boss_defeated", "rivals", "rival_seq", "quest_index", "quest_progress",
-			"player_pos", "play_time", "day_time", "muted", "world_version"]:
+			"player_pos", "play_time", "day_time", "muted", "world_version", "immortal_at"]:
 		cfg.set_value("save", key, get(key))
 	cfg.save(save_path)
 
@@ -431,6 +457,11 @@ func load_game() -> bool:
 	hp = clampi(hp, 1, max_hp)
 	if not cfg.has_section_key("save", "skills"):
 		skills = []
+	if not cfg.has_section_key("save", "difficulty"):
+		difficulty = "normal"
+		pagma_stage = 0
+		legend = {}
+		pagma_pity = 0
 	if not cfg.has_section_key("save", "factions"):
 		factions = Factions.init_state()   # saves from before the living world
 		chronicle = []

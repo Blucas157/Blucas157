@@ -39,7 +39,8 @@ Este documento descreve o sistema de facções do jogo (`scripts/Factions.gd`, `
 | **Tyrant of a Defense Game** / **Dungeon Reset** / **The Greatest Estate Developer** | manhwa | **Construção e recursos**: no futuro, o herói **fortifica a vila** (muralhas, torres, guardas) com os materiais que tira das facções. |
 | **Renegade Immortal**, **Perfect World**, **Swallowed Star**, **Throne of Seal** | donghwa (2025–2026) | Escala de **cultivo e reinos de poder**, **seitas** como facções e **bestas demoníacas** com hierarquia. Para o jogo: os níveis das facções (Selvagens → Lendários) e futuras **bestas-rei** por região. |
 
-#### Mecânicas que estas referências sugerem (próximos passos)
+#### Mecânicas que estas referências sugerem
+Já no jogo: **Modo Inferno** (1) e **Sucessor de Pagma** (2), descritos no LEIA-ME. Próximas: 3 a 6.
 1. **Modo Inferno** (Hell Mode): escolhido no "Novo jogo". Facções começam evoluídas, aprendem 2× mais rápido e invadem mais, com +50% XP e drops.
 2. **Sucessor de Pagma** (Overgeared): missão do Ferreiro que libera a forja de **itens lendários com nome** e chance de forja épica.
 3. **Lua de Sangue e ondas na vila** (Tyrant / Kingdom: Two Crowns): a cada X dias, as facções com rancor atacam a vila em ondas, e o herói prepara defesas.

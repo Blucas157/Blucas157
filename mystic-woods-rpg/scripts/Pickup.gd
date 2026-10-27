@@ -13,7 +13,13 @@ var sprite: Node2D
 
 
 func _ready() -> void:
-	if kind == "skill":
+	if kind == "pagma":
+		var tome := Sprite2D.new()
+		tome.texture = Sheets.tex(ItemDB.ICONS)
+		tome.region_enabled = true
+		tome.region_rect = ItemDB.icon_rect("tomo_pagma")
+		sprite = tome
+	elif kind == "skill":
 		var orb := AnimatedSprite2D.new()
 		orb.sprite_frames = Sheets.strip("res://assets/vfx/fireball.png", 24, 24, 8, 12.0, true)
 		orb.play("default")
@@ -53,14 +59,14 @@ func _process(delta: float) -> void:
 	if player and age > 0.45 and player.alive():
 		var to := player.global_position + Vector2(0, -6) - global_position
 		var d := to.length()
-		var magnet := 46.0 if kind in ["coin", "item", "skill"] else 22.0
+		var magnet := 46.0 if kind in ["coin", "item", "skill", "pagma"] else 22.0
 		if d < 8.0:
 			_collect()
 			return
 		if d < magnet:
 			position += to.normalized() * (60.0 + (magnet - d) * 5.0) * delta
-	if kind == "skill":
-		pass   # a skill orb never disappears
+	if kind in ["skill", "pagma"]:
+		sprite.modulate = Color(1, 1, 1).lerp(Color(1.6, 1.4, 0.8), 0.5 + 0.5 * sin(age * 6.0))   # never disappears; glows
 	elif age > 45.0:
 		queue_free()
 	elif age > 40.0:
@@ -79,6 +85,9 @@ func _collect() -> void:
 		"heart":
 			Game.heal(8)
 			Sfx.play("potion", 1.3)
+		"pagma":
+			if player and player.main:
+				player.main.become_pagma()
 		"skill":
 			Game.learn_skill(item_id)
 			Sfx.play("potion", 0.7)
