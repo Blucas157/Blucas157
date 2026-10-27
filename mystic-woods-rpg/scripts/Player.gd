@@ -26,6 +26,7 @@ var charged: Array = []
 var spirits: Array = []    # Espíritos Famintos
 var spirit_t := 0.0
 var spirit_bites := {}
+var paste_boost := 1.0     # Memória Arcana: pasted spells hit harder
 ## Spell target: the nearest monster in range (soft), or the one the hero locked (tap / target button).
 var target = null   # untyped on purpose: a monster can be freed while it is the target
 var target_locked := false
@@ -198,10 +199,20 @@ func cast(sk: String) -> bool:
 	if state != "move" or main == null or skill_cd > 0.0 or cd_left(sk) > 0.0 or not Game.has_skill(sk):
 		return false
 	var d: Dictionary = Archetypes.SKILLS[sk]
-	if not Game.spend_mana(int(d["cost"])):
+	var cost := int(d["cost"])
+	var pasting := sk in ["colar", "colar_massa"]
+	if pasting:
+		if Game.copied == "":
+			main.hud.toast("Nada copiado: use Copiar (Ctrl+C) num monstro ou depois de usar uma magia", Color(0.6, 0.9, 1.0))
+			return false
+		cost = int(ceil(float(Archetypes.SKILLS[Game.copied]["cost"]) * (1.0 - 0.15 * Archetypes.bonus("paste_power"))
+			* (2.0 if sk == "colar_massa" else 1.0)))
+	if not Game.spend_mana(cost):
 		main.hud.toast("Mana insuficiente", Color(0.55, 0.7, 1.0))
 		return false
 	skill_cds[sk] = float(d["cd"])
+	if not pasting and sk != "copiar":
+		Game.last_cast = sk
 	skill_cd = 0.25
 	var input := input_vector()
 	if input.length() > 0.1:
@@ -217,6 +228,53 @@ func cast(sk: String) -> bool:
 		attack_cd = 0.32
 		_play_dir("attack")
 		sprite.frame = 0
+	match sk:
+		"copiar":
+			_copy_spell()
+		"colar":
+			paste_boost = 1.0 + 0.1 * Archetypes.bonus("paste_power")
+			_effect(Game.copied, origin, dir)
+			paste_boost = 1.0
+		"colar_massa":
+			paste_boost = 1.0 + 0.1 * Archetypes.bonus("paste_power")
+			if Game.copied in Archetypes.SELF_SKILLS:
+				_effect(Game.copied, origin, dir)
+			else:
+				for k in 3:
+					_effect(Game.copied, origin, dir.rotated((k - 1) * 0.35))
+			paste_boost = 1.0
+		_:
+			_effect(sk, origin, dir)
+	return true
+
+
+## Ctrl+C: copy the magic of the monster in sight, or the last skill the hero used.
+func _copy_spell() -> void:
+	var src = target if _target_ok(target) else _nearest_enemy(150.0)
+	var sk := ""
+	var what := ""
+	if src != null:
+		sk = Archetypes.COPY_FROM.get(src.id, "")
+		what = src.def["name"]
+		if sk == "":
+			sk = "golpe_giratorio"
+	elif Game.last_cast != "":
+		sk = Game.last_cast
+		what = "sua última magia"
+	if sk == "":
+		main.hud.toast("Nada para copiar por perto", Color(0.6, 0.9, 1.0))
+		return
+	Game.copied = sk
+	var at: Vector2 = src.hurt_center() if src != null else global_position + Vector2(0, -12)
+	main.vfx("puff", at, 0.0, Color(0.6, 1.3, 1.4), null, 1.2)
+	main.float_text(global_position + Vector2(0, -30), "Ctrl+C: %s" % Archetypes.SKILLS[sk]["name"], Color(0.6, 0.95, 1.0))
+	main.hud.toast("Copiado de %s: %s. Use Colar (Ctrl+V)!" % [what, Archetypes.SKILLS[sk]["name"]], Color(0.6, 0.95, 1.0))
+	Sfx.play("select", 1.5)
+
+
+## What each skill does (shared by casting it and by pasting a copy of it).
+func _effect(sk: String, origin: Vector2, dir: Vector2) -> void:
+	var d: Dictionary = Archetypes.SKILLS[sk]
 	var color: Color = Archetypes.DATA[d["arch"]]["color"]
 	match sk:
 		"fireball":
@@ -312,7 +370,6 @@ func cast(sk: String) -> bool:
 				_hit(e, spell_damage(1.2), Vector2.DOWN, "magic")
 			main.shake(3.0, 0.15)
 			Sfx.play("slam", 1.6)
-	return true
 
 
 func _enemies_near(at: Vector2, r: float) -> Array:
@@ -329,7 +386,7 @@ func _hit(e: Node, dmg: int, dir: Vector2, kind: String) -> void:
 
 ## Damage multipliers from archetype passives and buffs.
 func dmg_mult(e = null) -> float:
-	var m := 1.0
+	var m := paste_boost
 	if buff_atk_t > 0.0:
 		m *= 1.3
 	if Archetypes.bonus("fury") > 0.0 and Game.hp < Game.max_hp / 2:

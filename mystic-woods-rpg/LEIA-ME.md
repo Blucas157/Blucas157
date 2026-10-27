@@ -121,7 +121,7 @@ O painel do canto (arte `assets/ui/hud_status.png`, feita com `create_ui_asset`)
 - Teste: `tests/verify_inferno_pagma.gd`.
 
 ## Arquétipos (inspirado no Ravendawn)
-- **7 árvores** de habilidade em forma de pirâmide: **Guerra, Arqueria, Magia, Sagrado, Escudo, Bruxaria, Espiritual**.
+- **8 árvores** de habilidade (com o Mago) em forma de pirâmide: **Guerra, Arqueria, Magia, Sagrado, Escudo, Bruxaria, Espiritual**.
 - Cada árvore tem 5 nós: uma habilidade ativa inicial, duas passivas (3 níveis cada), uma ativa avançada (abre com 4 pontos na árvore) e um capstone (abre com 6).
 - **1 ponto por nível.** Escolha até **3 arquétipos**: a combinação dá o nome da classe.
   - Guerra + Sagrado = **Paladino**; Magia + Bruxaria = **Necromante**; Guerra + Arqueria + Sagrado = **Patrulheiro Sagrado**.
@@ -138,6 +138,18 @@ O painel do canto (arte `assets/ui/hud_status.png`, feita com `create_ui_asset`)
 - **3 botões de habilidade** em arco ao redor da espada, com custo de mana e anel de recarga. No PC: F/1, G/2, V/3. Escolha o botão de cada habilidade na tela de Arquétipos.
 - Tela: **Pausa → Arquétipos**, com abas dos 7 arquétipos, a pirâmide, os detalhes e o botão Aprender. O botão **Refazer** devolve os pontos por 50 de ouro por nível. A Bola de Fogo do orbe nunca se perde.
 - Ícones: `assets/ui/skills.png`, gerados por `tools/build_skill_icons.py`. Teste: `tests/verify_archetypes.gd`.
+
+### Arquétipo Mago: Copiar e Colar (Ctrl+C / Ctrl+V)
+Inspirado no manhwa *Conquering Dungeons With Copy Paste!* (던전공략은 복붙이지).
+- **Copiar (Ctrl+C):** copia a magia do monstro na mira, ou a última que você usou.
+  - Exemplos: a Bola de Fogo do Esqueleto Piromante, a teia da aranha (Raízes), a pele de pedra do golem (Muralha), a maldição do fantasma, os raios do Ent (Tempestade).
+- **Colar (Ctrl+V):** lança a magia copiada mesmo sem conhecê-la, pagando a mana dela. O botão mostra a magia copiada.
+- **Grimório** (3 níveis): cada nível deixa aprender 1 habilidade inicial de **qualquer** arquétipo, além dos 3 escolhidos.
+- **Memória Arcana:** o que você cola custa menos mana e bate mais forte.
+- **Colar em Massa:** cola a magia três vezes em leque.
+- **Biblioteca Infinita** (capstone): aprende **qualquer** habilidade ativa de todos os arquétipos, sem limite.
+- Classes com Mago: Mago Copista, Arquimago (Magia + Mago), Oráculo, Ladrão de Almas, Lâmina Copista...
+- O título do arquétipo Magia passou a ser "Feiticeiro".
 
 ## Sistema de Rivais
 Monstros lembram de você:

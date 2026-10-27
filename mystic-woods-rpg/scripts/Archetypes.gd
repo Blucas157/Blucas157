@@ -15,7 +15,7 @@ const DATA := {
 		"desc": "Lâmina e fúria: golpes em área e força bruta."},
 	"arqueria": {"name": "Arqueria", "color": Color("53a03b"), "title": "Arqueiro", "adj": "Caçador",
 		"desc": "Flechas de longe, críticos e mobilidade."},
-	"magia": {"name": "Magia", "color": Color("bc6924"), "title": "Mago", "adj": "Arcano",
+	"magia": {"name": "Magia", "color": Color("bc6924"), "title": "Feiticeiro", "adj": "Arcano",
 		"desc": "Fogo e explosões arcanas, muita mana."},
 	"sagrado": {"name": "Sagrado", "color": Color("e9ce7c"), "title": "Clérigo", "adj": "Sagrado",
 		"desc": "Cura, vida extra e luz contra mortos-vivos."},
@@ -25,8 +25,11 @@ const DATA := {
 		"desc": "Maldições, espíritos famintos e roubo de vida."},
 	"espiritual": {"name": "Espiritual", "color": Color("509b66"), "title": "Xamã", "adj": "Espiritual",
 		"desc": "Raízes, tempestades e a força da natureza."},
+	# inspired by "Conquering Dungeons With Copy Paste!" (Ctrl+C / Ctrl+V): the mage who learns every spell
+	"mago": {"name": "Mago", "color": Color("65b1b8"), "title": "Mago Copista", "adj": "Copista",
+		"desc": "Ctrl+C, Ctrl+V: copia a magia dos monstros e aprende magias de todos os arquétipos."},
 }
-const ORDER := ["guerra", "arqueria", "magia", "sagrado", "escudo", "bruxaria", "espiritual"]
+const ORDER := ["guerra", "arqueria", "magia", "sagrado", "escudo", "bruxaria", "espiritual", "mago"]
 
 ## Two archetypes -> class name (key: the two ids in ORDER order joined by "+")
 const PAIRS := {
@@ -38,6 +41,18 @@ const PAIRS := {
 	"magia+espiritual": "Elementalista", "sagrado+escudo": "Templário", "sagrado+bruxaria": "Inquisidor",
 	"sagrado+espiritual": "Druida", "escudo+bruxaria": "Cavaleiro Sombrio", "escudo+espiritual": "Guardião Ancestral",
 	"bruxaria+espiritual": "Xamã Sombrio",
+	"guerra+mago": "Lâmina Copista", "arqueria+mago": "Arqueiro Copista", "magia+mago": "Arquimago",
+	"sagrado+mago": "Oráculo", "escudo+mago": "Guardião Arcano", "bruxaria+mago": "Ladrão de Almas",
+	"espiritual+mago": "Sábio dos Espíritos",
+}
+
+## Ctrl+C: what each monster's magic becomes when the Mago copies it.
+const COPY_FROM := {
+	"skeleton_pyro": "fireball", "ghost": "maldicao", "skeleton": "golpe_giratorio", "skeleton_dark": "golpe_giratorio",
+	"guardiao_pagma": "julgamento", "goblin": "flecha", "goblin_chief": "grito_guerra", "orc": "investida",
+	"wolf": "investida", "bat": "espiritos", "spider": "raizes", "golem": "muralha", "crystal_elemental": "explosao_arcana",
+	"slime": "maldicao", "slime_fire": "fireball", "slime_poison": "maldicao", "mushroom": "raizes", "frog": "flecha",
+	"treant": "tempestade",
 }
 
 ## Nodes. kind: active (skill id) or passive (stat, per rank). ranks: max rank.
@@ -120,6 +135,19 @@ const NODES := {
 		"desc": "Raios atingem até 3 inimigos próximos (120% do dano mágico)."},
 	"p_comunhao": {"arch": "espiritual", "tier": 4, "kind": "passive", "stat": "night_power", "per": 20, "ranks": 1, "name": "Comunhão",
 		"desc": "À noite: +20% de dano e mana regenera 50% mais rápido."},
+	# --- Mago (Ctrl+C / Ctrl+V)
+	"c_copiar": {"arch": "mago", "tier": 1, "kind": "active", "skill": "copiar", "ranks": 1, "name": "Copiar (Ctrl+C)",
+		"desc": "Copia a magia do monstro na mira (ou a última que você usou). A Bola de Fogo do Piromante, a teia da aranha, a pele de pedra do golem..."},
+	"c_colar": {"arch": "mago", "tier": 1, "kind": "active", "skill": "colar", "ranks": 1, "name": "Colar (Ctrl+V)",
+		"desc": "Lança a magia copiada, mesmo sem conhecê-la. Custa a mana dela."},
+	"c_grimorio": {"arch": "mago", "tier": 2, "kind": "passive", "stat": "foreign", "per": 1, "ranks": 3, "name": "Grimório",
+		"desc": "Por nível: aprende 1 habilidade inicial de qualquer arquétipo, além dos seus 3."},
+	"c_memoria": {"arch": "mago", "tier": 2, "kind": "passive", "stat": "paste_power", "per": 1, "ranks": 3, "name": "Memória Arcana",
+		"desc": "Por nível: o que você cola custa 15% menos mana e causa 10% mais dano."},
+	"c_massa": {"arch": "mago", "tier": 3, "kind": "active", "skill": "colar_massa", "ranks": 1, "name": "Colar em Massa",
+		"desc": "Cola a magia copiada três vezes em leque (o dobro da mana)."},
+	"c_biblioteca": {"arch": "mago", "tier": 4, "kind": "passive", "stat": "foreign_all", "per": 1, "ranks": 1, "name": "Biblioteca Infinita",
+		"desc": "Aprende QUALQUER habilidade ativa de todos os arquétipos, sem limite."},
 }
 
 ## Active skills: mana cost and cooldown (seconds).
@@ -138,7 +166,12 @@ const SKILLS := {
 	"espiritos": {"name": "Espíritos Famintos", "cost": 12, "cd": 10.0, "arch": "bruxaria"},
 	"raizes": {"name": "Raízes", "cost": 8, "cd": 7.0, "arch": "espiritual"},
 	"tempestade": {"name": "Tempestade", "cost": 14, "cd": 5.0, "arch": "espiritual"},
+	"copiar": {"name": "Copiar (Ctrl+C)", "cost": 3, "cd": 1.5, "arch": "mago"},
+	"colar": {"name": "Colar (Ctrl+V)", "cost": 0, "cd": 0.8, "arch": "mago"},
+	"colar_massa": {"name": "Colar em Massa", "cost": 0, "cd": 4.0, "arch": "mago"},
 }
+## skills that act on the hero only (Colar em Massa casts these once)
+const SELF_SKILLS := ["grito_guerra", "luz_curativa", "muralha", "investida", "espiritos", "copiar", "colar", "colar_massa"]
 
 
 const ICONS := "res://assets/ui/skills.png"   # built by tools/build_skill_icons.py (24x24, 8 per row)
@@ -207,17 +240,33 @@ static func can_learn(id: String) -> String:
 	if points_free() <= 0:
 		return "Sem pontos"
 	if not arch in Game.archetypes and Game.archetypes.size() >= MAX_ARCHETYPES:
-		return "Máx. 3 arquétipos"
+		# the Mago's Grimório / Biblioteca: spells from any archetype beyond the three
+		if n["kind"] != "active" or arch == "mago":
+			return "Máx. 3 arquétipos"
+		if bonus("foreign_all") > 0.0:
+			return ""
+		if int(n["tier"]) == 1 and foreign_used() < int(bonus("foreign")):
+			return ""
+		return "Máx. 3 arquétipos (o Grimório do Mago libera)" if bonus("foreign") <= 0.0 else "Grimório cheio"
 	if spent_in(arch) < int(TIER_NEED[int(n["tier"]) - 1]):
 		return "Precisa de %d pontos em %s" % [TIER_NEED[int(n["tier"]) - 1], DATA[arch]["name"]]
 	return ""
+
+
+## Active skills learned from archetypes outside the chosen three (Grimório).
+static func foreign_used() -> int:
+	var n := 0
+	for id in Game.arch_ranks:
+		if not NODES[id]["arch"] in Game.archetypes:
+			n += 1
+	return n
 
 
 static func learn(id: String) -> bool:
 	if can_learn(id) != "":
 		return false
 	var n: Dictionary = NODES[id]
-	if not n["arch"] in Game.archetypes:
+	if not n["arch"] in Game.archetypes and Game.archetypes.size() < MAX_ARCHETYPES:
 		Game.archetypes.append(n["arch"])
 	Game.arch_ranks[id] = rank(id) + 1
 	_apply_passive(n, 1)
@@ -274,6 +323,7 @@ static func reset() -> void:
 			_apply_passive(n, -1)
 	Game.arch_ranks = {}
 	Game.archetypes = []
+	Game.copied = ""
 	var keep: Array = []
 	for sk in Game.skills:
 		if sk in Game.orb_skills:

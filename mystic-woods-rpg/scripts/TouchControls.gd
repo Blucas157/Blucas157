@@ -222,6 +222,8 @@ func _draw_button(name: String, c: Vector2, r: float) -> void:
 		"skill0", "skill1", "skill2":
 			var sk: String = Game.skill_slots[int(name.substr(5))]
 			usable = Game.mp >= int(Archetypes.SKILLS[sk]["cost"]) and p.cd_left(sk) <= 0.0
+			if sk in ["colar", "colar_massa"]:
+				usable = usable and Game.copied != "" and Game.mp >= int(Archetypes.SKILLS[Game.copied]["cost"]) / 2
 		"interact":
 			glow = main.hud.hint != ""
 	if glow:
@@ -265,7 +267,13 @@ func _draw_button(name: String, c: Vector2, r: float) -> void:
 			var left: float = p.cd_left(sk2) / float(Archetypes.SKILLS[sk2]["cd"])
 			if left > 0.0:
 				draw_arc(c, r - 2.5, -PI / 2.0, -PI / 2.0 + TAU * left, 32, Color(1.0, 0.85, 0.4, 0.9), 2.5)
-			_badge(c + Vector2(r - 3, r - 4), str(int(Archetypes.SKILLS[sk2]["cost"])))
+			var cost := int(Archetypes.SKILLS[sk2]["cost"])
+			if sk2 in ["colar", "colar_massa"]:
+				# Ctrl+V shows what is on the clipboard
+				if Game.copied != "":
+					draw_texture_rect_region(SKILL_ICONS, Rect2(c + Vector2(-r - 2, -r - 2), Vector2(14, 14)), Archetypes.icon_rect(Archetypes.skill_icon(Game.copied)))
+					cost = int(ceil(float(Archetypes.SKILLS[Game.copied]["cost"]) * (1.0 - 0.15 * Archetypes.bonus("paste_power")) * (2.0 if sk2 == "colar_massa" else 1.0)))
+			_badge(c + Vector2(r - 3, r - 4), str(cost))
 		"bag":
 			draw_texture_rect_region(Sheets.tex(ItemDB.ICONS), Rect2(c - Vector2(7, 7), Vector2(14, 14)), ItemDB.icon_index_rect(38))
 		"map":

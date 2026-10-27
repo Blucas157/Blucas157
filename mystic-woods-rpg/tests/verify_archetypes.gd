@@ -93,7 +93,7 @@ func run() -> void:
 	check(game.class_title() == "Paladino", "Guerra + Sagrado: " + game.class_title())
 	A.learn("a_flecha")
 	check(game.class_title() == "Patrulheiro Sagrado", "three archetypes: " + game.class_title())
-	check(A.can_learn("m_fogo") == "Máx. 3 arquétipos", "a fourth archetype is refused")
+	check(A.can_learn("m_fogo").begins_with("Máx. 3 arquétipos"), "a fourth archetype is refused")
 	check(A.points_free() == 11 - 8, "points spent (%d left)" % A.points_free())
 
 	# 2) every active skill does its job
@@ -242,14 +242,78 @@ func run() -> void:
 	await shot("arch_03_screen")
 	main.set_paused(false)
 
+	# 4b) the Mago (Ctrl+C / Ctrl+V): copy the Pyromancer's fireball, paste it, learn foreign spells
+	clear_enemies()
+	game.level = 30
+	game.arch_ranks = {}
+	game.archetypes = []
+	game.skills = []
+	game.skill_slots = ["", "", ""]
+	check(A.learn("c_copiar") and A.learn("c_colar"), "Mago: Copiar and Colar learned")
+	check(game.class_title() == "Mago Copista", "class: " + game.class_title())
+	var pyro: Node = dummy(Vector2(80, 0), "skeleton_pyro")
+	await process_frame
+	p.lock_on(pyro)
+	ready_to_cast(p)
+	check(not game.has_skill("fireball"), "the hero does not know the fireball")
+	p.cast("copiar")
+	check(game.copied == "fireball", "Ctrl+C on the Pyromancer copies the Bola de Fogo")
+	ready_to_cast(p)
+	var balls: int = main.fx_layer.get_child_count()
+	check(p.cast("colar") and main.fx_layer.get_child_count() > balls, "Ctrl+V casts the copied fireball")
+	await create_timer(0.8).timeout
+	check(pyro.hp < 9999, "the pasted fireball burns")
+	clear_enemies()
+	var spider: Node = dummy(Vector2(60, 0), "spider")
+	await process_frame
+	p.lock_on(spider)
+	ready_to_cast(p)
+	p.cast("copiar")
+	check(game.copied == "raizes", "Ctrl+C on a spider copies its web (Raízes)")
+	clear_enemies()
+	# the Grimório opens spells from archetypes beyond the three
+	A.learn("g_giro")
+	A.learn("s_luz")
+	check(game.archetypes.size() == 3, "three archetypes (Mago, Guerra, Sagrado)")
+	check(A.can_learn("a_flecha").begins_with("Máx"), "a fourth archetype's spell is closed without the Grimório")
+	A.learn("c_grimorio")
+	check(A.can_learn("a_flecha") == "" and A.learn("a_flecha") and game.has_skill("flecha"), "Grimório: learns Flecha Certeira from Arqueria anyway")
+	check(game.archetypes.size() == 3 and not "arqueria" in game.archetypes, "the class keeps its three archetypes")
+	check(A.can_learn("p_tempestade") != "", "advanced foreign spells still need the Biblioteca")
+	A.learn("c_memoria")
+	A.learn("c_memoria")
+	A.learn("c_massa")
+	A.learn("c_biblioteca")
+	check(A.can_learn("p_tempestade") == "" and A.learn("p_tempestade"), "Biblioteca Infinita: any spell of any archetype")
+	# Colar em Massa: three copies in a fan
+	game.copied = "fireball"
+	ready_to_cast(p)
+	var before_mass: int = main.fx_layer.get_child_count()
+	check(p.cast("colar_massa") and main.fx_layer.get_child_count() - before_mass == 3, "Colar em Massa: three fireballs")
+	await create_timer(0.5).timeout
+	game.skill_slots = ["copiar", "colar", "colar_massa"]
+	main.set_paused(true)
+	main.hud.arch_tab = "mago"
+	main.hud.show_archetypes()
+	await create_timer(0.3).timeout
+	await shot("arch_04_mago")
+	main.set_paused(false)
+	await create_timer(0.2).timeout
+	await shot("arch_05_mago_buttons")
+	game.level = 12
+
 	# 5) reset gives the points back, keeps the orb skill; saved
 	game.level = 12
 	game.skills.append("fireball")
 	game.orb_skills.append("fireball")
-	var hp_b: int = game.max_hp
 	A.reset()
 	check(A.points_free() == 11 and game.archetypes.is_empty(), "reset returns every point")
-	check(game.max_hp == hp_b - 6 and game.has_skill("fireball") and not game.has_skill("golpe_giratorio"), "reset removes passives and skills, keeps the orb's fireball")
+	check(game.has_skill("fireball") and not game.has_skill("golpe_giratorio") and game.copied == "", "reset removes skills and the copy, keeps the orb's fireball")
+	var hp_b: int = game.max_hp
+	A.learn("s_luz")
+	A.learn("s_bencao")
+	A.reset()
+	check(game.max_hp == hp_b, "reset takes passive life back")
 	A.learn("e_muralha")
 	A.learn("e_pele")
 	game.save_game()

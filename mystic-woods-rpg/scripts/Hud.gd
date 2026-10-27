@@ -745,6 +745,7 @@ func show_archetypes() -> void:
 		arch_tab = "guerra"
 	var head := _small("Classe: %s   -   Pontos livres: %d   -   Arquétipos: %d/3" % [Game.class_title(), Archetypes.points_free(), Game.archetypes.size()],
 		Color("ffe9a8"))
+	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(head)
 	# tabs: the seven archetypes (gold ring = chosen)
 	var tabs := HBoxContainer.new()
@@ -810,9 +811,13 @@ func show_archetypes() -> void:
 	info.add_theme_constant_override("separation", 3)
 	body.add_child(info)
 	var n2: Dictionary = Archetypes.NODES[arch_node]
-	info.add_child(_small(d["desc"], Color(0.8, 0.84, 0.95)))
-	info.add_child(_small("%s  (%s, nível %d de %d)" % [n2["name"], "ativa" if n2["kind"] == "active" else "passiva",
-		Archetypes.rank(arch_node), int(n2["ranks"])], d["color"]))
+	var adesc := _small(d["desc"], Color(0.8, 0.84, 0.95))
+	adesc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info.add_child(adesc)
+	var nname := _small("%s  (%s, nível %d de %d)" % [n2["name"], "ativa" if n2["kind"] == "active" else "passiva",
+		Archetypes.rank(arch_node), int(n2["ranks"])], d["color"])
+	nname.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info.add_child(nname)
 	var desc := Label.new()
 	desc.text = n2["desc"]
 	if n2["kind"] == "active":

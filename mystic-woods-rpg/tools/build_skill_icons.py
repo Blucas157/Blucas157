@@ -11,7 +11,7 @@ UI = Image.open(os.path.join(ROOT, "assets/ui/icons.png")).convert("RGBA")
 VFX = os.path.join(ROOT, "assets/vfx")
 
 COLORS = {"guerra": "#bc4952", "arqueria": "#53a03b", "magia": "#bc6924", "sagrado": "#e9ce7c",
-          "escudo": "#4d8ab3", "bruxaria": "#8a4fb3", "espiritual": "#509b66"}
+          "escudo": "#4d8ab3", "bruxaria": "#8a4fb3", "espiritual": "#509b66", "mago": "#65b1b8"}
 
 def item(i):
     return ITEMS.crop(((i % 8) * 16, (i // 8) * 16, (i % 8) * 16 + 16, (i // 8) * 16 + 16))
@@ -43,6 +43,27 @@ def chevrons(base):
         d.line([(x, 4), (x + 3, 8), (x, 12)], fill=(255, 255, 255, 255), width=1)
     return g
 
+def pages(n=2, clip=False):
+    """Ctrl+C / Ctrl+V glyphs: stacked sheets of paper (n), or a clipboard."""
+    g = Image.new("RGBA", (16, 16))
+    d = ImageDraw.Draw(g)
+    if clip:
+        d.rectangle([3, 2, 12, 14], fill=(0, 0, 0, 255))
+        d.rectangle([4, 3, 11, 13], fill=(157, 118, 88, 255))
+        d.rectangle([5, 5, 10, 12], fill=(225, 221, 214, 255))
+        d.rectangle([6, 1, 9, 3], fill=(182, 190, 200, 255))
+        for y in (7, 9, 11):
+            d.line([(6, y), (9, y)], fill=(101, 177, 184, 255))
+        return g
+    for k in range(n):
+        o = k * 3
+        d.rectangle([2 + o, 1 + o, 10 + o, 11 + o], fill=(0, 0, 0, 255))
+        d.rectangle([3 + o, 2 + o, 9 + o, 10 + o], fill=(225, 221, 214, 255))
+        for y in (4, 6, 8):
+            d.line([(4 + o, y + o), (8 + o, y + o)], fill=(101, 177, 184, 255))
+    return g
+
+
 def tint(g, rgb, amt=0.6):
     out = g.copy()
     px = out.load()
@@ -62,9 +83,10 @@ NODES = [
     ("escudo", ui(1)), ("escudo", item(10)), ("escudo", ui(0).transpose(Image.FLIP_LEFT_RIGHT)), ("escudo", chevrons(ui(1))), ("escudo", item(24)),
     ("bruxaria", tint(item(19), (170, 90, 220), 0.5)), ("bruxaria", item(21)), ("bruxaria", item(22)), ("bruxaria", tint(vfx("fireball", 24, 24, 3), (170, 110, 255), 0.7)), ("bruxaria", item(20)),
     ("espiritual", item(12)), ("espiritual", item(36)), ("espiritual", item(17)), ("espiritual", item(4)), ("espiritual", item(15)),
+    ("mago", pages(2)), ("mago", pages(clip=True)), ("mago", item(40)), ("mago", item(5)), ("mago", pages(3)), ("mago", tint(item(40), (233, 206, 124), 0.6)),
 ]
 EMBLEMS = [("guerra", ui(0)), ("arqueria", arrow(1)), ("magia", vfx("fireball", 24, 24, 0)), ("sagrado", item(15)),
-           ("escudo", ui(1)), ("bruxaria", item(21)), ("espiritual", item(12))]
+           ("escudo", ui(1)), ("bruxaria", item(21)), ("espiritual", item(12)), ("mago", pages(2))]
 
 def icon(arch, glyph, emblem=False):
     c = Image.new("RGBA", (24, 24))

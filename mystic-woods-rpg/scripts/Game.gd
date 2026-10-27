@@ -58,6 +58,8 @@ var skill_slots: Array = ["", "", ""]   # active skill buttons
 var archetypes: Array = []          # chosen archetypes (Archetypes.gd), up to three
 var arch_ranks := {}                # node id -> rank
 var arch_bonus_points := 0
+var copied := ""                    # Mago: the spell held by Ctrl+C
+var last_cast := ""
 var _hp_regen := 0.0
 var _nature_t := 0.0
 var difficulty := "normal"   # "normal" or "inferno" (Hell Mode)
@@ -147,6 +149,8 @@ func new_game(seed_value: int = -1) -> void:
 	archetypes = []
 	arch_ranks = {}
 	arch_bonus_points = 0
+	copied = ""
+	last_cast = ""
 	difficulty = "normal"
 	pagma_stage = 0
 	legend = {}
@@ -497,7 +501,7 @@ func has_save() -> bool:
 func save_game() -> void:
 	var cfg := ConfigFile.new()
 	for key in ["world_seed", "level", "xp", "gold", "potions", "max_hp", "hp", "max_mp", "mp", "atk", "defense", "sword_tier",
-			"tool_tier", "armor_tier", "items", "skills", "orb_skills", "skill_slots", "archetypes", "arch_ranks", "arch_bonus_points", "difficulty", "pagma_stage", "legend", "pagma_pity", "factions", "chronicle", "day_count", "camp_seq", "crafted",
+			"tool_tier", "armor_tier", "items", "skills", "orb_skills", "skill_slots", "archetypes", "arch_ranks", "arch_bonus_points", "copied", "difficulty", "pagma_stage", "legend", "pagma_pity", "factions", "chronicle", "day_count", "camp_seq", "crafted",
 			"kills", "opened_chests", "broken", "discovered", "explored", "boss_defeated", "rivals", "rival_seq", "quest_index", "quest_progress",
 			"player_pos", "play_time", "day_time", "muted", "world_version", "immortal_at"]:
 		cfg.set_value("save", key, get(key))
