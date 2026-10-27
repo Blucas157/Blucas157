@@ -3,10 +3,11 @@
 # (apksigner made from tools/android/ApkSignerTool.java + apksig, a stub adb) and exports the
 # "Android" preset signed with the release keystore.
 # Usage: tools/android/build_apk.sh <godot binary> <keystore> <alias> <password> [out.apk]
+# PROJ=<dir> exports another Godot project of this repository (e.g. PROJ=mmorpg).
 set -e
 GODOT=$1; KS=$2; ALIAS=$3; PASS=$4; OUT=${5:-$HOME/build/MysticWoodsRPG.apk}
 VER=4.7.2
-HERE=$(cd "$(dirname "$0")" && pwd); PROJ=$(cd "$HERE/../.." && pwd)
+HERE=$(cd "$(dirname "$0")" && pwd); PROJ=$(cd "${PROJ:-$HERE/../..}" && pwd)
 SDK=$HOME/android_sdk; BT=$SDK/build-tools/34.0.0
 TPL=$HOME/.local/share/godot/export_templates/$VER.stable
 if [ ! -f "$TPL/android_release.apk" ]; then
