@@ -8,6 +8,8 @@ const PickupScript := preload("res://scripts/Pickup.gd")
 const FxScript := preload("res://scripts/Fx.gd")
 const ProjectileScript := preload("res://scripts/Projectile.gd")
 const ReticleScript := preload("res://scripts/Reticle.gd")
+const CampScript := preload("res://scripts/Camp.gd")
+const WORLD_TICK := 12.0   # seconds between steps of the living-world simulation
 const HudScript := preload("res://scripts/Hud.gd")
 const TouchScript := preload("res://scripts/TouchControls.gd")
 
@@ -35,6 +37,9 @@ var _regen_t := 0.0
 var _shake := 0.0
 var _shake_t := 0.0
 var _title_t := 0.0
+var _world_t := WORLD_TICK
+var _was_night := false
+var _raid_done_day := -1
 
 
 func _ready() -> void:
@@ -87,6 +92,8 @@ func start_game(new_game: bool) -> void:
 	if not Game.boss_defeated:
 		boss = spawn_enemy("treant", world.cell_to_pos(world.gen.boss_cell), BOSS_LEVEL)
 	hud.setup_fog(world.minimap_image, Game.explored)
+	_spawn_camps()
+	_was_night = night_amount() > 0.5
 	camera.global_position = player.global_position
 	camera.reset_smoothing()
 	playing = true
@@ -197,7 +204,7 @@ func _rival_from_defeat() -> String:
 	if r.is_empty():
 		return ""
 	k.rival = r
-	k.queue_redraw()
+	k.ui.queue_redraw()
 	Game.save_game()
 	var who := Rivals.full_name(r)
 	if was_rival:
@@ -231,7 +238,15 @@ func _process(delta: float) -> void:
 	camera.global_position = player.global_position + Vector2(0, -8)
 	if get_tree().paused:
 		return
+	var before := Game.day_time
 	Game.day_time = fmod(Game.day_time + delta / DAY_LENGTH, 1.0)
+	if Game.day_time < before:
+		Game.day_count += 1
+	_check_nightfall()
+	_world_t -= delta
+	if _world_t <= 0.0:
+		_world_t = WORLD_TICK
+		world_tick()
 	canvas_mod.color = _sky_color()
 	_region_t -= delta
 	if _region_t <= 0.0:
@@ -300,9 +315,15 @@ func _spawner() -> void:
 	if not MonsterDB.SPAWNS.has(region):
 		return
 	var lvl: int = world.gen.level_at(cell)
+	if _try_skirmish(region, cell, lvl):
+		return
 	var id := _pick_monster(region, lvl)
 	if night and rng.randf() < 0.3:
 		id = "ghost"
+	# evolved factions field their elites more often
+	var fid := Factions.of(id)
+	if fid != "" and Factions.DATA[fid]["elite"] != "" and rng.randf() < 0.06 * Factions.tier(fid):
+		id = Factions.DATA[fid]["elite"]
 	var group := 1
 	if id in ["slime", "slime_poison", "bat", "mushroom"]:
 		group = rng.randi_range(1, 3)
@@ -313,16 +334,149 @@ func _spawner() -> void:
 func _pick_monster(region: String, lvl: int) -> String:
 	var options: Array = []
 	var total := 0
+	# a region's spawns follow who rules it (Factions): their monsters come more, beaten ones less
 	for e in MonsterDB.SPAWNS[region]:
 		if lvl >= int(e[2]):
-			options.append(e)
-			total += int(e[1])
+			var w := maxi(1, int(round(float(e[1]) * Factions.spawn_mult(e[0], region) * 4.0)))
+			options.append([e[0], w])
+			total += w
 	var pick := rng.randi_range(1, max(1, total))
 	for e in options:
 		pick -= int(e[1])
 		if pick <= 0:
 			return e[0]
 	return options[0][0]
+
+
+# ---------------------------------------------------------------- living world (Factions.gd)
+func world_tick() -> void:
+	for ev in Factions.tick(rng, night_amount() > 0.5, _pick_camp_cell):
+		hud.toast(ev["text"], ev["color"])
+		if ev["kind"] == "camp":
+			_add_camp_node(ev["fid"], ev["camp"])
+		elif ev["kind"] == "war" or ev["kind"] == "expand":
+			_sync_camps()
+	_try_raid()
+
+
+## Where a new camp can stand in a region: walkable, not on a road, far from the hero.
+func _pick_camp_cell(region: String) -> Vector2i:
+	var g: WorldGen = world.gen
+	var pc: Vector2i = world.pos_to_cell(player.global_position)
+	for _i in 300:
+		var c := Vector2i(rng.randi_range(12, WorldGen.W - 12), rng.randi_range(12, WorldGen.H - 12))
+		if g.region_at(c) != region or Vector2(c - pc).length() < 30.0:
+			continue
+		var ok := true
+		for oy in range(-2, 3):
+			for ox in range(-2, 3):
+				var q := c + Vector2i(ox, oy)
+				if not g.walkable(q) or g.reserved[g.idx(q)] == 1:
+					ok = false
+		if ok:
+			return c
+	return Vector2i(-1, -1)
+
+
+func _spawn_camps() -> void:
+	for n in get_tree().get_nodes_in_group("camps"):
+		n.free()
+	for fid in Game.factions:
+		for c in Game.factions[fid]["camps"]:
+			_add_camp_node(fid, c)
+
+
+func _add_camp_node(fid: String, camp: Dictionary) -> void:
+	var node := CampScript.new()
+	node.main = self
+	node.fid = fid
+	node.camp = camp
+	node.position = world.cell_to_pos(Vector2i(int(camp["cell"][0]), int(camp["cell"][1])))
+	world.entities.add_child(node)
+
+
+## Camps whose land was lost disappear from the map.
+func _sync_camps() -> void:
+	for n in get_tree().get_nodes_in_group("camps"):
+		if Factions.find_camp(n.camp["id"]).is_empty():
+			n.queue_free()
+
+
+func camp_destroyed(node: Node) -> void:
+	var c := Factions.camp_destroyed(node.fid, node.camp["id"])
+	var lv := int(c.get("level", 1))
+	var pos: Vector2 = node.global_position
+	vfx("fireburst", pos + Vector2(0, -10))
+	shake(3.0, 0.2)
+	Sfx.play("break")
+	drop_coins(pos, 20 + 25 * lv)
+	Game.add_xp(25 * lv)
+	drop_material(pos, "rubi" if rng.randf() < 0.3 else "esmeralda", 1)
+	hud.show_banner("Acampamento destruído!")
+	hud.toast("%s vai querer vingança... (+%d XP)" % [Factions.DATA[node.fid]["name"], 25 * lv], Color(1.0, 0.75, 0.4))
+	node.queue_free()
+	Game.save_game()
+
+
+func faction_learned(fid: String) -> void:
+	var s := Factions.st(fid)
+	var a: String = s["adapt"][-1]
+	hud.toast("%s se adaptou: %s!" % [Factions.DATA[fid]["name"], Factions.ADAPT[a]["name"]], Color(1.0, 0.6, 0.5))
+
+
+## Nightfall warning (monsters are more aggressive at night).
+func _check_nightfall() -> void:
+	var night := night_amount() > 0.5
+	if night and not _was_night:
+		hud.show_banner("A noite caiu...")
+		hud.toast("Os monstros estão mais agressivos e em maior número!", Color(0.75, 0.7, 1.0))
+	_was_night = night
+
+
+## Two factions at war that both hold the region: sometimes their war parties meet near the hero.
+func _try_skirmish(region: String, cell: Vector2i, lvl: int) -> bool:
+	if rng.randf() > 0.12:
+		return false
+	var here: Array = []
+	for fid in Game.factions:
+		if Factions.active(fid) and Factions.control(fid, region) >= 20.0:
+			here.append(fid)
+	for a in here:
+		for b in here:
+			if Factions.at_war(a, b):
+				var base: Vector2 = world.cell_to_pos(cell)
+				for side in [[a, -36.0], [b, 36.0]]:
+					var members: Array = Factions.DATA[side[0]]["members"]
+					for k in rng.randi_range(2, 3):
+						var id: String = members[rng.randi() % members.size()]
+						spawn_enemy(id, base + Vector2(float(side[1]) + rng.randf_range(-10, 10), rng.randf_range(-24, 24)), lvl)
+				hud.toast("%s e %s estão lutando por perto!" % [Factions.DATA[a]["name"], Factions.DATA[b]["name"]], Color(1.0, 0.65, 0.5))
+				return true
+	return false
+
+
+## Once a night, a faction with a grudge against the hero may march on the village gates.
+func _try_raid() -> void:
+	if night_amount() < 0.5 or _raid_done_day == Game.day_count:
+		return
+	var fid := Factions.raid_candidate(rng)
+	if fid == "":
+		return
+	var gate: Vector2 = world.cell_to_pos(WorldGen.CENTER + Vector2i(0, 14))
+	if player.global_position.distance_to(gate) > 450.0:
+		return   # they march when the hero is home to see it
+	_raid_done_day = Game.day_count
+	var members: Array = Factions.DATA[fid]["members"]
+	var n := 3 + Factions.tier(fid)
+	for k in n:
+		var id: String = members[rng.randi() % members.size()]
+		var e := spawn_enemy(id, gate + Vector2(rng.randf_range(-40, 40), rng.randf_range(0, 30)), maxi(1, Game.level))
+		e.state = "chase"
+	Factions.st(fid)["grudge"] = float(Factions.st(fid)["grudge"]) * 0.5
+	Factions.chronicle("%s atacou os portões da Vila do Bosque!" % Factions.DATA[fid]["name"])
+	hud.show_banner("Invasão!")
+	hud.toast("%s atacam os portões da vila!" % Factions.DATA[fid]["name"], Color(1.0, 0.45, 0.4))
+	Sfx.play("boss")
 
 
 # ---------------------------------------------------------------- rivals

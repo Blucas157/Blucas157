@@ -1,9 +1,10 @@
 class_name WorldGen
 ## Deterministic open-world generator. Produces plain data that World.gd turns into nodes.
 
-const W := 200
-const H := 200
-const CENTER := Vector2i(100, 100)
+const W := 320
+const H := 320
+const CENTER := Vector2i(160, 160)
+const VERSION := 2   # bump when the layout changes: old saves go back to the village
 
 enum T { GRASS, DIRT, WATER, ROCK }
 
@@ -18,10 +19,10 @@ const REGION_NAMES := {
 }
 
 const POIS := {
-	"ruinas": Vector2i(100, 30),
-	"coracao": Vector2i(172, 100),
-	"pedreira": Vector2i(30, 100),
-	"pantano": Vector2i(100, 168),
+	"ruinas": Vector2i(160, 46),
+	"coracao": Vector2i(276, 160),
+	"pedreira": Vector2i(46, 160),
+	"pantano": Vector2i(160, 270),
 }
 
 var seed_value := 0
@@ -43,7 +44,9 @@ var lilies: Array = []    # [cell, atlas coords, source]
 var decor: Dictionary = {} # cell -> atlas coords in decor_16x16
 var noise := FastNoiseLite.new()
 var warp := FastNoiseLite.new()
-var boss_cell := Vector2i(172, 100)
+var boss_cell := Vector2i(276, 160)
+const REGION_IDS := ["vila", "prado", "floresta", "ruinas", "pedreira", "pantano", "coracao"]
+var region_map := PackedByteArray()   # region of every cell, computed once (region_at is hot)
 
 
 func generate(s: int) -> void:
@@ -53,6 +56,13 @@ func generate(s: int) -> void:
 	noise.frequency = 0.06
 	warp.seed = s + 17
 	warp.frequency = 0.02
+	region_map = PackedByteArray()
+	var rm := PackedByteArray()
+	rm.resize(W * H)
+	for y in H:
+		for x in W:
+			rm[y * W + x] = REGION_IDS.find(_region_calc(Vector2i(x, y)))
+	region_map = rm
 	terrain.resize(W * H)
 	terrain.fill(T.GRASS)
 	blocked.resize(W * H)
@@ -107,12 +117,18 @@ func walkable(c: Vector2i) -> bool:
 
 
 func region_at(c: Vector2i) -> String:
+	if region_map.size() == W * H and inside(c):
+		return REGION_IDS[region_map[c.y * W + c.x]]
+	return _region_calc(c)
+
+
+func _region_calc(c: Vector2i) -> String:
 	var d := Vector2(c - CENTER).length()
 	if d < 13.0:
 		return "vila"
 	if Vector2(c - boss_cell).length() < 13.0:
 		return "coracao"
-	if d < 40.0 + warp.get_noise_2d(c.x, c.y) * 8.0:
+	if d < 64.0 + warp.get_noise_2d(c.x, c.y) * 12.0:
 		return "prado"
 	var a := atan2(float(c.y - CENTER.y), float(c.x - CENTER.x)) + warp.get_noise_2d(c.x * 2.0, c.y * 2.0) * 0.5
 	if a > -PI / 4.0 and a <= PI / 4.0:
@@ -126,7 +142,7 @@ func region_at(c: Vector2i) -> String:
 
 func level_at(c: Vector2i) -> int:
 	var d := Vector2(c - CENTER).length()
-	return clampi(1 + int(max(0.0, d - 14.0) / 9.0), 1, 12)
+	return clampi(1 + int(max(0.0, d - 14.0) / 11.0), 1, 14)
 
 
 func _free_rect(r: Rect2i, margin: int, allow_reserved: bool = false) -> bool:
@@ -343,10 +359,17 @@ func blob_at(c: Vector2i, kind: int) -> Vector2i:
 func _cleanup_autotile(kind: int) -> void:
 	_smooth(kind, 2)
 	var bad: Array[Vector2i] = []
-	for y in H:
-		for x in W:
+	for y in range(1, H - 1):
+		var row := y * W
+		for x in range(1, W - 1):
+			var i := row + x
+			if terrain[i] != kind:
+				continue
+			if terrain[i - W] == kind and terrain[i + W] == kind and terrain[i - 1] == kind and terrain[i + 1] == kind \
+					and terrain[i - W - 1] == kind and terrain[i - W + 1] == kind and terrain[i + W - 1] == kind and terrain[i + W + 1] == kind:
+				continue   # fully surrounded: the plain centre tile
 			var c := Vector2i(x, y)
-			if terrain[idx(c)] == kind and blob_at(c, kind).x < 0:
+			if blob_at(c, kind).x < 0:
 				bad.append(c)
 	var guard := 0
 	while not bad.is_empty() and guard < 400:
@@ -387,26 +410,30 @@ func _touch(set: Dictionary, c: Vector2i) -> void:
 ## Majority filter: removes specks and thin diagonal chains before autotiling.
 func _smooth(kind: int, passes: int) -> void:
 	for _p in passes:
+		var cur := terrain
 		var next := terrain.duplicate()
 		for y in range(1, H - 1):
+			var row := y * W
 			for x in range(1, W - 1):
-				var c := Vector2i(x, y)
-				if reserved[idx(c)] == 1 and kind == T.ROCK:
+				var i := row + x
+				var here := cur[i]
+				if here != kind and here != T.GRASS:
 					continue
-				var n := 0
-				for oy in range(-1, 2):
-					for ox in range(-1, 2):
-						if t_at(c + Vector2i(ox, oy)) == kind:
-							n += 1
-				if terrain[idx(c)] == kind and n <= 3:
-					next[idx(c)] = T.GRASS
-				elif terrain[idx(c)] == T.GRASS and n >= 6:
-					next[idx(c)] = kind
+				if reserved[i] == 1 and kind == T.ROCK:
+					continue
+				# 3x3 count with direct indexing (this runs over the whole map, keep it tight)
+				var n := int(cur[i - W - 1] == kind) + int(cur[i - W] == kind) + int(cur[i - W + 1] == kind) \
+					+ int(cur[i - 1] == kind) + int(here == kind) + int(cur[i + 1] == kind) \
+					+ int(cur[i + W - 1] == kind) + int(cur[i + W] == kind) + int(cur[i + W + 1] == kind)
+				if here == kind and n <= 3:
+					next[i] = T.GRASS
+				elif here == T.GRASS and n >= 6:
+					next[i] = kind
 		terrain = next
 
 
 func _ponds() -> void:
-	var tries := 900
+	var tries := 2300
 	for _i in tries:
 		var c := Vector2i(rng.randi_range(8, W - 18), rng.randi_range(8, H - 14))
 		var r := region_at(c)
@@ -437,7 +464,7 @@ func _ponds() -> void:
 
 
 func _cliffs() -> void:
-	for _i in 260:
+	for _i in 660:
 		var c := Vector2i(rng.randi_range(8, W - 14), rng.randi_range(8, H - 12))
 		var r := region_at(c)
 		if r in ["vila", "coracao"]:
@@ -451,10 +478,10 @@ func _cliffs() -> void:
 
 func _ruins() -> void:
 	var made := 0
-	for _i in 600:
-		if made >= 14:
+	for _i in 1500:
+		if made >= 30:
 			break
-		var c := Vector2i(rng.randi_range(10, W - 20), rng.randi_range(8, 70))
+		var c := Vector2i(rng.randi_range(10, W - 20), rng.randi_range(8, 120))
 		if region_at(c) != "ruinas":
 			continue
 		var rect := Rect2i(c, Vector2i(rng.randi_range(5, 9), rng.randi_range(4, 7)))
@@ -482,8 +509,8 @@ func _ruins() -> void:
 		else:
 			_place("grave", inner, true)
 	# lone pillars
-	for _i in 120:
-		var c := Vector2i(rng.randi_range(10, W - 10), rng.randi_range(8, 80))
+	for _i in 300:
+		var c := Vector2i(rng.randi_range(10, W - 10), rng.randi_range(8, 128))
 		if region_at(c) == "ruinas" and _free_rect(Rect2i(c, Vector2i(1, 3)), 1):
 			pillars.append(c)
 			_block_rect(Rect2i(c, Vector2i(1, 3)))
@@ -547,7 +574,7 @@ func _objects() -> void:
 					_place(e[0], c)
 					break
 	# breakable pots/crates scattered (loot)
-	for _i in 70:
+	for _i in 180:
 		var c := Vector2i(rng.randi_range(10, W - 10), rng.randi_range(10, H - 10))
 		if region_at(c) != "vila":
 			_place("pot" if rng.randf() < 0.6 else "crate", c)
@@ -580,14 +607,15 @@ func _resources() -> void:
 				pick -= int(e[1])
 				if pick <= 0:
 					resources.append({"type": e[0], "cell": c})
-					blocked[idx(c)] = 1
+					if ItemDB.resource_solid(e[0]):
+						blocked[idx(c)] = 1
 					break
 
 
 func _chests() -> void:
 	var n := 0
-	for _i in 4000:
-		if n >= 26:
+	for _i in 10000:
+		if n >= 64:
 			break
 		var c := Vector2i(rng.randi_range(8, W - 8), rng.randi_range(8, H - 8))
 		var r := region_at(c)

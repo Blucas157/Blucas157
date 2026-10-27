@@ -37,6 +37,17 @@ var flee_rolled := false
 var flee_t := 0.0
 var flee_chance := -1.0  # tests force it; < 0 uses the Rivals defaults
 var flame: AnimatedSprite2D   # fire casters hold a small flame (vfx_workbench loop)
+var ui: Node2D                # life bar / name, above the sprite
+var bar_y := -20.0
+## living world (Factions.gd)
+var faction := ""
+var foe = null                # who it fights: the hero, or a monster of a faction at war with it
+var foe_t := 0.0
+var last_kind := "melee"      # how it was last hurt: melee / magic / faction:<id>
+var regroup_t := 0.0
+var regroup_used := false
+var slot := 0                 # its side when surrounding a target (cerco)
+static var _top_cache := {}   # monster id -> highest opaque pixel of its idle frame (local y)
 
 
 func setup(monster_id: String, level: int, pos: Vector2, p_main: Node) -> void:
@@ -54,6 +65,14 @@ func setup(monster_id: String, level: int, pos: Vector2, p_main: Node) -> void:
 	radius = def["radius"]
 	grid = def["grid"]
 	is_boss = def.get("boss", false)
+	faction = Factions.of(id) if not is_boss else ""
+	if faction != "":
+		var m: Array = Factions.stat_mult(faction)
+		max_hp = int(round(max_hp * float(m[0])))
+		hp = max_hp
+		atk = int(round(atk * float(m[1])))
+		speed *= float(m[2])
+	slot = randi() % 4
 	think_t = randf_range(0.2, 2.0)
 	t = randf() * 10.0
 
@@ -106,6 +125,11 @@ func _ready() -> void:
 		flame.position = Vector2(9, -13)
 		flame.play("default")
 		add_child(flame)
+	ui = Node2D.new()
+	ui.z_index = 20
+	ui.draw.connect(_draw_ui)
+	add_child(ui)
+	bar_y = _sprite_top() - 5.0
 	sprite.frame_changed.connect(_on_frame_changed)
 	sprite.animation_finished.connect(_on_anim_finished)
 	_play("idle")
@@ -113,6 +137,23 @@ func _ready() -> void:
 
 func alive() -> bool:
 	return state != "dead"
+
+
+## Local y of the top of the drawn monster (first opaque row of its first idle frame).
+func _sprite_top() -> float:
+	var key := id + ("|%d" % grid)
+	if not _top_cache.has(key):
+		var top := float(grid) * 0.6
+		var tex := sprite.sprite_frames.get_frame_texture("idle_down" if sprite.sprite_frames.has_animation("idle_down") else sprite.animation, 0)
+		if tex:
+			var img := tex.get_image()
+			if img:
+				var used := img.get_used_rect()
+				if used.size.y > 0:
+					top = float(grid) / 2.0 - float(used.position.y)
+		_top_cache[key] = top
+	# sprite is centred: the frame top sits at offset.y - grid/2
+	return (sprite.offset.y - float(_top_cache[key]))
 
 
 func hurt_center() -> Vector2:
@@ -124,6 +165,9 @@ func display_name() -> String:
 		return "%s Nv.%d" % [Rivals.full_name(rival), lvl]
 	if def.get("miniboss", false):
 		return "%s (Mini-chefe) Nv.%d" % [def["name"], lvl]
+	var adj: String = Factions.TIER_ADJ[Factions.tier(faction)] if faction != "" else ""
+	if adj != "":
+		return "%s %s Nv.%d" % [def["name"], adj, lvl]
 	return "%s Nv.%d" % [def["name"], lvl]
 
 
@@ -142,15 +186,24 @@ func _physics_process(delta: float) -> void:
 	mat.set_shader_parameter("flash", 1.0 if flash_t > 0.0 else 0.0)
 	if bar_t > 0.0:
 		bar_t -= delta
-		queue_redraw()
+		ui.queue_redraw()
 	if state == "dead" or player == null:
 		return
-	var to_p := player.global_position - global_position
+	foe_t -= delta
+	if foe_t <= 0.0:
+		foe_t = 0.4
+		_pick_foe()
+	if not _foe_ok():
+		foe = player
+	var to_p: Vector2 = foe.global_position - global_position
 	var dist := to_p.length()
-	var player_ok: bool = player.alive()
+	var player_ok: bool = _foe_ok()
+	var night: float = main.night_amount() if main else 0.0
+	var aggro := float(def["aggro"]) * (1.0 + 0.6 * night)
+	var spd := speed * (1.0 + 0.2 * night)
 	match state:
 		"idle", "wander":
-			if player_ok and dist < float(def["aggro"]):
+			if player_ok and dist < aggro:
 				state = "chase"
 				if is_boss and not engaged:
 					engaged = true
@@ -174,7 +227,7 @@ func _physics_process(delta: float) -> void:
 				velocity = Vector2.ZERO
 		"chase":
 			var leash := 240.0 if is_boss else 300.0
-			if not player_ok or dist > float(def["aggro"]) * 2.0 or global_position.distance_to(home) > leash:
+			if not player_ok or dist > aggro * 2.0 or global_position.distance_to(home) > leash:
 				state = "wander"
 				wander_target = home
 				think_t = 3.0
@@ -184,26 +237,37 @@ func _physics_process(delta: float) -> void:
 					engaged = false
 					hp = max_hp
 					summon_marks = [0.75, 0.5, 0.25]
+			elif regroup_t > 0.0:
+				# tactical retreat: back off, then return to the fight
+				regroup_t -= delta
+				velocity = -to_p.normalized() * spd
+			elif _feint_wait():
+				# feint: circle just out of reach while the hero's dodge lasts
+				velocity = to_p.normalized().orthogonal() * spd * 0.6 + (-to_p.normalized() * spd * 0.3 if dist < float(def["reach"]) + 6.0 else Vector2.ZERO)
 			elif def["attack"] == "ranged":
 				# casters keep their distance and throw from afar
 				var keep := float(def.get("keep_away", 50.0))
 				if dist <= float(def["reach"]) and attack_cd <= 0.0:
 					_start_attack(to_p)
 				elif dist < keep:
-					velocity = -to_p.normalized() * speed * 0.8
+					velocity = -to_p.normalized() * spd * 0.8
 				elif dist > float(def["reach"]) * 0.85:
-					velocity = to_p.normalized() * speed
+					velocity = to_p.normalized() * spd
 				else:
-					velocity = to_p.normalized().orthogonal() * speed * 0.4 * (1.0 if fmod(t, 6.0) < 3.0 else -1.0)
+					velocity = to_p.normalized().orthogonal() * spd * 0.4 * (1.0 if fmod(t, 6.0) < 3.0 else -1.0)
 			elif dist <= float(def["reach"]) + 4.0 and attack_cd <= 0.0:
 				_start_attack(to_p)
 			else:
 				var dir := to_p.normalized()
+				if Factions.has_adapt(faction, "cerco") and dist > float(def["reach"]) * 2.0:
+					# surround: head for its own side of the target instead of queueing behind the others
+					var side: Vector2 = foe.global_position + Vector2.from_angle(to_p.angle() + PI + (slot - 1.5) * 0.9) * float(def["reach"])
+					dir = (side - global_position).normalized()
 				if def["behavior"] == "fly":
 					dir = (dir + dir.orthogonal() * sin(t * 5.0) * 0.8).normalized()
 				if dist <= float(def["reach"]):
 					dir = Vector2.ZERO
-				velocity = dir * speed * _gait()
+				velocity = dir * spd * _gait() + _spread()
 		"attack":
 			velocity = lunge_v
 			lunge_v = lunge_v.move_toward(Vector2.ZERO, 500.0 * delta)
@@ -226,6 +290,52 @@ func _physics_process(delta: float) -> void:
 		flame.position.x = -9.0 if sprite.flip_h else 9.0
 
 
+## Nearest thing worth fighting: the hero, or a monster of a faction at war with this one.
+func _pick_foe() -> void:
+	foe = player
+	if faction == "":
+		return
+	var best := INF
+	if player and player.alive():
+		best = player.global_position.distance_to(global_position)
+	var reach := float(def["aggro"]) * 1.2
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if e == self or not e.alive() or not Factions.at_war(faction, e.faction):
+			continue
+		var d: float = e.global_position.distance_to(global_position)
+		if d < reach and d < best:
+			best = d
+			foe = e
+
+
+func _foe_ok() -> bool:
+	if foe == null or not is_instance_valid(foe):
+		return false
+	return foe.alive()
+
+
+func _foe_is_hero() -> bool:
+	return foe == player
+
+
+## Fintas: wait for the hero's dodge to end before swinging.
+func _feint_wait() -> bool:
+	return _foe_is_hero() and Factions.has_adapt(faction, "finta") and (player.state == "dash" or player.invuln > 0.3)
+
+
+## Formação dispersa: keep a little room from friends so one explosion cannot catch them all.
+func _spread() -> Vector2:
+	if not Factions.has_adapt(faction, "dispersar"):
+		return Vector2.ZERO
+	var push := Vector2.ZERO
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if e != self and e.faction == faction:
+			var d: Vector2 = global_position - e.global_position
+			if d.length() < 22.0 and d.length() > 0.1:
+				push += d.normalized() * (22.0 - d.length()) * 2.0
+	return push
+
+
 func _gait() -> float:
 	# slimes and mushrooms move in hops: fast in the air frames, nearly still on landing
 	if def["behavior"] == "hop" and sprite.animation.begins_with("move"):
@@ -237,7 +347,8 @@ func _start_attack(to_p: Vector2) -> void:
 	state = "attack"
 	hit_done = false
 	facing = to_p.normalized()
-	attack_cd = float(def["cooldown"]) * randf_range(0.9, 1.2)
+	var night: float = main.night_amount() if main else 0.0
+	attack_cd = float(def["cooldown"]) * randf_range(0.9, 1.2) * (1.0 - 0.25 * night)
 	velocity = Vector2.ZERO
 	_play("attack")
 
@@ -254,13 +365,21 @@ func _on_frame_changed() -> void:
 
 
 func _do_hit() -> void:
-	if player == null or not player.alive():
+	if not _foe_ok():
+		return
+	if not _foe_is_hero():
+		_hit_monster(foe)
 		return
 	player.last_hit_by = self
 	var d := player.global_position.distance_to(global_position)
+	if player.state == "dash" and d <= (float(def["reach"]) + 12.0) * scale.x and faction != "":
+		# the hero dodged this one: the faction takes note
+		if Factions.learn(faction, "dodge") != "":
+			main.faction_learned(faction)
 	if def["attack"] == "ranged":
 		var from := hurt_center() + facing * 8.0
-		main.cast_fireball(from, player.global_position + Vector2(0, -8) - from, atk, true, self)
+		var ball: Node = main.cast_fireball(from, player.global_position + Vector2(0, -8) - from, _atk_now(), true, self)
+		ball.faction = faction
 		Sfx.play("swing", 0.6)
 		return
 	if def["attack"] == "aoe":
@@ -270,10 +389,29 @@ func _do_hit() -> void:
 			Sfx.play("slam")
 			main.shake(4.0 if is_boss else 2.5, 0.2)
 		if d <= r:
-			player.take_damage(atk, global_position)
+			player.take_damage(_atk_now(), global_position)
 	else:
 		if d <= (float(def["reach"]) + 8.0) * scale.x:
-			player.take_damage(atk, global_position)
+			player.take_damage(_atk_now(), global_position)
+
+
+## At night monsters hit harder (and see further, run faster and attack more often).
+func _atk_now() -> int:
+	var night: float = main.night_amount() if main else 0.0
+	return int(round(atk * (1.0 + 0.2 * night)))
+
+
+## Monster against monster (factions at war).
+func _hit_monster(e: Node) -> void:
+	var d: float = e.global_position.distance_to(global_position)
+	if def["attack"] == "ranged":
+		var from := hurt_center() + facing * 8.0
+		var ball: Node = main.cast_fireball(from, e.hurt_center() - from, atk, true, self)
+		ball.faction = faction
+		return
+	var r := float(def.get("aoe", def["reach"])) + 10.0
+	if d <= r * scale.x:
+		e.take_hit(atk, (e.global_position - global_position).normalized(), false, "faction:" + faction)
 
 
 func _on_anim_finished() -> void:
@@ -288,9 +426,25 @@ func _on_anim_finished() -> void:
 			tw.tween_callback(queue_free)
 
 
-func take_hit(dmg: int, dir: Vector2, crit: bool = false) -> void:
+func take_hit(dmg: int, dir: Vector2, crit: bool = false, kind: String = "melee") -> void:
 	if state == "dead":
 		return
+	last_kind = kind
+	var blocked := false
+	if kind == "melee" and Factions.has_adapt(faction, "escudos"):
+		dmg = int(ceil(dmg * 0.8))
+		if randf() < 0.25:
+			dmg = int(ceil(dmg * 0.5))
+			blocked = true
+	elif kind == "magic" and Factions.has_adapt(faction, "dispersar"):
+		dmg = int(ceil(dmg * 0.75))
+	if blocked:
+		main.float_text(hurt_center() + Vector2(0, -20), "Bloqueou!", Color(0.75, 0.85, 1.0))
+	if Factions.has_adapt(faction, "chamado") and not kind.begins_with("faction"):
+		_call_for_help()
+	if Factions.has_adapt(faction, "recuo") and not regroup_used and float(hp - dmg) / max_hp < 0.35 and hp - dmg > 0:
+		regroup_used = true
+		regroup_t = 1.2
 	hp -= dmg
 	flash_t = 0.12
 	bar_t = 3.0
@@ -317,6 +471,13 @@ func take_hit(dmg: int, dir: Vector2, crit: bool = false) -> void:
 	elif float(def.get("knock_resist", 0.0)) < 0.8 or randf() < 0.25:
 		state = "hurt"
 		_play("damaged")
+
+
+## Grito de guerra: friends of the same faction nearby join the fight.
+func _call_for_help() -> void:
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if e != self and e.faction == faction and e.state in ["idle", "wander"] and e.global_position.distance_to(global_position) < 160.0:
+			e.state = "chase"
 
 
 ## Badly hurt monsters may run for it once; if they get away they come back as rivals.
@@ -381,10 +542,32 @@ func _die() -> void:
 	sprite.play("death")
 	Sfx.play("death")
 	main.vfx("puff", hurt_center())
+	if last_kind.begins_with("faction:"):
+		# killed in a faction war: the winners grow, the hero gets no reward for it
+		var winner := last_kind.substr(8)
+		Factions.gain_xp(winner, 2.0)
+		var ws := Factions.st(winner)
+		if not ws.is_empty():
+			ws["kills"] = int(ws["kills"]) + 1
+		var ls := Factions.st(faction)
+		if not ls.is_empty():
+			ls["losses"] = int(ls["losses"]) + 1
+		for d in ItemDB.DROPS.get(id, []):
+			if randf() < float(d[1]) * 0.5:
+				main.drop_material(global_position, d[0], 1)
+		return
 	var xp := int(round(float(def["xp"]) * (1.0 + 0.2 * (lvl - 1))))
 	main.float_text(hurt_center() + Vector2(0, -18), "+%d XP" % xp, Color(0.55, 0.85, 1.0))
 	Game.add_xp(xp)
 	Game.register_kill(id)
+	if faction != "":
+		# they remember how they were beaten, and get angrier with the hero
+		var fs := Factions.st(faction)
+		fs["losses"] = int(fs["losses"]) + 1
+		fs["grudge"] = float(fs["grudge"]) + 1.0
+		Factions.gain_xp(faction, 1.0)
+		if Factions.learn(faction, last_kind) != "":
+			main.faction_learned(faction)
 	var g: Array = def["gold"]
 	var gold := int(randi_range(int(g[0]), int(g[1])) * (1.0 + 0.15 * (lvl - 1)))
 	main.drop_loot(global_position, gold, 0.08 if not is_boss else 1.0, 0.15)
@@ -402,22 +585,24 @@ func _die() -> void:
 		main.rival_defeated(self)
 
 
-func _draw() -> void:
+## Life bar and rival name live on their own child node drawn above the sprite (and above
+## neighbours), placed just over the top of the monster's real silhouette.
+func _draw_ui() -> void:
 	if state == "dead" or is_boss:
 		return
-	var y := {32: -20.0, 48: -30.0, 64: -42.0}.get(grid, -56.0) as float
+	var y := bar_y
 	if not rival.is_empty():
 		# rivals always show their name and life
 		var label: String = rival["name"]
 		var lw := FONT.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x
-		draw_string_outline(FONT, Vector2(-lw / 2.0, y - 4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, 3, Color(0.09, 0.11, 0.19))
-		draw_string(FONT, Vector2(-lw / 2.0, y - 4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(1.0, 0.55, 0.45))
+		ui.draw_string_outline(FONT, Vector2(-lw / 2.0, y - 4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, 3, Color(0.09, 0.11, 0.19))
+		ui.draw_string(FONT, Vector2(-lw / 2.0, y - 4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(1.0, 0.55, 0.45))
 		bar_t = maxf(bar_t, 0.1)
 	if bar_t <= 0.0:
 		return
 	# mini-bosses and rivals get a wider bar with a gold frame so they read as a bigger threat
 	var mini: bool = def.get("miniboss", false) or not rival.is_empty()
 	var w := 28.0 if mini else 16.0
-	draw_rect(Rect2(-w / 2 - 1, y - 1, w + 2, 4), Color(0.85, 0.6, 0.27) if mini else Color(0.09, 0.11, 0.19))
-	draw_rect(Rect2(-w / 2, y, w, 2), Color(0.09, 0.11, 0.19))
-	draw_rect(Rect2(-w / 2, y, w * clamp(float(hp) / max_hp, 0.0, 1.0), 2), Color(0.74, 0.29, 0.32))
+	ui.draw_rect(Rect2(-w / 2 - 1, y - 1, w + 2, 4), Color(0.85, 0.6, 0.27) if mini else Color(0.09, 0.11, 0.19))
+	ui.draw_rect(Rect2(-w / 2, y, w, 2), Color(0.09, 0.11, 0.19))
+	ui.draw_rect(Rect2(-w / 2, y, w * clamp(float(hp) / max_hp, 0.0, 1.0), 2), Color(0.74, 0.29, 0.32))

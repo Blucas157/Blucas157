@@ -55,6 +55,10 @@ var tool_tier := 0
 var armor_tier := 0
 var items := {}
 var skills: Array = []
+var factions := {}        # living world state (Factions.gd)
+var chronicle: Array = [] # what happened in the world, newest last
+var day_count := 0
+var camp_seq := 0
 var crafted := {}
 var kills := {}
 var opened_chests := {}
@@ -68,6 +72,7 @@ var quest_index := 0
 var quest_progress := 0
 var player_pos := Vector2.ZERO
 var has_saved_pos := false
+var world_version := WorldGen.VERSION
 var play_time := 0.0
 var day_time := 0.3  # 0..1, 0.25 = morning, 0.75 = night
 
@@ -107,6 +112,10 @@ func new_game(seed_value: int = -1) -> void:
 	armor_tier = 0
 	items = {}
 	skills = []
+	factions = Factions.init_state()
+	chronicle = []
+	day_count = 0
+	camp_seq = 0
 	crafted = {}
 	kills = {}
 	opened_chests = {}
@@ -370,6 +379,7 @@ func rival_event(monster_id: String, monster_level: int, region: String, kind: S
 	r["level"] = mini(int(r["level"]) + 1, Rivals.MAX_LEVEL)
 	if kind == "kill":
 		r["wins"] = int(r["wins"]) + 1
+		Factions.gain_xp(Factions.of(monster_id), 10.0)   # the whole faction grows bolder
 	else:
 		r["scars"] = int(r["scars"]) + 1
 	r["next_at"] = play_time + Rivals.RETURN_DELAY
@@ -405,9 +415,9 @@ func has_save() -> bool:
 func save_game() -> void:
 	var cfg := ConfigFile.new()
 	for key in ["world_seed", "level", "xp", "gold", "potions", "max_hp", "hp", "max_mp", "mp", "atk", "defense", "sword_tier",
-			"tool_tier", "armor_tier", "items", "skills", "crafted",
+			"tool_tier", "armor_tier", "items", "skills", "factions", "chronicle", "day_count", "camp_seq", "crafted",
 			"kills", "opened_chests", "broken", "discovered", "explored", "boss_defeated", "rivals", "rival_seq", "quest_index", "quest_progress",
-			"player_pos", "play_time", "day_time", "muted"]:
+			"player_pos", "play_time", "day_time", "muted", "world_version"]:
 		cfg.set_value("save", key, get(key))
 	cfg.save(save_path)
 
@@ -421,6 +431,17 @@ func load_game() -> bool:
 	hp = clampi(hp, 1, max_hp)
 	if not cfg.has_section_key("save", "skills"):
 		skills = []
+	if not cfg.has_section_key("save", "factions"):
+		factions = Factions.init_state()   # saves from before the living world
+		chronicle = []
+		day_count = 0
+		camp_seq = 0
+	else:
+		# factions added in later versions start fresh
+		var fresh := Factions.init_state()
+		for fid in fresh:
+			if not factions.has(fid):
+				factions[fid] = fresh[fid]
 	if not cfg.has_section_key("save", "max_mp"):
 		max_mp = 20 + 4 * (level - 1)   # saves from before mana existed
 		mp = max_mp
@@ -428,7 +449,9 @@ func load_game() -> bool:
 	if explored.size() != WorldGen.W * WorldGen.H:
 		explored = PackedByteArray()
 		explored.resize(WorldGen.W * WorldGen.H)
-	has_saved_pos = true
+	# a save from a smaller/older map: same hero and items, but back to the village
+	has_saved_pos = cfg.get_value("save", "world_version", 1) == WorldGen.VERSION
+	world_version = WorldGen.VERSION
 	stats_changed.emit()
 	quest_changed.emit()
 	return true

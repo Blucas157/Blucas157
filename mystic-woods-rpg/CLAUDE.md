@@ -8,6 +8,7 @@
   2. Fazer commit e push aqui e sincronizar/push no RepGodot (`main`), sem copiar `.import`, `.godot`, `.gitignore` e `LEIA-ME.md`.
   3. **Gerar o APK** com `tools/android/build_apk.sh <godot> <RepGodot>/android/mysticwoods.keystore mysticwoods mysticwoods`. O script sobe o `version/code` sozinho; esse `export_presets.cfg` alterado também vai no commit.
   4. **Sempre subir TUDO para o GitHub a cada atualização, sem exceção**: código no `main` do RepGodot e o APK em `APK/MysticWoodsRPG.apk` no `main` do RepGodot (onde o usuário baixa; link no README), além do branch `apk`. Enviar o arquivo também na conversa.
+- **Toda criatura ou NPC novo entra numa facção** (`Factions.DATA` members ou `"faction"` no MonsterDB) para aprender, evoluir e guerrear (docs/IA_VIVA.md).
 - Toda arte nova do PixelLab passa por `tools/pixel_cleanup.py --dist 20 --passes 3` antes de entrar no jogo.
 - Arte: estilo do pacote (contorno preto, 2–3 tons, paleta do pacote). Monstros comuns na escala do herói (grade de 32 px), golens como mini-chefes, Ent como chefe. Mostrar cada design novo para validação antes de animar.
 - **MMORPG (protótipo, pasta `mmorpg/`)**: projeto Godot separado (estilo Tibia/Ravendawn, grade de 32 px, Android e PC). Mesmas regras a cada alteração: testes `mmorpg/tests/verify_*.gd`, APK com `PROJ=mmorpg tools/android/build_apk.sh <godot> android/mysticwoods.keystore mysticwoods mysticwoods <saida>` em `APK/MMORPGProto.apk` (e no branch `apk`). Assets do PixelLab entram pelo `mmorpg/tools/build_assets.py` (que já usa o `pixel_cleanup`).

@@ -293,6 +293,10 @@ func _apply_attack() -> void:
 		if (r.global_position + Vector2(0, -6)).distance_to(center) <= 18.0 and main:
 			r.hit(main)
 			hit_any = true
+	for c in get_tree().get_nodes_in_group("camps"):
+		if (c.global_position + Vector2(0, -12)).distance_to(center) <= 22.0:
+			c.hit(Game.attack_power())
+			hit_any = true
 	for b in get_tree().get_nodes_in_group("breakables"):
 		if (b.global_position + Vector2(0, -6)).distance_to(center) <= 20.0 and main:
 			main.break_object(b)

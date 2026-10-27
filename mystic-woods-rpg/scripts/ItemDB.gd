@@ -56,6 +56,13 @@ const RESOURCES := {
 	"macieira": {"frame": 13, "empty": 15, "item": "maca", "amount": [1, 3], "hits": 1, "tier": 0, "regrow": 120.0},
 }
 
+## Ore veins and fruit trees are solid; plants (flowers, herbs, mushrooms, bushes) are not,
+## so a monster spawned among them can always be reached.
+static func resource_solid(type: String) -> bool:
+	var d: Dictionary = RESOURCES.get(type, {})
+	return d.get("ore", false) or type == "macieira"
+
+
 ## Where resources grow: region -> [[type, weight]], plus density per cell.
 const RESOURCE_SPAWNS := {
 	"prado": [0.006, [["moita_erva", 4], ["moita_frutinhas", 3], ["hortela", 2], ["veio_cobre", 2], ["macieira", 1]]],

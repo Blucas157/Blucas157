@@ -18,14 +18,16 @@ func setup(t: String) -> void:
 
 func _ready() -> void:
 	add_to_group("resources")
-	collision_layer = 1
 	collision_mask = 0
-	var shape := CollisionShape2D.new()
-	var rect := RectangleShape2D.new()
-	rect.size = Vector2(16, 7) if is_ore() else Vector2(10, 5)
-	shape.shape = rect
-	shape.position = Vector2(0, -3)
-	add_child(shape)
+	# flowers, herbs, mushrooms and bushes are walked through; only ore veins and trees block
+	collision_layer = 1 if ItemDB.resource_solid(type) else 0
+	if ItemDB.resource_solid(type):
+		var shape := CollisionShape2D.new()
+		var rect := RectangleShape2D.new()
+		rect.size = Vector2(16, 7) if is_ore() else Vector2(10, 5)
+		shape.shape = rect
+		shape.position = Vector2(0, -3)
+		add_child(shape)
 	sprite = Sprite2D.new()
 	sprite.texture = Sheets.tex(ItemDB.NODES)
 	sprite.region_enabled = true

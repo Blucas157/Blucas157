@@ -439,7 +439,7 @@ func show_title() -> void:
 
 
 func show_pause() -> void:
-	var box := _window("Pausa", 300.0, 236.0)
+	var box := _window("Pausa", 300.0, 250.0)
 	# --- stats: level + experience bar, then attack / defence / gold, then the counters
 	var stats := VBoxContainer.new()
 	stats.add_theme_constant_override("separation", 3)
@@ -488,6 +488,7 @@ func show_pause() -> void:
 	box.add_child(grid)
 	for b in [_button(grid, "Mochila", func(): show_inventory()),
 			_button(grid, "Rivais (%d)" % Game.rivals.size(), func(): show_rivals()),
+			_button(grid, "Crônicas", func(): show_chronicle()),
 			_button(grid, "Salvar jogo", func(): Game.save_game(); toast("Jogo salvo", Color(0.6, 1, 0.6)); main.set_paused(false)),
 			_button(grid, "Som: " + ("desligado" if Game.muted else "ligado"), func(): Game.muted = not Game.muted; show_pause())]:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -631,6 +632,52 @@ func show_rivals() -> void:
 		list.add_child(_small(Rivals.full_name(r), Color(1.0, 0.6, 0.5)))
 		list.add_child(_small("   %s  Nv.%d  -  %s" % [def["name"], r["level"], WorldGen.REGION_NAMES.get(r["region"], r["region"])], Color(0.85, 0.9, 1.0)))
 		list.add_child(_small("   " + Rivals.history(r), Color(0.75, 0.75, 0.8)))
+
+
+## Crônicas do Mundo: every faction's strength, land, camps, what they learned, their wars,
+## and the latest events of the living world.
+func show_chronicle() -> void:
+	var box := _panel_box("Crônicas do Mundo")
+	var list := _scroll(box)
+	list.add_child(_small("Dia %d  -  os monstros aprendem com você, evoluem, erguem acampamentos e disputam territórios." % (Game.day_count + 1),
+		Color(0.85, 0.9, 1.0)))
+	for fid in Factions.DATA:
+		if not Factions.active(fid):
+			continue
+		var s := Factions.st(fid)
+		var d: Dictionary = Factions.DATA[fid]
+		var head := HBoxContainer.new()
+		head.add_theme_constant_override("separation", 6)
+		var swatch := ColorRect.new()
+		swatch.color = d["color"]
+		swatch.custom_minimum_size = Vector2(6, 6)
+		swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		head.add_child(swatch)
+		head.add_child(_small("%s  -  %s (nível %d)" % [d["name"], Factions.TIERS[int(s["tier"])], int(s["tier"]) + 1], Color("ffe9a8")))
+		list.add_child(head)
+		var lands: Array = []
+		for r in s["regions"]:
+			lands.append("%s %d%%" % [WorldGen.REGION_NAMES[r], int(s["regions"][r])])
+		list.add_child(_small("   Força %d  -  Territórios: %s" % [int(s["power"]), ", ".join(lands) if not lands.is_empty() else "nenhum"], Color(0.85, 0.9, 1.0)))
+		var camps: Array = []
+		for c in s["camps"]:
+			camps.append("%s (nv %d)" % [WorldGen.REGION_NAMES[c["region"]], int(c["level"])])
+		if not camps.is_empty():
+			list.add_child(_small("   Acampamentos: " + ", ".join(camps), Color(1.0, 0.85, 0.55)))
+		if not (s["wars"] as Array).is_empty():
+			var foes: Array = []
+			for w in s["wars"]:
+				foes.append(Factions.DATA[w]["name"])
+			list.add_child(_small("   Em guerra com: " + ", ".join(foes), Color(1.0, 0.55, 0.45)))
+		for a in s["adapt"]:
+			list.add_child(_small("   * %s: %s" % [Factions.ADAPT[a]["name"], Factions.ADAPT[a]["desc"]], Color(0.75, 0.8, 0.95)))
+		if float(s["grudge"]) >= 25.0:
+			list.add_child(_small("   Rancor do herói: alto. Podem atacar os portões da vila à noite!", Color(1.0, 0.5, 0.45)))
+	list.add_child(_small("Acontecimentos", Color("ffe9a8")))
+	if Game.chronicle.is_empty():
+		list.add_child(_small("   Nada ainda... o mundo está só começando a se mexer.", Color(0.75, 0.75, 0.8)))
+	for i in range(Game.chronicle.size() - 1, maxi(-1, Game.chronicle.size() - 13), -1):
+		list.add_child(_small("   " + Game.chronicle[i], Color(0.8, 0.82, 0.9)))
 
 
 func show_shop(kind: String) -> void:

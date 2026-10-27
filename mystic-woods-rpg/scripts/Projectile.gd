@@ -12,6 +12,7 @@ var vel := Vector2.ZERO
 var dmg := 10
 var hostile := false
 var travelled := 0.0
+var faction := ""         # a monster's fireball also burns monsters of factions at war with it
 var homing = null   # a locked/aimed monster: the fireball bends toward it
 const TURN := 5.0          # radians per second
 
@@ -39,6 +40,11 @@ func _physics_process(delta: float) -> void:
 		var p: Node = main.player
 		if p and p.alive() and (p.global_position + Vector2(0, -8)).distance_to(global_position) <= 9.0:
 			burst()
+			return
+		for e in get_tree().get_nodes_in_group("enemies"):
+			if e.alive() and Factions.at_war(faction, e.faction) and e.hurt_center().distance_to(global_position) <= 6.0 + e.radius:
+				burst()
+				return
 	else:
 		for e in get_tree().get_nodes_in_group("enemies"):
 			if e.alive() and e.hurt_center().distance_to(global_position) <= 6.0 + e.radius:
@@ -56,8 +62,14 @@ func burst() -> void:
 			if is_instance_valid(source):
 				p.last_hit_by = source
 			p.take_damage(dmg, global_position)
+		for e in get_tree().get_nodes_in_group("enemies"):
+			if e.alive() and Factions.at_war(faction, e.faction) and e.hurt_center().distance_to(global_position) <= SPLASH + e.radius:
+				e.take_hit(dmg, (e.global_position - global_position).normalized(), false, "faction:" + faction)
 	else:
 		for e in get_tree().get_nodes_in_group("enemies"):
 			if e.alive() and e.hurt_center().distance_to(global_position) <= SPLASH + e.radius:
-				e.take_hit(dmg, (e.global_position - global_position).normalized())
+				e.take_hit(dmg, (e.global_position - global_position).normalized(), false, "magic")
+		for c in get_tree().get_nodes_in_group("camps"):
+			if (c.global_position + Vector2(0, -12)).distance_to(global_position) <= SPLASH + 10.0:
+				c.hit(dmg)
 	queue_free()

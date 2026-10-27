@@ -86,6 +86,20 @@ O painel do canto (arte `assets/ui/hud_status.png`, feita com `create_ui_asset`)
 - Efeitos feitos no `vfx_workbench`: `assets/vfx/fireball.png` (projétil), `fireburst.png` (explosão), `flame.png` (chama da mão).
 - Novas magias: entram em `Game.SKILLS` e são ensinadas por monstros com `"teaches"` no `MonsterDB`.
 
+## Mundo vivo: facções, noite e mapa maior
+- **Facções de monstros** (Clã Goblin, Horda Orc, Legião dos Mortos, Ninho das Aranhas, Matilha Selvagem, Brejo Vivo, Guardiões de Pedra; Bandidos esperando a arte):
+  - **aprendem com o herói**: espada, bola de fogo e esquiva viram escudos, formação dispersa e fintas;
+  - **evoluem** de Selvagens a Lendários, com mais vida, ataque, elites e táticas (grito de guerra, cerco, recuo);
+  - **erguem acampamentos** com estandarte, que soltam guardas e podem ser destruídos;
+  - **tomam regiões** e **guerreiam entre si**: monstros de facções em guerra se atacam na tela;
+  - com **rancor**, invadem os portões da vila à noite.
+- Tudo aparece em **Pausa → Crônicas**. Design e referências (Tensura, Goblin Slayer, Solo Leveling, Shangri-La Frontier, Soul Land...): `docs/IA_VIVA.md`.
+- **Noite:** monstros enxergam mais longe, correm, atacam e batem mais forte, e aparecem em maior número. Aviso ao anoitecer.
+- **Mapa 320×320** (2,5× maior). Saves antigos mantêm o herói e os itens e voltam para a vila.
+- **Flores, ervas, cogumelos e moitas** não têm colisão (só minérios e macieiras bloqueiam).
+- **Barras de vida** desenhadas acima de cada monstro: aranha e fantasma não escondem mais a barra.
+- Teste: `tests/verify_living_world.gd`.
+
 ## Sistema de Rivais
 Monstros lembram de você:
 - **Te derrotou?** O monstro que deu o golpe final vira um **rival**: ganha nome (ex.: *Grak*), título (*Matador do Herói*) e sobe de nível.
