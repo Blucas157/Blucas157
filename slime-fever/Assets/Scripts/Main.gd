@@ -28,11 +28,9 @@ var replay_button: Button
 var shop_button: Button
 var shop_close_button: Button
 var shop_buttons: Dictionary = {}
-const SHOP_TABS := {"items": "ITENS", "skins": "VISUAL"}
+const SHOP_TABS := {"upgrades": "MELHORAR", "items": "ITENS", "skins": "VISUAL"}
 var shop_tabs: Dictionary = {}
-var shop_tab: String = "items"
-var destiny_board: Control
-var destiny_button: Button
+var shop_tab: String = "upgrades"
 var run_shop_panel: Control
 var run_shop_continue: Button
 var shield_icon: TextureRect
@@ -651,10 +649,8 @@ func _show_menu() -> void:
 	shop_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	shop_row.add_theme_constant_override("separation", 24)
 	content.add_child(shop_row)
-	shop_button = HudKit.button("LOJA", "frame", Vector2(240, 140), _show_shop, 40)
+	shop_button = HudKit.button("LOJA", "gold", Vector2(340, 140), _show_shop, 56)
 	shop_row.add_child(shop_button)
-	destiny_button = HudKit.button("DESTINO", "gold", Vector2(260, 140), _show_destiny, 40)
-	shop_row.add_child(destiny_button)
 	var wallet_row := HudKit.icon_row(coin_frames[0], 2.0, "", 48, HudKit.GOLD)
 	menu_wallet_label = wallet_row.get_child(1)
 	shop_row.add_child(wallet_row)
@@ -708,7 +704,7 @@ func _show_shop() -> void:
 	content.add_child(tabs)
 	shop_tabs.clear()
 	for tab in SHOP_TABS:
-		var tab_button := HudKit.button(SHOP_TABS[tab], "square", Vector2(260, 100), _select_shop_tab.bind(tab), 40)
+		var tab_button := HudKit.button(SHOP_TABS[tab], "square", Vector2(210, 100), _select_shop_tab.bind(tab), 32)
 		tabs.add_child(tab_button)
 		shop_tabs[tab] = tab_button
 	var scroll := ScrollContainer.new()
@@ -730,11 +726,18 @@ func _select_shop_tab(tab: String) -> void:
 	_fill_shop()
 
 func _fill_shop() -> void:
-	shop_wallet_label.text = str(GameManager.wallet)
+	shop_wallet_label.text = GameManager.big_number(GameManager.wallet)
 	for child in shop_list.get_children():
 		child.queue_free()
 	shop_buttons.clear()
 	match shop_tab:
+		"upgrades":
+			for group in GameManager.UPGRADE_GROUPS.size():
+				var info_group: Dictionary = GameManager.UPGRADE_GROUPS[group]
+				shop_list.add_child(HudKit.label(info_group.name, 32, info_group.color))
+				for id in GameManager.UPGRADES:
+					if GameManager.UPGRADES[id].group == group:
+						shop_buttons[id] = _upgrade_row(id)
 		"items":
 			for id in GameManager.ITEMS:
 				var info: Dictionary = GameManager.ITEMS[id]
@@ -763,6 +766,50 @@ func _fill_shop() -> void:
 				shop_buttons[id] = buy
 
 ## One shop line: icon, name and detail, and an action button on the right.
+## Upgrade line: level bar, current -> next effect, price; boss upgrades wait for the boss.
+func _upgrade_row(id: String) -> Button:
+	var info: Dictionary = GameManager.UPGRADES[id]
+	var lv := GameManager.upgrade_level(id)
+	var state := GameManager.upgrade_state(id)
+	var detail: String = info.info
+	var action: String = GameManager.big_number(GameManager.upgrade_cost(id))
+	match state:
+		"boss":
+			detail = "Derrote o chefão: " + GameManager.BOSSES[info.boss].name.capitalize()
+			action = "TRAVADO"
+		"max":
+			detail = GameManager.upgrade_effect(id, lv) + " (máx)"
+			action = "MÁX"
+		_:
+			if lv > 0:
+				detail = GameManager.upgrade_effect(id, lv) + " -> " + GameManager.upgrade_effect(id, lv + 1)
+	var button := _shop_row(load(info.icon), info.name, detail, action, "gold", GameManager.can_buy_upgrade(id), _buy_upgrade.bind(id))
+	var text: VBoxContainer = button.get_parent().get_child(1)
+	# Long names use the smaller size so every row fits the card width.
+	text.get_child(0).add_theme_font_size_override("font_size", 40 if info.name.length() <= 10 else 32)
+	# Level bar and "12/25" under the text.
+	var level_row := HBoxContainer.new()
+	level_row.add_theme_constant_override("separation", 12)
+	text.add_child(level_row)
+	var bar := Control.new()
+	bar.custom_minimum_size = Vector2(260, 12)
+	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	level_row.add_child(bar)
+	var back := ColorRect.new()
+	back.color = Color(1, 1, 1, 0.15)
+	back.size = Vector2(260, 12)
+	bar.add_child(back)
+	var fill := ColorRect.new()
+	fill.color = HudKit.GOLD if state != "boss" else HudKit.CORAL
+	fill.size = Vector2(260.0 * lv / GameManager.UPGRADE_MAX, 12)
+	bar.add_child(fill)
+	level_row.add_child(HudKit.label("%d/%d" % [lv, GameManager.UPGRADE_MAX], 32, HudKit.GOLD if state == "max" else Color.WHITE))
+	return button
+
+func _buy_upgrade(id: String) -> void:
+	if GameManager.buy_upgrade(id):
+		_shop_bought()
+
 func _shop_row(icon: Texture2D, title: String, detail: String, action: String, skin_name: String, enabled: bool, callback: Callable) -> Button:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 16)
@@ -807,25 +854,6 @@ func _pick_skin(id: String) -> void:
 	elif GameManager.buy_skin(id):
 		_shop_bought()
 	$Player.apply_skin()
-
-func _show_destiny() -> void:
-	if is_instance_valid(destiny_board):
-		return
-	if is_instance_valid(menu_panel):
-		menu_panel.hide()
-	destiny_board = preload("res://Assets/Scripts/DestinyBoard.gd").new()
-	destiny_board.closed.connect(_close_destiny)
-	destiny_board.bought.connect(func(_id):
-		_tone(990, 0.1, 0.2)
-		_tone(1480, 0.14, 0.18))
-	ui.add_child(destiny_board)
-
-func _close_destiny() -> void:
-	if is_instance_valid(destiny_board):
-		destiny_board.queue_free()
-	if is_instance_valid(menu_panel):
-		menu_panel.show()
-	_refresh_modes()
 
 func _close_shop() -> void:
 	if is_instance_valid(shop_panel):
@@ -1139,8 +1167,6 @@ func _start_game() -> void:
 	best_before_run = GameManager.best
 	if is_instance_valid(shop_panel):
 		shop_panel.queue_free()
-	if is_instance_valid(destiny_board):
-		destiny_board.queue_free()
 	if is_instance_valid(menu_panel):
 		menu_panel.hide()
 		menu_panel.queue_free()

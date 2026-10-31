@@ -54,31 +54,29 @@ const MAX_SPEED := 1.45
 const COIN_TOP := [40, 75, 100]
 # Shop: every collected coin adds 1 to the saved wallet the moment it is caught.
 # New entries only need a line here plus whatever reads them.
-# Destiny board (Albion style): three branches of nodes with up to DESTINY_MAX levels.
-# A node opens when its parent reaches DESTINY_UNLOCK; boss nodes also need that boss beaten.
-# "pos" is the node's spot on the 1080x1920 board screen.
-const DESTINY_MAX := 25
-const DESTINY_UNLOCK := 5
-const DESTINY_GROWTH := 1.17
-const DESTINY := {
-	"reach": {"name": "ALCANCE", "icon": "res://Assets/UI/icon_reach.png", "parent": "", "cost": 30, "pos": Vector2(210, 1250), "info": "Pega moedas de mais longe"},
-	"speed": {"name": "AGILIDADE", "icon": "res://Assets/UI/icon_speed.png", "parent": "reach", "cost": 45, "pos": Vector2(210, 1010), "info": "Slime mais rápido"},
-	"value": {"name": "VALOR", "icon": "res://Assets/UI/icon_value.png", "parent": "speed", "cost": 70, "pos": Vector2(210, 770), "info": "Moedas valem mais pontos e chance de moeda extra"},
-	"golden_fever": {"name": "FEBRE DOURADA", "icon": "res://Assets/UI/icon_fever.png", "parent": "value", "cost": 150, "boss": 2, "pos": Vector2(210, 530), "info": "Na febre, moedas na carteira valem mais"},
-	"fever": {"name": "FEBRE", "icon": "res://Assets/UI/icon_fever.png", "parent": "", "cost": 35, "pos": Vector2(540, 1250), "info": "Febre dura mais"},
-	"luck": {"name": "SORTE", "icon": "res://Assets/UI/icon_luck.png", "parent": "fever", "cost": 50, "pos": Vector2(540, 1010), "info": "Ímãs aparecem mais vezes"},
-	"magnet": {"name": "ÍMÃ", "icon": "res://Assets/UI/icon_magnet.png", "parent": "luck", "cost": 60, "pos": Vector2(540, 770), "info": "Ímã dura mais e puxa de mais longe"},
-	"auto_magnet": {"name": "ÍMÃ AUTOMÁTICO", "icon": "res://Assets/UI/icon_magnet.png", "parent": "magnet", "cost": 150, "boss": 1, "pos": Vector2(540, 530), "info": "Liga o ímã sozinho de tempos em tempos"},
-	"shield": {"name": "ESCUDO", "icon": "res://Assets/UI/icon_shield.png", "parent": "", "cost": 40, "pos": Vector2(870, 1250), "info": "Chance de começar com escudo"},
-	"resist": {"name": "RESISTÊNCIA", "icon": "res://Assets/UI/icon_resist.png", "parent": "shield", "cost": 55, "pos": Vector2(870, 1010), "info": "Chance de não perder o combo ao errar"},
-	"treasure": {"name": "TESOURO", "icon": "res://Assets/UI/chest.png", "parent": "resist", "cost": 70, "pos": Vector2(870, 770), "info": "Baús dos chefões com mais moedas"},
-	"revive": {"name": "SEGUNDA CHANCE", "icon": "res://Assets/UI/icon_shield.png", "parent": "treasure", "cost": 150, "boss": 0, "pos": Vector2(870, 530), "info": "Sobrevive a bombas por partida"},
-}
-const BRANCHES := [
+# Permanent upgrades, bought level by level in the shop (MELHORAR tab), grouped by kind.
+# Boss upgrades open once that boss has been beaten.
+const UPGRADE_MAX := 25
+const UPGRADE_GROWTH := 1.17
+const UPGRADE_GROUPS := [
 	{"name": "COLETA", "color": Color("8ff0a8")},
 	{"name": "PODER", "color": Color("ffd45c")},
 	{"name": "SOBREVIVÊNCIA", "color": Color("8fd8ff")},
 ]
+const UPGRADES := {
+	"reach": {"name": "ALCANCE", "icon": "res://Assets/UI/icon_reach.png", "group": 0, "cost": 30, "info": "Pega moedas de mais longe"},
+	"speed": {"name": "AGILIDADE", "icon": "res://Assets/UI/icon_speed.png", "group": 0, "cost": 45, "info": "Slime mais rápido"},
+	"value": {"name": "VALOR", "icon": "res://Assets/UI/icon_value.png", "group": 0, "cost": 70, "info": "Mais pontos e chance de moeda extra"},
+	"golden_fever": {"name": "FEBRE DOURADA", "icon": "res://Assets/UI/icon_fever.png", "group": 0, "cost": 150, "boss": 2, "info": "Na febre, moedas valem mais"},
+	"fever": {"name": "FEBRE", "icon": "res://Assets/UI/icon_fever.png", "group": 1, "cost": 35, "info": "Febre dura mais"},
+	"luck": {"name": "SORTE", "icon": "res://Assets/UI/icon_luck.png", "group": 1, "cost": 50, "info": "Ímãs aparecem mais vezes"},
+	"magnet": {"name": "ÍMÃ", "icon": "res://Assets/UI/icon_magnet.png", "group": 1, "cost": 60, "info": "Ímã dura mais e puxa de longe"},
+	"auto_magnet": {"name": "ÍMÃ AUTOMÁTICO", "icon": "res://Assets/UI/icon_magnet.png", "group": 1, "cost": 150, "boss": 1, "info": "Liga o ímã sozinho"},
+	"shield": {"name": "ESCUDO", "icon": "res://Assets/UI/icon_shield.png", "group": 2, "cost": 40, "info": "Chance de começar com escudo"},
+	"resist": {"name": "RESISTÊNCIA", "icon": "res://Assets/UI/icon_resist.png", "group": 2, "cost": 55, "info": "Chance de manter o combo ao errar"},
+	"treasure": {"name": "TESOURO", "icon": "res://Assets/UI/chest.png", "group": 2, "cost": 70, "info": "Baús dos chefões com mais moedas"},
+	"revive": {"name": "SEGUNDA CHANCE", "icon": "res://Assets/UI/icon_shield.png", "group": 2, "cost": 150, "boss": 0, "info": "Sobrevive a bombas por partida"},
+}
 # Bought in the menu shop, used up automatically when the next run starts.
 const ITEMS := {
 	"start_shield": {"name": "ESCUDO INICIAL", "icon": "res://Assets/UI/icon_shield.png", "price": 60, "max": 3, "info": "Começa com escudo"},
@@ -121,8 +119,7 @@ var bests: Array[int] = [0, 0, 0]
 var mode: int = 1
 var level: int = 0
 var wallet: int = 0
-# Destiny node levels.
-var destiny: Dictionary = {}
+var upgrades: Dictionary = {}
 var items: Dictionary = {}
 var skins_owned: Array = ["verde"]
 var skin: String = "verde"
@@ -158,12 +155,13 @@ func _ready() -> void:
 		muted = bool(save.get_value("settings", "muted", false))
 		mode = clampi(int(save.get_value("settings", "mode", 1)), 0, MODES.size() - 1)
 		wallet = maxi(0, int(save.get_value("progress", "wallet", 0)))
-		for id in DESTINY:
-			destiny[id] = clampi(int(save.get_value("destiny", id, 0)), 0, DESTINY_MAX)
-		# Saves from the 5-level shop: each old level is worth 3 board levels.
+		# Levels live in the "destiny" section (kept from the Destiny Board versions).
+		for id in UPGRADES:
+			upgrades[id] = clampi(int(save.get_value("destiny", id, 0)), 0, UPGRADE_MAX)
+		# Saves from the first 5-level shop: each old level is worth 3 levels now.
 		if not save.has_section("destiny") and save.has_section("upgrades"):
 			for id in ["reach", "speed", "fever", "luck", "magnet"]:
-				destiny[id] = clampi(int(save.get_value("upgrades", id, 0)) * 3, 0, DESTINY_MAX)
+				upgrades[id] = clampi(int(save.get_value("upgrades", id, 0)) * 3, 0, UPGRADE_MAX)
 		for id in ITEMS:
 			items[id] = clampi(int(save.get_value("items", id, 0)), 0, ITEMS[id].max)
 		for id in save.get_value("skins", "owned", ["verde"]):
@@ -268,37 +266,34 @@ func use_revive() -> bool:
 	return true
 
 func upgrade_level(id: String) -> int:
-	return destiny.get(id, 0)
+	return upgrades.get(id, 0)
 
-## "open", "max", "locked" (parent below DESTINY_UNLOCK) or "boss" (boss not beaten yet).
-func destiny_state(id: String) -> String:
-	var node: Dictionary = DESTINY[id]
-	if node.has("boss") and not has_ability(id):
+## "open", "max" or "boss" (that boss has not been beaten yet).
+func upgrade_state(id: String) -> String:
+	if UPGRADES[id].has("boss") and not has_ability(id):
 		return "boss"
-	if node.parent != "" and upgrade_level(node.parent) < DESTINY_UNLOCK:
-		return "locked"
-	return "max" if upgrade_level(id) >= DESTINY_MAX else "open"
+	return "max" if upgrade_level(id) >= UPGRADE_MAX else "open"
 
 ## Price of the next level, or -1 when maxed.
-func destiny_cost(id: String) -> int:
+func upgrade_cost(id: String) -> int:
 	var lv := upgrade_level(id)
-	if lv >= DESTINY_MAX:
+	if lv >= UPGRADE_MAX:
 		return -1
-	return roundi(DESTINY[id].cost * pow(DESTINY_GROWTH, lv))
+	return roundi(UPGRADES[id].cost * pow(UPGRADE_GROWTH, lv))
 
-func destiny_can_buy(id: String) -> bool:
-	return destiny_state(id) == "open" and wallet >= destiny_cost(id)
+func can_buy_upgrade(id: String) -> bool:
+	return upgrade_state(id) == "open" and wallet >= upgrade_cost(id)
 
-func destiny_buy(id: String) -> bool:
-	if not destiny_can_buy(id):
+func buy_upgrade(id: String) -> bool:
+	if not can_buy_upgrade(id):
 		return false
-	_spend(destiny_cost(id))
-	destiny[id] = upgrade_level(id) + 1
+	_spend(upgrade_cost(id))
+	upgrades[id] = upgrade_level(id) + 1
 	save_progress()
 	return true
 
-## Effect of a node at a level, as shown on the board ("8,0s", "+12% coleta").
-func destiny_effect(id: String, lv: int) -> String:
+## Effect of an upgrade at a level, as shown in the shop ("8,0s", "+12% alcance").
+func upgrade_effect(id: String, lv: int) -> String:
 	var pct := func(v: float) -> String: return "+%d%%" % roundi(v * 100.0)
 	var sec := func(v: float) -> String: return ("%.1fs" % v).replace(".", ",")
 	match id:
@@ -327,13 +322,6 @@ func destiny_effect(id: String, lv: int) -> String:
 		"revive":
 			return "%d por partida" % revive_count(lv)
 	return ""
-
-## Board-wide progress, for the menu.
-func destiny_total() -> int:
-	var total := 0
-	for id in DESTINY:
-		total += upgrade_level(id)
-	return total
 
 ## 1234 -> "1,2 mil", 2500000 -> "2,5 mi" for the incremental numbers.
 static func big_number(value: int) -> String:
@@ -598,7 +586,7 @@ func save_progress() -> void:
 	save.set_value("settings", "muted", muted)
 	save.set_value("settings", "mode", mode)
 	save.set_value("progress", "wallet", wallet)
-	for id in DESTINY:
+	for id in UPGRADES:
 		save.set_value("destiny", id, upgrade_level(id))
 	for id in ITEMS:
 		save.set_value("items", id, item_count(id))

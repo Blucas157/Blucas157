@@ -9,12 +9,12 @@ func check(ok: bool, label: String) -> void:
 func run_tests() -> void:
 	var gm = root.get_node("GameManager")
 	gm.save_path = OS.get_environment("SLIME_TEST_SAVE") if OS.has_environment("SLIME_TEST_SAVE") else "user://test-shop-save.cfg"
-	for id in gm.DESTINY:
-		gm.destiny[id] = 0
-	# Board effects grow with the level (buying is covered by verify_destiny.gd).
+	for id in gm.UPGRADES:
+		gm.upgrades[id] = 0
+	# Upgrade effects grow with the level.
 	check(gm.magnet_duration(5) > gm.magnet_duration(0) and gm.magnet_radius(5) > gm.magnet_radius(0), "magnet levels last longer and reach farther")
 	check(gm.powerup_gap(5) < gm.powerup_gap(0), "luck makes power-ups more frequent")
-	gm.destiny["fever"] = 2
+	gm.upgrades["fever"] = 2
 	gm.reset_game()
 	gm.started = true
 	var before: int = gm.wallet
@@ -29,7 +29,7 @@ func run_tests() -> void:
 	check(gm.wallet == before + 20, "ending the run does not count coins twice")
 	# Saved and loaded back.
 	var save := ConfigFile.new()
-	check(save.load(gm.save_path) == OK and int(save.get_value("progress", "wallet")) == gm.wallet and int(save.get_value("destiny", "fever")) == 2, "wallet and board levels saved")
+	check(save.load(gm.save_path) == OK and int(save.get_value("progress", "wallet")) == gm.wallet and int(save.get_value("destiny", "fever")) == 2, "wallet and upgrade levels saved")
 	# Magnet pulls a nearby coin sideways toward the slime, and not a far one.
 	var scene = load("res://Assets/Cenas/main.tscn").instantiate()
 	root.add_child(scene)
@@ -119,7 +119,7 @@ func run_tests() -> void:
 	check(not is_instance_valid(scene.run_shop_panel) and not paused, "no mini-shop when nothing is affordable")
 	# Collecting upgrades.
 	check(gm.reach_scale(5) > gm.reach_scale(0) and gm.speed_bonus(5) > gm.speed_bonus(0), "reach and speed grow")
-	gm.destiny["reach"] = 12
+	gm.upgrades["reach"] = 12
 	var coin = load("res://Assets/Cenas/moeda.tscn").instantiate()
 	scene.add_child(coin)
 	check(coin.get_node("CollisionShape2D").shape.radius > 10.0 * 1.4, "reach widens the coin pickup")
@@ -137,5 +137,47 @@ func run_tests() -> void:
 	check(is_equal_approx(player.sprite.material.get_shader_parameter("hue_shift"), gm.SKINS.azul.hue), "slime sprite uses the skin hue")
 	save = ConfigFile.new()
 	check(save.load(gm.save_path) == OK and save.get_value("skins", "equipped") == "azul" and Array(save.get_value("skins", "owned")).has("azul") and int(save.get_value("items", "start_shield")) == 2, "items and skins saved")
+	# Upgrades: all open from the start (no unlock chain), rising cost, level 25 cap.
+	scene._back_to_menu()
+	await process_frame
+	for id in gm.UPGRADES:
+		gm.upgrades[id] = 0
+	gm.abilities.clear()
+	for id in ["reach", "speed", "value", "fever", "luck", "magnet", "shield", "resist", "treasure"]:
+		check(gm.upgrade_state(id) == "open", "%s open from the start" % id)
+	check(gm.upgrade_state("revive") == "boss" and not gm.buy_upgrade("revive"), "boss upgrade waits for its boss")
+	gm.wallet = 0
+	check(not gm.buy_upgrade("magnet"), "no coins, no level")
+	gm.wallet = 10000000
+	var first: int = gm.upgrade_cost("magnet")
+	check(first == 60 and gm.buy_upgrade("magnet") and gm.upgrade_cost("magnet") > first, "level 1 at base price, next costs more")
+	while gm.buy_upgrade("magnet"):
+		pass
+	check(gm.upgrade_level("magnet") == gm.UPGRADE_MAX and gm.upgrade_state("magnet") == "max" and gm.upgrade_cost("magnet") == -1, "stops at level 25")
+	gm.abilities.append("revive")
+	check(gm.upgrade_state("revive") == "open", "beating the boss opens its upgrade")
+	check(gm.upgrade_effect("revive", 10) == "2 por partida" and gm.big_number(1234) == "1,2 mil", "effect text and big numbers")
+	# Saves from the first 5-level shop still convert (x3).
+	var legacy := ConfigFile.new()
+	legacy.set_value("upgrades", "magnet", 2)
+	legacy.save("user://test-legacy-save.cfg")
+	var fresh = load("res://Assets/Scripts/GameManager.gd").new()
+	fresh.save_path = "user://test-legacy-save.cfg"
+	root.add_child(fresh)
+	check(fresh.upgrade_level("magnet") == 6, "old shop levels convert")
+	fresh.queue_free()
+	# Shop UI: MELHORAR tab lists every upgrade by group and buys a level.
+	gm.wallet = 500
+	gm.upgrades["fever"] = 0
+	scene._show_shop()
+	await process_frame
+	scene._select_shop_tab("upgrades")
+	await process_frame
+	check(scene.shop_buttons.size() == gm.UPGRADES.size(), "MELHORAR lists all upgrades")
+	scene._buy_upgrade("fever")
+	await process_frame
+	check(gm.upgrade_level("fever") == 1 and gm.wallet == 465 and scene.shop_wallet_label.text == "465", "upgrade bought from the shop")
+	check(scene.shop_buttons["revive"].disabled == false or gm.wallet < gm.upgrade_cost("revive"), "boss upgrade buyable once unlocked")
+	scene._close_shop()
 	print("SHOP: %d failures; prices, levels, effects, banking, save, magnet pull, power-up, shop UI" % failures)
 	quit(1 if failures else 0)

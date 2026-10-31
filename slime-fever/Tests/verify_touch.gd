@@ -33,8 +33,8 @@ func run_tests() -> void:
 	var gm = root.get_node("GameManager")
 	gm.save_path = OS.get_environment("SLIME_TEST_SAVE") if OS.has_environment("SLIME_TEST_SAVE") else "user://test-touch-save.cfg"
 	gm.muted = true
-	for id in gm.DESTINY:
-		gm.destiny[id] = 0
+	for id in gm.UPGRADES:
+		gm.upgrades[id] = 0
 	# PC: arrows on screen, no drag steering.
 	var scene = await load_scene(0)
 	check(get_nodes_in_group("direction_buttons").size() == 2 and not scene.touch_steer.enabled, "PC keeps the arrows")
