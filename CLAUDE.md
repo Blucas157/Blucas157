@@ -43,9 +43,7 @@ A versão completa e editável pelo dono fica no cofre Obsidian: repositório `B
 - Chefões são derrotados **devolvendo bombas**, não atirando.
 - Os 3 modos ficam; não há modo infinito separado (os níveis já são infinitos).
 - Mobile = arrastar; PC = setas. As setas não aparecem no celular.
-
-## Pendências esperando o dono
-- Níveis rápidos demais nas zonas avançadas: as moedas valem mais por zona, mas o nível ainda pede 1000 pontos, e níveis de chefão que passam durante uma luta são pulados. Opções em `Cérebro/Decisões.md`. Não mude sem a resposta dele.
+- Ritmo (v0.23): cada nível custa 1000 × bônus da zona, e os níveis ficam parados durante a luta com o chefão. Nenhum chefão pode ser pulado; a regressão confere.
 
 ## Objetivo do dono
 "Criar um jogo diferente dos demais." Proponha ideias com identidade própria (veja `Cérebro/Identidade.md` no cofre), sempre perguntando antes de mudanças grandes no design.

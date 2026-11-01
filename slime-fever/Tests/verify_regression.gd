@@ -116,7 +116,7 @@ func check_saves(base: String) -> void:
 	manager.level_up.connect(func(l): levels.append(l))
 	manager.add_score(manager.LEVEL_POINTS * 3 + 900)
 	manager.add_score(1500)
-	check(levels == [1, 2, 3, 4, 5] and manager.boss_active, "jumping over NV 5 still starts the boss (%s)" % [levels])
+	check(levels == [1, 2, 3, 4] and manager.boss_active, "jumping over NV 5 still starts the boss and stops there (%s)" % [levels])
 	manager.queue_free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	notes.append("save cases")
@@ -173,6 +173,9 @@ func check_runs(gm) -> void:
 		check(gm.coins > 100 and gm.level >= 4, "%s: coins %d, level %d" % [label, gm.coins, gm.level + 1])
 		check(not bosses.is_empty(), "%s: a boss showed up" % label)
 		check(gm.wallet == wallet_start + gm.earned or gm.zone > 0, "%s: wallet adds what was earned" % label)
+		# v0.23: no boss level is skipped and later zones keep a human pace.
+		check(gm.level + 1 < gm.BOSS_EVERY * (bosses.size() + 1), "%s: every boss level brought its boss (NV%d, %d bosses)" % [label, gm.level + 1, bosses.size()])
+		check(gm.level + 1 <= 40, "%s: levels keep a sane pace (NV%d in %.0f s)" % [label, gm.level + 1, game_time])
 		check(most_items < 80, "%s: falling items stay bounded (%d)" % [label, most_items])
 		notes.append("%s %d coins NV%d zone %d bosses %d in %.0fs" % [label, gm.coins, gm.level + 1, gm.zone + 1, bosses.size(), game_time])
 		gm.end_game()

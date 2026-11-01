@@ -26,6 +26,8 @@ func run_tests() -> void:
 	check(not gm.boss_active and started.is_empty(), "no boss before NV 5")
 	gm.add_score(gm.LEVEL_POINTS)
 	check(gm.boss_active and started == [0] and gm.boss_hp == gm.boss_max and gm.boss_max == 4, "first boss at NV 5 with 4 hits")
+	gm.add_score(gm.LEVEL_POINTS * 3)
+	check(gm.level == 4, "levels hold still during the boss fight")
 	await create_timer(1.0).timeout
 	check(scene.boss_sprite.visible and scene.boss_bar.visible, "boss and its health bar are shown")
 	# Catching a glowing bomb throws it back and damages the boss; it does not hurt the slime.
@@ -51,7 +53,11 @@ func run_tests() -> void:
 	scene._close_run_shop()
 	await process_frame
 	# Second boss is the crystal golem, tougher; an ability already owned is not given twice.
-	gm.add_score(gm.LEVEL_POINTS * 5)
+	# Levels stand still during a fight, then each one costs more in zone 2.
+	check(gm.level_cost() == 1500, "zone 2 levels cost 1500 points")
+	gm.add_score(gm.level_cost() * 4)
+	check(not gm.boss_active and gm.level == 8, "four zone-2 levels after the first boss")
+	gm.add_score(gm.level_cost())
 	check(gm.boss_active and gm.boss_index == 1 and gm.boss_max == 6, "zone 2 boss is the golem with 6 hits")
 	# Running out of time: the boss escapes without a reward.
 	gm.boss_left = 0.01

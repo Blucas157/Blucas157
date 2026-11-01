@@ -28,6 +28,8 @@ const MODE_BOSS_TIME := [45.0, 45.0, 35.0]
 const MODE_REWARD := [1.0, 1.0, 1.5]
 # Every LEVEL_POINTS the run speeds up and bombs get denser, with no level cap;
 # MAX_SPEED and MIN_BOMB_GAP keep later levels fair.
+# v0.23: a level costs LEVEL_POINTS x the zone bonus, so later zones keep the same pace
+# (coins there are worth more), and levels hold still during a boss fight.
 const LEVEL_POINTS := 1000
 const LEVEL_SPEED := 0.06
 const LEVEL_BOMB_GAP := 0.94
@@ -127,6 +129,8 @@ var best: int = 0
 var bests: Array[int] = [0, 0, 0]
 var mode: int = 1
 var level: int = 0
+# Score at which the next level comes.
+var next_level_at: int = LEVEL_POINTS
 var wallet: int = 0
 var upgrades: Dictionary = {}
 var items: Dictionary = {}
@@ -258,6 +262,14 @@ func hit_boss() -> void:
 	if boss_hp <= 0:
 		_defeat_boss()
 
+## Points for one level in the current zone.
+func level_cost() -> int:
+	return roundi(LEVEL_POINTS * zone_bonus())
+
+## After a boss fight the next level starts counting from the current score.
+func _resume_levels() -> void:
+	next_level_at = score + level_cost()
+
 func _defeat_boss() -> void:
 	boss_active = false
 	var chest := roundi(60 * (zone + 1) * treasure_bonus())
@@ -270,6 +282,7 @@ func _defeat_boss() -> void:
 		abilities.append(ability)
 	zone += 1
 	best_zone = maxi(best_zone, zone)
+	_resume_levels()
 	save_progress()
 	wallet_changed.emit(wallet)
 	boss_defeated.emit(chest, ability)
@@ -582,6 +595,7 @@ func _process(delta: float) -> void:
 		boss_left = maxf(0.0, boss_left - delta)
 		if boss_left == 0.0:
 			boss_active = false
+			_resume_levels()
 			boss_escaped.emit()
 	if fever_left > 0.0:
 		fever_left = maxf(0.0, fever_left - delta)
@@ -631,8 +645,9 @@ func add_score(amount: int) -> void:
 	score_changed.emit(score)
 	# One level at a time: big coins in late zones can cross two levels at once,
 	# and a boss level must never be jumped over.
-	while score / LEVEL_POINTS > level:
+	while score >= next_level_at and not boss_active:
 		level += 1
+		next_level_at += level_cost()
 		level_up.emit(level)
 		# The HUD shows level + 1, so bosses arrive on NV 5, 10, 15...
 		if (level + 1) % BOSS_EVERY == 0:
@@ -682,6 +697,7 @@ func reset_game() -> void:
 	elapsed = 0.0
 	coins = 0
 	level = 0
+	next_level_at = LEVEL_POINTS
 	magnet_left = 0.0
 	double_left = 0.0
 	shield = 0

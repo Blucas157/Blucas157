@@ -1,9 +1,14 @@
-# Slime Fever — v0.22
+# Slime Fever — v0.23
 
 ## Abrir o jogo
 Use Godot 4.7.2. Extraia o ZIP pelo Windows em uma pasta nova e importe o arquivo project.godot; aguarde a importação dos PNGs e pressione F5. Este pacote contém o projeto-fonte, não APK, executável nem build Web. O ZIP possui pastas explícitas e project.godot na raiz.
 
 Na abertura, clique/toque em JOGAR ou pressione Enter. Segure as setas na tela ou use A/D e setas do teclado. II/Esc pausa; CONTINUAR retoma. SOM/MUDO alterna efeitos sonoros. Ao perder foco, uma partida em andamento pausa.
+
+## v0.23 — Ritmo dos níveis igual em todas as zonas
+- Cada nível custa 1000 pontos vezes o bônus da zona (zona 1: 1000, zona 2: 1500, zona 3: 2000...). Como as moedas valem mais nas zonas avançadas, o tempo por nível fica parecido.
+- Durante a luta com o chefão os níveis ficam parados. Depois da luta (vitória ou fuga) o próximo nível começa a contar da pontuação atual. Nenhum chefão é pulado.
+- Regressão: o robô agora chega ao NV 20–25 em 200 s (antes NV 57–94) e enfrenta todos os chefões dos níveis que alcança.
 
 ## v0.22 — Regressão obrigatória e correção do chefão pulado
 - Tests/run_all.sh roda todos os testes (Tests/verify_*.gd) e falha com qualquer verificação errada, erro de script ou erro do Godot. Ela precisa passar antes de toda versão.
@@ -116,14 +121,14 @@ Na abertura, clique/toque em JOGAR ou pressione Enter. Segure as setas na tela o
 - Novo teste Tests/verify_modes.gd; o teste da chuva agora cobre os três modos e todos os níveis (7.793 bombas auditadas).
 
 ## Versão Web (itch.io)
-Zip pronto em releases/SlimeFever-web-v0.22.zip (index.html na raiz, versão sem threads, que roda no itch.io sem configuração extra). Para gerar de novo, com os templates Web do Godot 4.7.2 instalados:
+Zip pronto em releases/SlimeFever-web-v0.23.zip (index.html na raiz, versão sem threads, que roda no itch.io sem configuração extra). Para gerar de novo, com os templates Web do Godot 4.7.2 instalados:
 
     godot --headless --path . --export-release "Web" ../web/index.html
 
 No itch.io: Kind of project = HTML, enviar o zip e marcar "This file will be played in the browser"; Viewport 450 x 800, "Mobile friendly" (orientação retrato) e "Fullscreen button".
 
 ## APK Android
-O APK pronto fica em releases/SlimeFever-v0.22.apk na raiz do repositório (arm64 e armv7, Android 7+ recomendado). Para gerar de novo: Godot 4.7.2 com os templates de exportação, apksigner do Android SDK e uma keystore; preset "Android" em export_presets.cfg (pacote com.blucas157.slimefever, sem Gradle, ícone em Assets/Icon/).
+O APK pronto fica em releases/SlimeFever-v0.23.apk na raiz do repositório (arm64 e armv7, Android 7+ recomendado). Para gerar de novo: Godot 4.7.2 com os templates de exportação, apksigner do Android SDK e uma keystore; preset "Android" em export_presets.cfg (pacote com.blucas157.slimefever, sem Gradle, ícone em Assets/Icon/).
 
     godot --headless --path . --export-release "Android" ../releases/SlimeFever.apk
 
