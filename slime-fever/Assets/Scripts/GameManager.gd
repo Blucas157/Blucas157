@@ -629,9 +629,10 @@ func add_score(amount: int) -> void:
 		return
 	score += amount
 	score_changed.emit(score)
-	var reached := score / LEVEL_POINTS
-	if reached > level:
-		level = reached
+	# One level at a time: big coins in late zones can cross two levels at once,
+	# and a boss level must never be jumped over.
+	while score / LEVEL_POINTS > level:
+		level += 1
 		level_up.emit(level)
 		# The HUD shows level + 1, so bosses arrive on NV 5, 10, 15...
 		if (level + 1) % BOSS_EVERY == 0:

@@ -27,13 +27,13 @@ A versão completa e editável pelo dono fica no cofre Obsidian: repositório `B
 - `Assets/Scripts/Main.gd`: HUD, menu, loja, lojinha, chefão, efeitos e sons.
 - `Assets/Scripts/spawner.gd`: padrões de moedas, chuva de bombas justa e power-ups.
 - `Assets/Scripts/FallingItem.gd`, `player.gd`, `TouchSteer.gd`, `DirectionButton.gd`, `HudKit.gd`.
-- `Tests/verify_*.gd`: rode todos antes de publicar (`godot --headless --path . --script res://Tests/verify_X.gd`).
+- `Tests/verify_*.gd` + `Tests/run_all.sh`: a regressão. `verify_regression.gd` é a varredura geral: arte, saves quebrados ou antigos, robô jogando cada modo sem poder morrer, ciclos de reinício.
 - `slime-fever/LEIA-ME.md`: notas de cada versão (em português).
 
 ## Como entregar uma versão
 1. Suba `config/name` em `project.godot` e `version/code`/`version/name` no preset Android em `export_presets.cfg`.
 2. Escreva a seção da versão no `LEIA-ME.md`.
-3. Rode todos os testes.
+3. **Rode a regressão completa (obrigatória):** `GODOT=<godot> slime-fever/Tests/run_all.sh`. Ela precisa terminar com "REGRESSÃO: tudo passou". Todo bug encontrado vira um teste novo (de preferência em `Tests/verify_regression.gd`), e o resultado vai para `Cérebro/Regressão.md` no cofre, na seção Histórico.
 4. Exporte o APK assinado (`releases/SlimeFever-vX.apk`) e o zip Web sem threads para o itch.io (`releases/SlimeFever-web-vX.zip`, index.html na raiz). Apague os builds da versão anterior.
 5. Commit e push no branch de trabalho. Mande os links `https://github.com/Blucas157/Blucas157/raw/<branch>/releases/...`.
 6. Atualize o cofre Obsidian: diário da versão, quadro de tarefas, links e o Cérebro.
@@ -43,6 +43,9 @@ A versão completa e editável pelo dono fica no cofre Obsidian: repositório `B
 - Chefões são derrotados **devolvendo bombas**, não atirando.
 - Os 3 modos ficam; não há modo infinito separado (os níveis já são infinitos).
 - Mobile = arrastar; PC = setas. As setas não aparecem no celular.
+
+## Pendências esperando o dono
+- Níveis rápidos demais nas zonas avançadas: as moedas valem mais por zona, mas o nível ainda pede 1000 pontos, e níveis de chefão que passam durante uma luta são pulados. Opções em `Cérebro/Decisões.md`. Não mude sem a resposta dele.
 
 ## Objetivo do dono
 "Criar um jogo diferente dos demais." Proponha ideias com identidade própria (veja `Cérebro/Identidade.md` no cofre), sempre perguntando antes de mudanças grandes no design.
