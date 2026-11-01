@@ -46,6 +46,8 @@ var level_label: Label
 var mode_buttons: Array[Button] = []
 var menu_best_label: Label
 var menu_wallet_label: Label
+var shop_badge: Label
+var vibration_button: Button
 var shop_panel: Control
 var shop_list: VBoxContainer
 var shop_wallet_label: Label
@@ -654,6 +656,28 @@ func _show_menu() -> void:
 	var wallet_row := HudKit.icon_row(coin_frames[0], 2.0, "", 48, HudKit.GOLD)
 	menu_wallet_label = wallet_row.get_child(1)
 	shop_row.add_child(wallet_row)
+	# Red seal on LOJA: how many things the wallet can buy now.
+	shop_badge = HudKit.label("", 40, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	var seal := StyleBoxFlat.new()
+	seal.bg_color = Color("e8413a")
+	seal.set_corner_radius_all(40)
+	seal.set_border_width_all(5)
+	seal.border_color = Color.WHITE
+	seal.content_margin_left = 14
+	seal.content_margin_right = 14
+	shop_badge.add_theme_stylebox_override("normal", seal)
+	shop_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shop_badge.custom_minimum_size = Vector2(76, 76)
+	shop_badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	shop_badge.position = Vector2(290, -26)
+	shop_badge.pivot_offset = Vector2(38, 38)
+	shop_button.add_child(shop_badge)
+	var beat := shop_badge.create_tween().set_loops().set_trans(Tween.TRANS_SINE)
+	beat.tween_property(shop_badge, "scale", Vector2(1.12, 1.12), 0.5)
+	beat.tween_property(shop_badge, "scale", Vector2.ONE, 0.5)
+	if GameManager.touch_controls():
+		vibration_button = _centered(HudKit.button("", "square", Vector2(420, 90), _toggle_vibration, 32)) as Button
+		content.add_child(vibration_button)
 	_refresh_modes()
 	play_button.grab_focus()
 
@@ -667,6 +691,17 @@ func _refresh_modes() -> void:
 		HudKit.apply_skin(mode_buttons[i], "gold" if i == GameManager.mode else "square")
 	menu_best_label.text = "RECORDE %d" % GameManager.best if GameManager.best > 0 else "SEM RECORDE AINDA"
 	menu_wallet_label.text = GameManager.big_number(GameManager.wallet)
+	var deals := GameManager.shop_deals()
+	shop_badge.visible = deals > 0
+	shop_badge.text = str(deals) if deals < 10 else "9+"
+	if is_instance_valid(vibration_button):
+		vibration_button.text = "VIBRAÇÃO: " + ("LIGADA" if GameManager.vibration else "DESLIGADA")
+
+func _toggle_vibration() -> void:
+	GameManager.vibration = not GameManager.vibration
+	GameManager.save_progress()
+	GameManager.buzz(GameManager.BUZZ_HIT)
+	_refresh_modes()
 
 func _powerup_collected(kind: String) -> void:
 	if kind == "magnet":
@@ -732,6 +767,12 @@ func _fill_shop() -> void:
 	shop_buttons.clear()
 	match shop_tab:
 		"upgrades":
+			var offer := GameManager.daily_offer()
+			if not offer.is_empty():
+				var deal := HudKit.label("OFERTA DO DIA: %s -%d%%" % [GameManager.UPGRADES[offer.id].name, roundi(offer.discount * 100.0)], 36, HudKit.CORAL, HORIZONTAL_ALIGNMENT_CENTER)
+				deal.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				shop_list.add_child(deal)
+				HudKit.pop(deal, 1.1)
 			for group in GameManager.UPGRADE_GROUPS.size():
 				var info_group: Dictionary = GameManager.UPGRADE_GROUPS[group]
 				shop_list.add_child(HudKit.label(info_group.name, 32, info_group.color))
@@ -804,6 +845,11 @@ func _upgrade_row(id: String) -> Button:
 	fill.size = Vector2(260.0 * lv / GameManager.UPGRADE_MAX, 12)
 	bar.add_child(fill)
 	level_row.add_child(HudKit.label("%d/%d" % [lv, GameManager.UPGRADE_MAX], 32, HudKit.GOLD if state == "max" else Color.WHITE))
+	var offer := GameManager.daily_offer()
+	if offer.get("id", "") == id and state == "open":
+		level_row.add_child(HudKit.label("-%d%% (era %s)" % [roundi(offer.discount * 100.0), GameManager.big_number(GameManager.upgrade_full_cost(id))], 32, HudKit.CORAL))
+		if not button.disabled:
+			HudKit.apply_skin(button, "primary")
 	return button
 
 func _buy_upgrade(id: String) -> void:
@@ -1044,6 +1090,7 @@ func throw_back(from: Vector2) -> void:
 	fly.chain().tween_callback(func():
 		play_vfx("boss_hit", target, 5.0)
 		explode(target, 2.5)
+		GameManager.buzz(GameManager.BUZZ_HIT)
 		shot.queue_free()
 		GameManager.hit_boss())
 

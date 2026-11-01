@@ -62,6 +62,13 @@ func run_tests() -> void:
 	check(gm.bomb_gap_scale() >= gm.MODE_BOMB_GAP[2] * gm.MIN_BOMB_GAP - 0.0001, "bomb density cap")
 	# DIFÍCIL has its own rules: almost no calm start, faster rain, tougher boss, better pay.
 	check(gm.MODE_CALM[2] < gm.MODE_CALM[1] and gm.MODE_RAMP[2] < gm.MODE_RAMP[1], "hard starts bombs early and ramps fast")
+	# v0.21: the opening is harder, bombs arrive within seconds and already at some strength.
+	gm.mode = 1
+	gm.elapsed = gm.calm_time() + 0.01
+	check(gm.calm_time() <= 5.0 and gm.rain_pace() >= 0.2, "medium opening brings bombs fast")
+	gm.elapsed = gm.calm_time() + gm.MODE_RAMP[1]
+	check(is_equal_approx(gm.rain_pace(), 1.0), "rain reaches full strength after the ramp")
+	gm.elapsed = 0.0
 	check(gm.MODE_REWARD[2] > gm.MODE_REWARD[1] and gm.MODE_BOSS_HP[2] > 0, "hard pays more and bosses are tougher")
 	gm.mode = 2
 	gm.level = 0

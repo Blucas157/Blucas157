@@ -11,6 +11,11 @@ func run_tests() -> void:
 	gm.save_path = OS.get_environment("SLIME_TEST_SAVE") if OS.has_environment("SLIME_TEST_SAVE") else "user://test-shop-save.cfg"
 	for id in gm.UPGRADES:
 		gm.upgrades[id] = 0
+	# Price checks run with today's offer already used.
+	gm.day_override = "2026-11-01"
+	gm.offer_day = gm.day_override
+	gm.offer_bought = true
+	check(gm.daily_offer().is_empty(), "a used offer is gone for the day")
 	# Upgrade effects grow with the level.
 	check(gm.magnet_duration(5) > gm.magnet_duration(0) and gm.magnet_radius(5) > gm.magnet_radius(0), "magnet levels last longer and reach farther")
 	check(gm.powerup_gap(5) < gm.powerup_gap(0), "luck makes power-ups more frequent")
@@ -178,6 +183,45 @@ func run_tests() -> void:
 	await process_frame
 	check(gm.upgrade_level("fever") == 1 and gm.wallet == 465 and scene.shop_wallet_label.text == "465", "upgrade bought from the shop")
 	check(scene.shop_buttons["revive"].disabled == false or gm.wallet < gm.upgrade_cost("revive"), "boss upgrade buyable once unlocked")
+	# Daily offer: same pick all day, 30-50% off one open upgrade, once; a new day brings a new one.
+	gm.wallet = 5000
+	gm.offer_bought = false
+	var offer: Dictionary = gm.daily_offer()
+	check(not offer.is_empty() and gm.upgrade_state(offer.id) == "open" and offer.discount >= 0.3 and offer.discount <= 0.5, "today's offer is an open upgrade with 30-50%% off")
+	check(gm.daily_offer() == offer, "offer stays the same during the day")
+	var full: int = gm.upgrade_full_cost(offer.id)
+	check(gm.upgrade_cost(offer.id) == roundi(full * (1.0 - offer.discount)), "offer price is discounted")
+	scene._fill_shop()
+	await process_frame
+	var paid: int = gm.wallet
+	scene._buy_upgrade(offer.id)
+	await process_frame
+	check(paid - gm.wallet == roundi(full * (1.0 - offer.discount)) and gm.daily_offer().is_empty(), "offer bought once, then gone")
+	check(gm.upgrade_cost(offer.id) == gm.upgrade_full_cost(offer.id), "next level back to full price")
+	var picks := {}
+	for day in ["2026-11-02", "2026-11-03", "2026-11-04", "2026-11-05", "2026-11-06", "2026-11-07"]:
+		gm.day_override = day
+		picks[gm.daily_offer().id] = true
+	check(not gm.daily_offer().is_empty() and picks.size() >= 2, "new days bring new offers")
+	save = ConfigFile.new()
+	check(save.load(gm.save_path) == OK and str(save.get_value("offer", "day")) == "2026-11-01" and bool(save.get_value("offer", "bought")), "used offer saved")
 	scene._close_shop()
+	# LOJA seal counts what the wallet can buy.
+	scene._show_menu()
+	await process_frame
+	gm.wallet = 0
+	scene._refresh_modes()
+	check(not scene.shop_badge.visible, "no seal with an empty wallet")
+	gm.wallet = 100000
+	scene._refresh_modes()
+	check(scene.shop_badge.visible and scene.shop_badge.text != "" and gm.shop_deals() > 3, "seal shows when there is something to buy")
+	# Vibration setting is saved; PC never vibrates.
+	gm.vibration = false
+	gm.save_progress()
+	save = ConfigFile.new()
+	check(save.load(gm.save_path) == OK and not bool(save.get_value("settings", "vibration")), "vibration setting saved")
+	gm.vibration = true
+	gm.buzz(gm.BUZZ_COIN)
+	gm.day_override = ""
 	print("SHOP: %d failures; prices, levels, effects, banking, save, magnet pull, power-up, shop UI" % failures)
 	quit(1 if failures else 0)

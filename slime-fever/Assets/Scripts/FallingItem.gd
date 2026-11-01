@@ -133,14 +133,17 @@ func _on_area_entered(area: Area2D) -> void:
 			main.juice(position, Color("92c9ff"), "PROTEGIDO", 0)
 		elif GameManager.use_shield():
 			main.juice(position, Color("8ff0ff"), "ESCUDO!", 2)
+			GameManager.buzz(GameManager.BUZZ_HIT)
 			_detonate(2.5, false)
 			return
 		elif GameManager.use_revive():
 			main.juice(position, Color("ffd45c"), "SEGUNDA CHANCE!", 2)
+			GameManager.buzz(GameManager.BUZZ_HIT)
 			_detonate(3.0, false)
 			return
 		else:
 			main.juice(position, Color("ff816b"), "POW!", 3)
+			GameManager.buzz(GameManager.BUZZ_DEATH)
 			GameManager.end_game()
 			_detonate(5.0, true)
 			return
@@ -152,6 +155,7 @@ func _on_area_entered(area: Area2D) -> void:
 	else:
 		var points := GameManager.collect_coin()
 		main.juice(position, Color("ffe497"), "+%d" % points, 1)
+		GameManager.buzz(GameManager.BUZZ_COIN)
 		area.react_collect()
 	queue_free()
 

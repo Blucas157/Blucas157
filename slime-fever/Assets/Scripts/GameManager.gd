@@ -12,11 +12,14 @@ signal revived
 signal coin_tier_up(top_value: int)
 const MODES := ["FÁCIL", "MÉDIO", "DIFÍCIL"]
 # Per mode: starting fall speed and bomb spacing (higher = calmer).
-const MODE_SPEED := [0.88, 1.0, 1.25]
+const MODE_SPEED := [0.94, 1.06, 1.28]
 const MODE_BOMB_GAP := [1.35, 1.0, 0.55]
 # Bomb-free seconds at the start, and how long the bomb rain takes to reach full strength.
-const MODE_CALM := [10.0, 8.0, 2.0]
-const MODE_RAMP := [100.0, 80.0, 45.0]
+# v0.21: shorter calm start and faster ramp, the opening was too easy.
+const MODE_CALM := [5.0, 4.0, 1.5]
+const MODE_RAMP := [70.0, 55.0, 35.0]
+# The bomb rain starts at this share of its full strength instead of zero.
+const RAIN_START := [0.15, 0.25, 0.35]
 # DIFÍCIL also drifts bombs harder, makes power-ups rarer and bosses tougher, and pays more.
 const MODE_DRIFT := [110.0, 110.0, 170.0]
 const MODE_POWERUP_GAP := [1.0, 1.0, 1.35]
@@ -97,6 +100,12 @@ const SKINS := {
 	"rosa": {"name": "ROSA", "hue": 0.62, "price": 300},
 	"ouro": {"name": "OURO", "hue": 0.84, "price": 500},
 }
+# Daily offer: one upgrade per day with 30-50% off its next level, once.
+const OFFER_DISCOUNTS := [0.3, 0.4, 0.5]
+# Vibration lengths in milliseconds (phones only).
+const BUZZ_COIN := 12
+const BUZZ_HIT := 90
+const BUZZ_DEATH := 260
 const BASE_FEVER := 6.0
 const BASE_MAGNET := 5.0
 const BASE_POWERUP_GAP := 22.0
@@ -143,6 +152,11 @@ var coins: int = 0
 var muted: bool = false
 ## -1 = detect from the device; 0 / 1 force arrows / touch steering (tests).
 var touch_override: int = -1
+var vibration: bool = true
+var offer_day: String = ""
+var offer_bought: bool = false
+# Tests set this to pin the date ("2026-11-01").
+var day_override: String = ""
 var save_path: String = "user://slime.cfg"
 
 func _ready() -> void:
@@ -153,6 +167,9 @@ func _ready() -> void:
 		for i in MODES.size():
 			bests[i] = maxi(0, int(save.get_value("progress", "best_%d" % i, legacy if i == 1 else 0)))
 		muted = bool(save.get_value("settings", "muted", false))
+		vibration = bool(save.get_value("settings", "vibration", true))
+		offer_day = str(save.get_value("offer", "day", ""))
+		offer_bought = bool(save.get_value("offer", "bought", false))
 		mode = clampi(int(save.get_value("settings", "mode", 1)), 0, MODES.size() - 1)
 		wallet = maxi(0, int(save.get_value("progress", "wallet", 0)))
 		# Levels live in the "destiny" section (kept from the Destiny Board versions).
@@ -216,7 +233,8 @@ func calm_time() -> float:
 
 ## 0 when bombs start, 1 once the bomb rain is at full strength for this mode.
 func rain_pace() -> float:
-	return clampf((elapsed - calm_time()) / MODE_RAMP[mode], 0.0, 1.0)
+	var start: float = RAIN_START[mode]
+	return clampf(start + (1.0 - start) * (elapsed - calm_time()) / MODE_RAMP[mode], 0.0, 1.0)
 
 func zone_bonus() -> float:
 	return 1.0 + 0.5 * zone
@@ -279,7 +297,53 @@ func upgrade_cost(id: String) -> int:
 	var lv := upgrade_level(id)
 	if lv >= UPGRADE_MAX:
 		return -1
-	return roundi(UPGRADES[id].cost * pow(UPGRADE_GROWTH, lv))
+	var price := roundi(UPGRADES[id].cost * pow(UPGRADE_GROWTH, lv))
+	var offer := daily_offer()
+	if offer.get("id", "") == id:
+		price = maxi(1, roundi(price * (1.0 - offer.discount)))
+	return price
+
+## Undiscounted price of the next level.
+func upgrade_full_cost(id: String) -> int:
+	var lv := upgrade_level(id)
+	return -1 if lv >= UPGRADE_MAX else roundi(UPGRADES[id].cost * pow(UPGRADE_GROWTH, lv))
+
+func today() -> String:
+	return day_override if day_override != "" else Time.get_date_string_from_system()
+
+## Today's deal: {"id", "discount"}, or {} once it is used or nothing is open.
+## The date picks it, so it stays the same all day.
+func daily_offer() -> Dictionary:
+	if offer_day == today() and offer_bought:
+		return {}
+	var open: Array = []
+	for id in UPGRADES:
+		if upgrade_state(id) == "open":
+			open.append(id)
+	if open.is_empty():
+		return {}
+	var pick := RandomNumberGenerator.new()
+	pick.seed = hash(today())
+	return {"id": open[pick.randi_range(0, open.size() - 1)], "discount": OFFER_DISCOUNTS[pick.randi_range(0, OFFER_DISCOUNTS.size() - 1)]}
+
+## How many things the wallet can buy right now (the LOJA badge).
+func shop_deals() -> int:
+	var count := 0
+	for id in UPGRADES:
+		if can_buy_upgrade(id):
+			count += 1
+	for id in ITEMS:
+		if can_buy_item(id):
+			count += 1
+	for id in SKINS:
+		if not owns_skin(id) and wallet >= SKINS[id].price:
+			count += 1
+	return count
+
+## Short rumble on phones; off on PC and when the player turns it off.
+func buzz(ms: int) -> void:
+	if vibration and touch_controls():
+		Input.vibrate_handheld(ms)
 
 func can_buy_upgrade(id: String) -> bool:
 	return upgrade_state(id) == "open" and wallet >= upgrade_cost(id)
@@ -287,8 +351,12 @@ func can_buy_upgrade(id: String) -> bool:
 func buy_upgrade(id: String) -> bool:
 	if not can_buy_upgrade(id):
 		return false
+	var on_offer: bool = daily_offer().get("id", "") == id
 	_spend(upgrade_cost(id))
 	upgrades[id] = upgrade_level(id) + 1
+	if on_offer:
+		offer_day = today()
+		offer_bought = true
 	save_progress()
 	return true
 
@@ -585,6 +653,9 @@ func save_progress() -> void:
 		save.set_value("progress", "best_%d" % i, bests[i])
 	save.set_value("settings", "muted", muted)
 	save.set_value("settings", "mode", mode)
+	save.set_value("settings", "vibration", vibration)
+	save.set_value("offer", "day", offer_day)
+	save.set_value("offer", "bought", offer_bought)
 	save.set_value("progress", "wallet", wallet)
 	for id in UPGRADES:
 		save.set_value("destiny", id, upgrade_level(id))

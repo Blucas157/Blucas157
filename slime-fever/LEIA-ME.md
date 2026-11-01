@@ -1,9 +1,15 @@
-# Slime Fever — v0.20
+# Slime Fever — v0.21
 
 ## Abrir o jogo
 Use Godot 4.7.2. Extraia o ZIP pelo Windows em uma pasta nova e importe o arquivo project.godot; aguarde a importação dos PNGs e pressione F5. Este pacote contém o projeto-fonte, não APK, executável nem build Web. O ZIP possui pastas explícitas e project.godot na raiz.
 
 Na abertura, clique/toque em JOGAR ou pressione Enter. Segure as setas na tela ou use A/D e setas do teclado. II/Esc pausa; CONTINUAR retoma. SOM/MUDO alterna efeitos sonoros. Ao perder foco, uma partida em andamento pausa.
+
+## v0.21 — Oferta do dia, selo na LOJA, vibração e começo mais difícil
+- Oferta do dia: na aba MELHORAR, uma melhoria aberta tem 30%, 40% ou 50% de desconto no próximo nível. A data escolhe a oferta (igual o dia todo), vale uma compra e volta no dia seguinte com outra. A linha mostra "-40% (era X)".
+- Selo vermelho no botão LOJA com quantas coisas a carteira já consegue comprar (9+ acima de nove).
+- Vibração no celular: curta ao pegar moeda, média no escudo, na segunda chance e no acerto no chefão, longa na explosão final. Botão VIBRAÇÃO: LIGADA/DESLIGADA no menu (só no celular), salvo no save. O APK pede a permissão de vibrar.
+- Começo mais difícil: bombas chegam antes (calmaria de 5/4/1,5 s em Fácil/Médio/Difícil, antes 10/8/2), a chuva já começa com 15/25/35% da força e chega à força total mais rápido (70/55/35 s). Queda inicial um pouco mais rápida (0,94/1,06/1,28). As regras de justiça (bomba nunca na rota das moedas) continuam auditadas.
 
 ## v0.20 — Painel de Destino removido, melhorias de volta na loja
 - O Painel de Destino e o botão DESTINO saíram do menu. A LOJA voltou a ter a aba MELHORAR, com as mesmas 12 melhorias (até nível 25) agrupadas em COLETA, PODER e SOBREVIVÊNCIA.
@@ -104,14 +110,14 @@ Na abertura, clique/toque em JOGAR ou pressione Enter. Segure as setas na tela o
 - Novo teste Tests/verify_modes.gd; o teste da chuva agora cobre os três modos e todos os níveis (7.793 bombas auditadas).
 
 ## Versão Web (itch.io)
-Zip pronto em releases/SlimeFever-web-v0.20.zip (index.html na raiz, versão sem threads, que roda no itch.io sem configuração extra). Para gerar de novo, com os templates Web do Godot 4.7.2 instalados:
+Zip pronto em releases/SlimeFever-web-v0.21.zip (index.html na raiz, versão sem threads, que roda no itch.io sem configuração extra). Para gerar de novo, com os templates Web do Godot 4.7.2 instalados:
 
     godot --headless --path . --export-release "Web" ../web/index.html
 
 No itch.io: Kind of project = HTML, enviar o zip e marcar "This file will be played in the browser"; Viewport 450 x 800, "Mobile friendly" (orientação retrato) e "Fullscreen button".
 
 ## APK Android
-O APK pronto fica em releases/SlimeFever-v0.20.apk na raiz do repositório (arm64 e armv7, Android 7+ recomendado). Para gerar de novo: Godot 4.7.2 com os templates de exportação, apksigner do Android SDK e uma keystore; preset "Android" em export_presets.cfg (pacote com.blucas157.slimefever, sem Gradle, ícone em Assets/Icon/).
+O APK pronto fica em releases/SlimeFever-v0.21.apk na raiz do repositório (arm64 e armv7, Android 7+ recomendado). Para gerar de novo: Godot 4.7.2 com os templates de exportação, apksigner do Android SDK e uma keystore; preset "Android" em export_presets.cfg (pacote com.blucas157.slimefever, sem Gradle, ícone em Assets/Icon/).
 
     godot --headless --path . --export-release "Android" ../releases/SlimeFever.apk
 
