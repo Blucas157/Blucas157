@@ -362,8 +362,65 @@ void fragment() {
 
 # ------------------------------------------------------------------ personagens e camera
 func _personagens() -> void:
-	modelo("treinador", Vector3(0.9, 0, 3.0), PI + 0.15)
-	modelo("criatura", Vector3(-1.5, 0, 3.3), deg_to_rad(55))
+	estilo_desenho(modelo("treinador", Vector3(0.9, 0, 3.0), PI + 0.15, 1.12))
+	estilo_desenho(modelo("criatura", Vector3(-1.5, 0, 3.3), deg_to_rad(50), 1.12))
+
+
+const SHADER_DESENHO := """
+shader_type spatial;
+uniform vec4 cor : source_color = vec4(1.0);
+uniform float brilho = 0.25;
+void fragment() {
+	ALBEDO = cor.rgb;
+	ROUGHNESS = 0.6;
+	float borda = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
+	EMISSION = cor.rgb * borda * 0.45;
+}
+void light() {
+	float d = dot(NORMAL, LIGHT);
+	float t = smoothstep(0.0, 0.18, d) * ATTENUATION;
+	vec3 lc = LIGHT_COLOR / PI;
+	DIFFUSE_LIGHT += mix(0.35, 1.0, t) * lc;
+	vec3 h = normalize(LIGHT + VIEW);
+	SPECULAR_LIGHT += smoothstep(0.94, 0.97, dot(NORMAL, h)) * t * brilho * lc * 3.0;
+}
+"""
+
+const SHADER_CONTORNO := """
+shader_type spatial;
+render_mode unshaded, cull_front;
+uniform vec4 cor : source_color = vec4(0.1, 0.08, 0.12, 1.0);
+uniform float grossura = 0.014;
+void vertex() { VERTEX += NORMAL * grossura; }
+void fragment() { ALBEDO = cor.rgb; }
+"""
+
+
+## Sombreado de desenho animado (luz em 2 tons + brilho na borda) e contorno escuro.
+func estilo_desenho(raiz: Node) -> void:
+	var sh := Shader.new()
+	sh.code = SHADER_DESENHO
+	var sh_linha := Shader.new()
+	sh_linha.code = SHADER_CONTORNO
+	var pilha: Array[Node] = [raiz]
+	while not pilha.is_empty():
+		var n: Node = pilha.pop_back()
+		pilha.append_array(n.get_children())
+		if not n is MeshInstance3D:
+			continue
+		var mi := n as MeshInstance3D
+		for i in mi.mesh.get_surface_count():
+			var base := mi.mesh.surface_get_material(i) as BaseMaterial3D
+			var c := base.albedo_color if base else Color.WHITE
+			var m := ShaderMaterial.new()
+			m.shader = sh
+			m.set_shader_parameter("cor", c)
+			m.set_shader_parameter("brilho", 1.0 if c.get_luminance() < 0.1 else 0.25)
+			var linha := ShaderMaterial.new()
+			linha.shader = sh_linha
+			linha.set_shader_parameter("cor", c.darkened(0.75))
+			m.next_pass = linha
+			mi.set_surface_override_material(i, m)
 
 
 func _camera() -> void:
