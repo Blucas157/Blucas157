@@ -491,55 +491,6 @@ def paredao(W, H, semente):
     caixa((W, 0.4, 0.14), (0, 0.05, H + 0.03), M("grama_borda", "#5ea83a"), 0.05)
 
 
-# ---------------------------------------------------------------- personagens
-def treinador():
-    pele = M("pele", "#f1c7a0", 0.7)
-    camisa = M("camisa", "#d8433b", 0.8)
-    jeans = M("jeans", "#2f4a7a", 0.9)
-    cabelo = M("cabelo", "#3b2618", 0.8)
-    bone = M("bone", "#d63a32", 0.7)
-    for sx in (-1, 1):
-        esfera(0.11, (sx * 0.1, -0.03, 0.07), BRANCO, esc=(0.9, 1.35, 0.6))
-        esfera(0.06, (sx * 0.1, -0.03, 0.03), M("sola", "#c23a32"), esc=(1.6, 2.4, 0.5))
-        cilindro(0.075, 0.36, (sx * 0.1, 0, 0.3), jeans, seg=10)
-        cilindro(0.05, 0.3, (sx * 0.25, 0, 0.66), pele, seg=8, rot=(0, sx * 0.22, 0))
-        esfera(0.08, (sx * 0.22, 0, 0.81), camisa, sub=2)
-        esfera(0.055, (sx * 0.285, 0, 0.5), M("luva", "#3a3a40", 0.8), sub=2)
-    esfera(0.17, (0, 0, 0.5), jeans, esc=(1.15, 0.85, 0.6))
-    esfera(0.2, (0, 0, 0.7), camisa, esc=(1, 0.75, 1.1))
-    esfera(0.27, (0, 0, 1.1), pele, sub=3)
-    esfera(0.28, (0, 0.06, 1.13), cabelo, sub=3)
-    esfera(0.292, (0, 0.01, 1.17), bone, sub=3, esc=(1, 1, 0.82), metade=True)
-    cilindro(0.2, 0.025, (0, -0.27, 1.19), bone, seg=16, esc=(1, 0.85, 1))
-    esfera(0.035, (0, 0.01, 1.41), bone, sub=1)
-    for sx in (-1, 1):
-        esfera(0.04, (sx * 0.09, -0.245, 1.08), PRETO, sub=1, esc=(0.7, 0.4, 1.1))
-    # mochila (com folha, sem nada de marca famosa)
-    caixa((0.32, 0.18, 0.34), (0, 0.18, 0.74), M("mochila", "#e8b53a"), 0.07)
-    caixa((0.33, 0.06, 0.15), (0, 0.27, 0.86), M("mochila_esc", "#c9932a"), 0.03)
-    esfera(0.06, (0, 0.285, 0.7), FOLHA[1], esc=(0.7, 0.3, 1.2))
-    for sx in (-1, 1):
-        caixa((0.05, 0.36, 0.05), (sx * 0.1, 0.0, 0.88), M("alca", "#3a3a40"), 0.01, rot=(0.25, 0, 0))
-
-
-def criatura():
-    azul = M("criatura_azul", "#4aa3e8", 0.55)
-    azul_esc = M("criatura_azul_esc", "#2f7fcf", 0.55)
-    barriga = M("criatura_barriga", "#f4f7fb", 0.6)
-    esfera(0.42, (0, 0, 0.52), azul, sub=3, esc=(0.95, 0.85, 1.25))
-    esfera(0.33, (0, -0.2, 0.46), barriga, sub=3, esc=(0.82, 0.62, 1.05))
-    esfera(0.14, (0, -0.33, 0.8), barriga, sub=2, esc=(1.1, 0.9, 0.75))
-    for sx in (-1, 1):
-        esfera(0.055, (sx * 0.15, -0.3, 0.9), PRETO, sub=2)
-        esfera(0.018, (sx * 0.15 - 0.015, -0.35, 0.92), BRANCO, sub=1)
-        esfera(0.16, (sx * 0.37, -0.03, 0.5), azul, esc=(0.45, 0.6, 1.1), rot=(0, sx * 0.6, 0))
-        esfera(0.11, (sx * 0.16, -0.12, 0.05), azul_esc, esc=(1, 1.4, 0.5))
-        esfera(0.13, (sx * 0.17, 0.78, 0.26), azul_esc, esc=(1.1, 0.6, 0.35), rot=(0, 0, sx * 0.5))
-    cilindro(0.17, 0.42, (0, 0.06, 1.12), azul_esc, seg=12, r2=0.0, esc=(0.35, 1, 1), rot=(-0.45, 0, 0))
-    esfera(0.25, (0, 0.42, 0.22), azul, esc=(0.6, 1.4, 0.38), rot=(0.25, 0, 0))
-
-
-
 # ---------------------------------------------------------------- personagens v2 (organicos)
 FATOR_META = 0.575  # raio visivel de uma bola de metaball com raio 1
 
@@ -590,7 +541,56 @@ def cadeia(a, b, r1, r2, n):
     return [{"co": a.lerp(b, i / (n - 1)), "r": r1 + (r2 - r1) * i / (n - 1)} for i in range(n)]
 
 
+TEXTURAS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "texturas")
+
+
+def decal_rosto(o, x0, x1, z0, z1, png, nome):
+    """Copia a frente da cabeca, afasta um pouquinho e projeta o rosto desenhado (PNG) nela."""
+    bm = bmesh.new()
+    bm.from_mesh(o.data)
+    bm.normal_update()
+    fora = []
+    for f in bm.faces:
+        c = f.calc_center_median()
+        if not (f.normal.y < -0.1 and x0 - 0.01 < c.x < x1 + 0.01 and z0 - 0.01 < c.z < z1 + 0.01):
+            fora.append(f)
+    bmesh.ops.delete(bm, geom=fora, context="FACES")
+    bm.normal_update()
+    for v in bm.verts:
+        v.co += v.normal * 0.0025
+    uv = bm.loops.layers.uv.new("UVMap")
+    for f in bm.faces:
+        f.smooth = True
+        for l in f.loops:
+            co = l.vert.co
+            l[uv].uv = ((co.x - x0) / (x1 - x0), (co.z - z0) / (z1 - z0))
+    me = bpy.data.meshes.new(nome)
+    bm.to_mesh(me)
+    bm.free()
+    mat = bpy.data.materials.new(nome)
+    try:
+        mat.use_nodes = True
+    except Exception:
+        pass
+    nt = mat.node_tree
+    b = nt.nodes.get("Principled BSDF")
+    tex = nt.nodes.new("ShaderNodeTexImage")
+    tex.image = bpy.data.images.load(os.path.join(TEXTURAS, png))
+    tex.extension = "CLIP"
+    uvn = nt.nodes.new("ShaderNodeUVMap")
+    uvn.uv_map = "UVMap"
+    nt.links.new(uvn.outputs["UV"], tex.inputs["Vector"])
+    nt.links.new(tex.outputs["Color"], b.inputs["Base Color"])
+    nt.links.new(tex.outputs["Alpha"], b.inputs["Alpha"])
+    b.inputs["Roughness"].default_value = 0.7
+    me.materials.append(mat)
+    od = bpy.data.objects.new(nome, me)
+    CENA.collection.objects.link(od)
+    return od
+
+
 def treinador():
+    """Treinador original, proporcao de jogo de 3DS (~4 cabecas de altura)."""
     pele = M("pele", "#f5c9a0", 0.7)
     jaqueta = M("jaqueta", "#e0413a", 0.75)
     branco = M("detalhe_branco", "#f7f5f0", 0.8)
@@ -601,67 +601,62 @@ def treinador():
     amarelo = M("mochila", "#f2b630", 0.7)
     amarelo_esc = M("mochila_esc", "#d18f1f", 0.7)
     cinza = M("alca", "#3a3f4a", 0.8)
-    # pele: cabeca grande (chibi), orelhas, pescoco e maos
-    cabeca = meta("Pele", [{"co": (0, 0, 1.06), "r": 0.27, "t": "ELLIPSOID", "esc": (1.0, 0.95, 0.94)},
-                  {"co": (0, -0.05, 0.98), "r": 0.2},
-                  {"co": (0.26, 0.01, 1.03), "r": 0.06}, {"co": (-0.26, 0.01, 1.03), "r": 0.06},
-                  {"co": (0, 0, 0.84), "r": 0.075},
-                  {"co": (0.27, -0.03, 0.5), "r": 0.06}, {"co": (-0.27, -0.03, 0.5), "r": 0.06}], pele)
-    # jaqueta: tronco, ombros e bracos fundidos
-    bj = [{"co": (0, 0, 0.67), "r": 0.2, "t": "ELLIPSOID", "esc": (1.0, 0.74, 1.05)},
-          {"co": (0, 0, 0.55), "r": 0.17, "t": "ELLIPSOID", "esc": (1.05, 0.8, 0.55)}]
+    cabeca = meta("Pele", [
+        {"co": (0, 0, 1.32), "r": 0.19, "t": "ELLIPSOID", "esc": (0.95, 0.92, 1.0)},
+        {"co": (0, -0.035, 1.255), "r": 0.13},
+        {"co": (0.18, 0.01, 1.31), "r": 0.04}, {"co": (-0.18, 0.01, 1.31), "r": 0.04},
+        {"co": (0, 0, 1.15), "r": 0.05},
+        {"co": (0.26, -0.02, 0.69), "r": 0.048}, {"co": (-0.26, -0.02, 0.69), "r": 0.048}], pele, res=0.011)
+    bj = [{"co": (0, 0, 0.93), "r": 0.16, "t": "ELLIPSOID", "esc": (1.0, 0.72, 1.25)},
+          {"co": (0, -0.01, 1.0), "r": 0.15, "t": "ELLIPSOID", "esc": (1.1, 0.75, 0.8)},
+          {"co": (0, 0, 0.79), "r": 0.15, "t": "ELLIPSOID", "esc": (1.05, 0.8, 0.45)}]
     for sx in (-1, 1):
-        bj.append({"co": (sx * 0.16, 0, 0.79), "r": 0.085})
-        bj += cadeia((sx * 0.19, 0, 0.77), (sx * 0.255, -0.02, 0.6), 0.068, 0.06, 4)
-    meta("Jaqueta", bj, jaqueta)
-    meta("Gola", [{"co": (sx * 0.07, -0.05, 0.84), "r": 0.05} for sx in (-1, 1)] +
-         [{"co": (0, 0.07, 0.85), "r": 0.06}], branco, dizimar=0.6)
-    meta("Punho", [{"co": (sx * 0.262, -0.02, 0.565), "r": 0.064} for sx in (-1, 1)], branco, dizimar=0.6)
-    # calca e tenis
-    bc = [{"co": (0, 0, 0.47), "r": 0.17, "t": "ELLIPSOID", "esc": (1.0, 0.8, 0.55)}]
+        bj.append({"co": (sx * 0.15, 0, 1.06), "r": 0.07})
+        bj += cadeia((sx * 0.17, 0, 1.04), (sx * 0.245, -0.02, 0.76), 0.055, 0.047, 12)
+    jq = meta("Jaqueta", bj, jaqueta, res=0.012)
+    meta("Gola", [{"co": (sx * 0.055, -0.035, 1.12), "r": 0.04} for sx in (-1, 1)] +
+         [{"co": (0, 0.05, 1.13), "r": 0.05}], branco, dizimar=0.5)
+    meta("Punho", [{"co": (sx * 0.25, -0.02, 0.735), "r": 0.052} for sx in (-1, 1)], branco, dizimar=0.5)
+    for z in (0.8, 0.92, 1.03):  # ziper branco na frente
+        p = frente(jq, 0, z)
+        caixa((0.018, 0.012, 0.11), p, branco, 0.004)
+    bc = [{"co": (0, 0, 0.74), "r": 0.15, "t": "ELLIPSOID", "esc": (1.0, 0.8, 0.5)}]
     for sx in (-1, 1):
-        bc += cadeia((sx * 0.095, 0, 0.42), (sx * 0.105, 0, 0.15), 0.085, 0.075, 4)
-    meta("Calca", bc, jeans)
+        bc += cadeia((sx * 0.08, 0, 0.7), (sx * 0.085, 0, 0.15), 0.072, 0.058, 16)
+    meta("Calca", bc, jeans, res=0.012)
     for sx in (-1, 1):
-        meta("Tenis", [{"co": (sx * 0.105, -0.035, 0.08), "r": 0.1, "t": "ELLIPSOID", "esc": (0.9, 1.45, 0.72)}], branco, dizimar=0.5)
-        meta("Sola", [{"co": (sx * 0.105, -0.035, 0.028), "r": 0.1, "t": "ELLIPSOID", "esc": (0.97, 1.55, 0.3)}],
-             M("sola", "#e0413a", 0.7), dizimar=0.5)
-    # cabelo: volume atras + mechas espetadas saindo do bone
-    meta("Cabelo", [{"co": (0, 0.05, 1.08), "r": 0.275, "t": "ELLIPSOID", "esc": (1.0, 0.95, 0.92)},
-                    {"co": (0, 0.14, 0.95), "r": 0.17}], cabelo)
+        meta("Tenis", [{"co": (sx * 0.085, -0.035, 0.065), "r": 0.085, "t": "ELLIPSOID", "esc": (0.9, 1.5, 0.75)}],
+             branco, dizimar=0.4)
+        meta("Sola", [{"co": (sx * 0.085, -0.035, 0.02), "r": 0.085, "t": "ELLIPSOID", "esc": (0.97, 1.6, 0.3)}],
+             M("sola", "#e0413a", 0.7), dizimar=0.4)
+    meta("Cabelo", [{"co": (0, 0.05, 1.34), "r": 0.195, "t": "ELLIPSOID", "esc": (1.0, 0.98, 0.95)},
+                    {"co": (0, 0.1, 1.22), "r": 0.12}], cabelo, res=0.012)
     for i, ang in enumerate((-70, -40, -12, 15, 42, 70, -55, 0, 55)):
         a = math.radians(ang)
         baixo = i >= 6
-        z = 0.88 if baixo else 0.99
-        base = Vector((math.sin(a) * 0.22, math.cos(a) * 0.2 + 0.04, z))
+        z = 1.17 if baixo else 1.25
+        base = Vector((math.sin(a) * 0.16, math.cos(a) * 0.15 + 0.04, z))
         dirv = Vector((math.sin(a) * 0.8, math.cos(a), -0.9 if baixo else -0.35)).normalized()
-        q = dirv.to_track_quat("Z", "Y").to_euler()
-        cilindro(0.075, 0.2, base + dirv * 0.07, cabelo, seg=8, r2=0.0, rot=q)
-    for sx in (-1, 1):  # costeletas
-        cilindro(0.05, 0.14, (sx * 0.25, -0.06, 0.98), cabelo, seg=8, r2=0.0, rot=(0, sx * 0.2, 0))
-    # bone com aba e emblema de gota (original)
-    esfera(0.292, (0, 0.01, 1.12), bone, sub=3, esc=(1.0, 1.06, 0.82), metade=True)
-    esfera(0.3, (0, 0.01, 1.12), bone, sub=3, esc=(1.0, 1.06, 0.1))
-    esfera(0.21, (0, -0.28, 1.15), aba, sub=3, esc=(0.95, 0.85, 0.13), rot=(-0.15, 0, 0))
-    esfera(0.035, (0, 0.01, 1.36), aba, sub=2)
-    esfera(0.055, (0, -0.25, 1.24), branco, sub=2, esc=(1, 0.4, 1), rot=(-0.6, 0, 0))
-    cilindro(0.045, 0.08, (0, -0.258, 1.295), branco, seg=10, r2=0.0, rot=(-0.6, 0, 0), esc=(1, 0.4, 1))
-    # rosto (aparece de frente)
+        cilindro(0.055, 0.09 if baixo else 0.15, base + dirv * 0.05, cabelo, seg=8, r2=0.0, rot=dirv.to_track_quat("Z", "Y").to_euler())
     for sx in (-1, 1):
-        p = frente(cabeca, sx * 0.095, 1.03)
-        esfera(0.05, p, PRETO, sub=2, esc=(0.75, 0.4, 1.15))
-        esfera(0.016, p + Vector((-0.015, -0.02, 0.025)), BRANCO, sub=1)
-        esfera(0.034, frente(cabeca, sx * 0.165, 0.96, -0.004), M("bochecha", "#f29a8e", 0.8), sub=2, esc=(1.1, 0.35, 0.7))
-    esfera(0.012, frente(cabeca, 0, 0.92), M("boca", "#2a1a22", 0.6), sub=1, esc=(2.2, 0.6, 0.8))
-    # mochila arredondada com bolso, tampa, alcas e chaveiro de criatura
-    caixa((0.32, 0.17, 0.34), (0, 0.19, 0.71), amarelo, 0.07, seg=3, liso=True)
-    caixa((0.24, 0.06, 0.15), (0, 0.285, 0.64), amarelo_esc, 0.04, seg=3, liso=True)
-    caixa((0.33, 0.12, 0.13), (0, 0.22, 0.86), amarelo_esc, 0.05, seg=3, liso=True)
-    caixa((0.06, 0.03, 0.05), (0, 0.32, 0.66), cinza, 0.01)
+        cilindro(0.035, 0.1, (sx * 0.175, -0.045, 1.27), cabelo, seg=8, r2=0.0, rot=(0, sx * 0.2, 0))
+    capa = esfera(0.205, (0, 0.01, 1.37), bone, sub=3, esc=(1.0, 1.06, 0.82), metade=True)
+    esfera(0.21, (0, 0.01, 1.37), bone, sub=3, esc=(1.0, 1.06, 0.1))
+    esfera(0.15, (0, -0.2, 1.385), aba, sub=3, esc=(0.95, 0.85, 0.13), rot=(-0.15, 0, 0))
+    esfera(0.025, (0, 0.01, 1.54), aba, sub=2)
+    bpy.context.view_layer.update()
+    pe = frente(capa, 0, 1.46)
+    esfera(0.036, pe, branco, sub=2, esc=(1, 0.4, 1), rot=(-0.6, 0, 0))
+    cilindro(0.032, 0.06, pe + Vector((0, 0.008, 0.04)), branco, seg=10, r2=0.0, rot=(-0.6, 0, 0), esc=(1, 0.4, 1))
+    caixa((0.26, 0.13, 0.28), (0, 0.15, 0.93), amarelo, 0.06, seg=3, liso=True)
+    caixa((0.2, 0.05, 0.12), (0, 0.225, 0.87), amarelo_esc, 0.03, seg=3, liso=True)
+    caixa((0.27, 0.1, 0.1), (0, 0.17, 1.07), amarelo_esc, 0.04, seg=3, liso=True)
+    caixa((0.05, 0.025, 0.04), (0, 0.255, 0.89), cinza, 0.01)
     for sx in (-1, 1):
-        caixa((0.055, 0.32, 0.045), (sx * 0.1, 0.02, 0.9), cinza, 0.015, rot=(0.22, 0, 0))
-    toro(0.03, 0.007, (0.15, 0.24, 0.6), PRETO, rot=(0, math.pi / 2, 0))
-    esfera(0.045, (0.155, 0.24, 0.53), M("criatura_azul", "#4fb3f0", 0.55), sub=2)
+        caixa((0.045, 0.28, 0.04), (sx * 0.085, 0.0, 1.08), cinza, 0.012, rot=(0.2, 0, 0))
+    toro(0.025, 0.006, (0.13, 0.2, 0.82), PRETO, rot=(0, math.pi / 2, 0))
+    esfera(0.038, (0.135, 0.2, 0.77), M("criatura_azul", "#4fb3f0", 0.55), sub=2)
+    decal_rosto(cabeca, -0.16, 0.16, 1.18, 1.40, "rosto_treinador.png", "rosto_treinador")
 
 
 def criatura():
@@ -669,10 +664,9 @@ def criatura():
     azul_esc = M("criatura_azul_esc", "#2d84d6", 0.55)
     barriga = M("criatura_barriga", "#f6f9fc", 0.6)
     corpo = [{"co": (0, 0, 0.4), "r": 0.38, "t": "ELLIPSOID", "esc": (1.0, 0.92, 1.0)},
-             {"co": (0, -0.02, 0.82), "r": 0.32},
-             {"co": (0, -0.26, 0.76), "r": 0.12, "t": "ELLIPSOID", "esc": (1.15, 1.0, 0.85)}]
+             {"co": (0, -0.02, 0.82), "r": 0.32}]
     for sx in (-1, 1):
-        corpo += [{"co": (sx * 0.17, -0.12, 0.76), "r": 0.14},
+        corpo += [{"co": (sx * 0.17, -0.1, 0.76), "r": 0.13},
                   {"co": (sx * 0.17, -0.1, 0.06), "r": 0.11, "t": "ELLIPSOID", "esc": (1.0, 1.3, 0.6)},
                   {"co": (sx * 0.35, -0.04, 0.48), "r": 0.13, "t": "ELLIPSOID", "esc": (0.5, 0.75, 1.25),
                    "rot": (0, sx * 0.7, 0)}]
@@ -680,43 +674,20 @@ def criatura():
     for sx in (-1, 1):
         corpo.append({"co": (sx * 0.13, 0.52, 0.37), "r": 0.15, "t": "ELLIPSOID", "esc": (1.3, 0.55, 0.35),
                       "rot": (0.5, 0, sx * 0.6)})
-    o = meta("Aqua", corpo, azul, res=0.016, dizimar=0.25)
-    # barriga e focinho brancos (volumes que saem um pouquinho do corpo)
-    pb = frente(o, 0, 0.4)
-    meta("Barriga", [{"co": (0, pb.y + 0.17, 0.4), "r": 0.32, "t": "ELLIPSOID", "esc": (0.88, 0.6, 1.1)}],
+    o = meta("Aqua", corpo, azul, res=0.014, dizimar=0.3)
+    pb = frente(o, 0, 0.36)
+    meta("Barriga", [{"co": (0, pb.y + 0.17, 0.36), "r": 0.3, "t": "ELLIPSOID", "esc": (0.88, 0.6, 1.0)}],
          barriga, dizimar=0.3)
-    pf = frente(o, 0, 0.74)
-    meta("Focinho", [{"co": (0, pf.y + 0.085, 0.745), "r": 0.13, "t": "ELLIPSOID", "esc": (1.35, 0.85, 0.8)}],
-         barriga, dizimar=0.4)
-    # crista em forma de onda
     crista = [{"co": (0, -0.02, 1.08), "r": 0.12}, {"co": (0, 0.06, 1.2), "r": 0.1},
               {"co": (0, 0.16, 1.27), "r": 0.085}, {"co": (0, 0.26, 1.27), "r": 0.07},
               {"co": (0, 0.31, 1.2), "r": 0.058}]
     for b in crista:
         b["t"] = "ELLIPSOID"
         b["esc"] = (0.5, 1.0, 1.0)
-    meta("Crista", crista, azul_esc, res=0.012, dizimar=0.5)
+    meta("Crista", crista, azul_esc, res=0.012, dizimar=0.4)
     meta("Pinta", [{"co": (0, 0.28, 0.62), "r": 0.1, "t": "ELLIPSOID", "esc": (1.3, 0.5, 0.7)},
-                   {"co": (0, 0.33, 0.42), "r": 0.08, "t": "ELLIPSOID", "esc": (1.2, 0.5, 0.7)}], azul_esc, dizimar=0.5)
-    # rosto fofo: olhos grandes com brilho, bochechas e sorriso
-    for sx in (-1, 1):
-        p = frente(o, sx * 0.125, 0.89, -0.01)
-        esfera(0.08, p, PRETO, sub=3, esc=(0.8, 0.5, 1.12), rot=(0, 0, sx * 0.35))
-        esfera(0.026, p + Vector((-0.02, -0.04, 0.035)), BRANCO, sub=2)
-        esfera(0.012, p + Vector((0.018, -0.04, -0.03)), BRANCO, sub=1)
-        esfera(0.05, frente(o, sx * 0.21, 0.78, -0.012), M("bochecha", "#f29a8e", 0.8), sub=2,
-               esc=(1.0, 0.35, 0.65), rot=(0, 0, sx * 0.6))
-    pm = frente(o, 0, 0.7) + Vector((0, -0.07, 0))
-    bpy.ops.mesh.primitive_torus_add(major_radius=0.04, minor_radius=0.009, major_segments=16, minor_segments=6,
-                                     location=(0, pm.y, 0.71), rotation=(math.pi / 2, 0, 0))
-    boca = bpy.context.object
-    bm = bmesh.new()
-    bm.from_mesh(boca.data)
-    bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.y > -0.005], context="VERTS")
-    bm.to_mesh(boca.data)
-    bm.free()
-    boca.data.materials.append(M("boca", "#2a1a22", 0.6))
-    boca.data.shade_smooth()
+                   {"co": (0, 0.33, 0.42), "r": 0.08, "t": "ELLIPSOID", "esc": (1.2, 0.5, 0.7)}], azul_esc, dizimar=0.4)
+    decal_rosto(o, -0.28, 0.28, 0.6, 1.04, "rosto_criatura.png", "rosto_criatura")
 
 
 # ---------------------------------------------------------------- gerar tudo
@@ -752,7 +723,7 @@ gera("paredao_alto", paredao, 6.0, 5.0, 33)
 
 treinador()
 juntar("treinador")
-retrato("retrato_treinador", (0, 0, 1.12), 2.2, 0.05)
+retrato("retrato_treinador", (0, 0, 1.3), 1.7, 0.03)
 relatorio["treinador"] = exportar("treinador")
 criatura()
 juntar("criatura")

@@ -254,7 +254,7 @@ func _construcoes() -> void:
 		modelo("poste_luz", Vector3(x, 2.5, -9.9))
 	# cerca da frente
 	var x := -12.0
-	while x < 12.0:
+	while x < 12.0 and not vitrine:
 		modelo("cerca", Vector3(x, 0, 5.7), 0.0)
 		x += 2.0
 	modelo("cerca_poste", Vector3(x, 0, 5.7))
@@ -361,7 +361,14 @@ void fragment() {
 
 
 # ------------------------------------------------------------------ personagens e camera
+var vitrine := "--vitrine" in OS.get_cmdline_user_args()
+
+
 func _personagens() -> void:
+	if vitrine:  # os dois de frente para a camera, para ver o design
+		estilo_desenho(modelo("treinador", Vector3(0.45, 0, 3.6), 0.15, 1.12))
+		estilo_desenho(modelo("criatura", Vector3(-0.75, 0, 3.7), 0.35, 1.12))
+		return
 	estilo_desenho(modelo("treinador", Vector3(0.9, 0, 3.0), PI + 0.15, 1.12))
 	estilo_desenho(modelo("criatura", Vector3(-1.5, 0, 3.3), deg_to_rad(50), 1.12))
 
@@ -370,19 +377,28 @@ const SHADER_DESENHO := """
 shader_type spatial;
 uniform vec4 cor : source_color = vec4(1.0);
 uniform float brilho = 0.25;
+uniform bool usa_textura = false;
+uniform sampler2D textura : source_color, filter_linear_mipmap, repeat_disable;
 void fragment() {
-	ALBEDO = cor.rgb;
-	ROUGHNESS = 0.6;
-	float borda = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
-	EMISSION = cor.rgb * borda * 0.45;
+	vec4 c = cor;
+	if (usa_textura) {
+		c *= texture(textura, UV);
+		ALPHA = c.a;
+		ALPHA_SCISSOR_THRESHOLD = 0.5;
+	}
+	ALBEDO = c.rgb;
+	ROUGHNESS = 1.0;
+	SPECULAR = 0.0;
+	float borda = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 4.0);
+	EMISSION = c.rgb * borda * 0.12;
 }
 void light() {
 	float d = dot(NORMAL, LIGHT);
-	float t = smoothstep(0.0, 0.18, d) * ATTENUATION;
+	float t = smoothstep(0.0, 0.05, d) * smoothstep(0.3, 0.6, ATTENUATION);
 	vec3 lc = LIGHT_COLOR / PI;
-	DIFFUSE_LIGHT += mix(0.35, 1.0, t) * lc;
+	DIFFUSE_LIGHT += mix(0.22, 0.62, t) * lc;
 	vec3 h = normalize(LIGHT + VIEW);
-	SPECULAR_LIGHT += smoothstep(0.94, 0.97, dot(NORMAL, h)) * t * brilho * lc * 3.0;
+	SPECULAR_LIGHT += smoothstep(0.94, 0.97, dot(NORMAL, h)) * t * brilho * lc * 1.2;
 }
 """
 
@@ -390,7 +406,7 @@ const SHADER_CONTORNO := """
 shader_type spatial;
 render_mode unshaded, cull_front;
 uniform vec4 cor : source_color = vec4(0.1, 0.08, 0.12, 1.0);
-uniform float grossura = 0.014;
+uniform float grossura = 0.016;
 void vertex() { VERTEX += NORMAL * grossura; }
 void fragment() { ALBEDO = cor.rgb; }
 """
@@ -416,10 +432,15 @@ func estilo_desenho(raiz: Node) -> void:
 			m.shader = sh
 			m.set_shader_parameter("cor", c)
 			m.set_shader_parameter("brilho", 1.0 if c.get_luminance() < 0.1 else 0.25)
-			var linha := ShaderMaterial.new()
-			linha.shader = sh_linha
-			linha.set_shader_parameter("cor", c.darkened(0.75))
-			m.next_pass = linha
+			if base and base.albedo_texture:
+				# rosto pintado: usa a textura e nao ganha contorno
+				m.set_shader_parameter("usa_textura", true)
+				m.set_shader_parameter("textura", base.albedo_texture)
+			else:
+				var linha := ShaderMaterial.new()
+				linha.shader = sh_linha
+				linha.set_shader_parameter("cor", c.darkened(0.78))
+				m.next_pass = linha
 			mi.set_surface_override_material(i, m)
 
 
@@ -427,7 +448,11 @@ func _camera() -> void:
 	var cam := Camera3D.new()
 	cam.fov = 52
 	add_child(cam)
-	cam.look_at_from_position(Vector3(0.4, 2.6, 8.6), Vector3(0.6, 1.0, -3.0))
+	if vitrine:
+		cam.fov = 40
+		cam.look_at_from_position(Vector3(-0.15, 1.2, 7.2), Vector3(-0.15, 0.8, 3.6))
+	else:
+		cam.look_at_from_position(Vector3(0.4, 2.6, 8.6), Vector3(0.6, 1.0, -3.0))
 	cam.current = true
 
 
