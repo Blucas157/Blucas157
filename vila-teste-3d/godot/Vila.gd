@@ -366,10 +366,10 @@ var vitrine := "--vitrine" in OS.get_cmdline_user_args()
 
 func _personagens() -> void:
 	if vitrine:  # os dois de frente para a camera, para ver o design
-		estilo_desenho(modelo("treinador", Vector3(0.45, 0, 3.6), 0.15, 1.12))
+		estilo_desenho(modelo("treinador_tripo", Vector3(0.45, 0, 3.6), 0.15))
 		estilo_desenho(modelo("criatura", Vector3(-0.75, 0, 3.7), 0.35, 1.12))
 		return
-	estilo_desenho(modelo("treinador", Vector3(0.9, 0, 3.0), PI + 0.15, 1.12))
+	estilo_desenho(modelo("treinador_tripo", Vector3(0.9, 0, 3.0), PI + 0.15))
 	estilo_desenho(modelo("criatura", Vector3(-1.5, 0, 3.3), deg_to_rad(50), 1.12))
 
 
@@ -432,14 +432,15 @@ func estilo_desenho(raiz: Node) -> void:
 			m.shader = sh
 			m.set_shader_parameter("cor", c)
 			m.set_shader_parameter("brilho", 1.0 if c.get_luminance() < 0.1 else 0.25)
+			var decal_rosto := base != null and base.resource_name.begins_with("rosto")
 			if base and base.albedo_texture:
-				# rosto pintado: usa a textura e nao ganha contorno
 				m.set_shader_parameter("usa_textura", true)
 				m.set_shader_parameter("textura", base.albedo_texture)
-			else:
+			if not decal_rosto:  # o rosto pintado por cima nao ganha contorno
 				var linha := ShaderMaterial.new()
 				linha.shader = sh_linha
-				linha.set_shader_parameter("cor", c.darkened(0.78))
+				var cor_linha := Color(0.12, 0.09, 0.12) if base and base.albedo_texture else c.darkened(0.78)
+				linha.set_shader_parameter("cor", cor_linha)
 				m.next_pass = linha
 			mi.set_surface_override_material(i, m)
 
